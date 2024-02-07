@@ -20,15 +20,14 @@
 
 5. Execute the following command:
 
-   `node local_server.js`
+   `npx @solid/community-server -p 3000 -c @css:config/file.json -f .data`
 
 
 #### Setting up the Solid pod
 1. Using a web browser navigate to
-    http: http://localhost:3000/
+    http://localhost:3000/
 
-2. Click the link:
-    "Sign up for an account"
+2. Click the link: "Sign up for an account"
 
 3. Fill out the fields and click "Register"
 
@@ -36,19 +35,21 @@
 
 5. enter a name for the pod and click "Create pod"
 
+6. Return to the home page by clicking "Back"
+
 Voila, you now have a pod hosted by your local machine. Now, let us add something to it!
 
 #### Connecting Pod to Penny (for data uploading)
-1. Navigate to https://penny.vincenttunru.com/
+1. First navigate to the [Penny](https://penny.vincenttunru.com/) tool
 
 2. In the "Connect your Pod at:" box enter "http://localhost:3000" and click "Connect"
 
 3. In the page that pops up click "Authorize"
 
-4. Now, click on the Pod displayed on the resulting screen
+4. Now, click on the Pod displayed on the resulting screen (the dark gray box)
 
 
-#### Adding and viewing data
+#### Adding and viewing data (within Penny)
 1. Click on "Upload file(s)"
 
 2. Select local file to upload
