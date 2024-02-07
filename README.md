@@ -22,6 +22,8 @@
 
    `npx @solid/community-server -p 3000 -c @css:config/file.json -f .data`
 
+(If you would like to relaunch your pod at any point after initialization, you can then run the command `node localserver.js`)
+
 
 #### Setting up the Solid pod
 1. Using a web browser navigate to
