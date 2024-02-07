@@ -11,12 +11,13 @@
 
 #### Setting up a local instance of a Solid pod:
 1. Clone this git repo
-    git clone https://github.com/ecrum19/TRIPLE_App.git
 
-2. Navigate to the created directory
+   git clone https://github.com/ecrum19/TRIPLE_App.git
+
+3. Navigate to the created directory
     cd TRIPLE_App/
 
-3. Execute the following command:
+4. Execute the following command:
     node local_server.js
 
 
