@@ -2,7 +2,7 @@ import { session } from './session'
 import { findOne } from './engine'
 import { type UserWebID } from './WebID'
 
-const prefixes: string = `
+const prefixes = `
     PREFIX foaf: <http://xmlns.com/foaf/0.1/>
     PREFIX solid: <http://www.w3.org/ns/solid/terms#>
     PREFIX pim: <http://www.w3.org/ns/pim/space#>
@@ -22,7 +22,7 @@ async function getWebIdPromise(webId?: string): Promise<UserWebID> {
         throw new Error('WebID IRI is required to query it')
     }
 
-    const query: string = `
+    const query = `
     ${prefixes}
 
     SELECT ?id ?oidcIssuer ?storage ?name ?pathTemplate WHERE {

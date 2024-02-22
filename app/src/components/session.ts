@@ -1,9 +1,9 @@
 import { type Session, getDefaultSession, fetch as fetchWithSession } from '@inrupt/solid-client-authn-browser'
 
 
-const appName: string = 'Solid Pod Browser'
-const webId: string = "WebID"
-const defaultWebId: string = ''
+const appName = 'Solid Pod Browser'
+const webId = "WebID"
+const defaultWebId = ''
 const session: Session = getDefaultSession()
 
 async function login(provider: string, appName: string): Promise<void> {

@@ -26,7 +26,7 @@ async function find<T>(query: string, url: string): Promise<T[]> {
     const bindingsStream: BindingsStream = await queryEngine.queryBindings(query, queryContext)
     const bindingsArray: Bindings[] = await bindingsStream.toArray()
     const output: T[] = bindingsArray.map((bindings: Bindings) => {
-        const entry: T = {} as T
+        let entry: T = {} as T
         for (const [key, value] of bindings) {
             entry[key.value] = value.value
         }
