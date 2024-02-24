@@ -2,13 +2,11 @@
     <div id="read" class="panel">
       <div class="row">
         <form id="writeForm">
-          <label id="writelabel" for="input_name">Choose File</label>
+          <label id="writelabel" for="input_file">Choose File</label>
           <input
             type="file"
-            id="input_name"
-            name="name"
-            size="50"
-            placeholder="Your name here"
+            id="input_file"
+            name="data"
           />
           <button type="submit">
             Upload
@@ -18,7 +16,6 @@
     </div>
     
 </template>
-
 
 
 <script lang="ts">
