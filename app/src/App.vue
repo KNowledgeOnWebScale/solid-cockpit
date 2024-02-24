@@ -1,11 +1,20 @@
 <template>
-  <ListBrowser v-if="session.info.isLoggedIn" />
-  <LoginForm v-else />
+  <div id="app">
+    <LoginComponent />
+    <UploadComponent />
+  </div>
 </template>
 
 
-<script setup lang="ts">
-import { session } from './components'
+<script lang="ts">
+import LoginComponent from './components/PodLogin.vue';
+import UploadComponent from './components/PodBrowser.vue'
 
-import PodLogin from './components/PodLogin.vue'
+export default {
+  name: 'App',
+  components: {
+    LoginComponent,
+    UploadComponent
+  },
+};
 </script>
