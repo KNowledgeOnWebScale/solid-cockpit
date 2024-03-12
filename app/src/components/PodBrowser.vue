@@ -19,7 +19,7 @@
 
 
 <script lang="ts">
-import { uploadFile } from './fileUpload';
+import { uploadFile, savedFile } from './fileUpload';
 
 export default {
   name: 'YourComponent',
