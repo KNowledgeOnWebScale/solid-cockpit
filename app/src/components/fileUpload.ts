@@ -2,7 +2,7 @@ import { saveFileInContainer, WithResourceInfo, getPodUrlAll, WebId } from '@inr
 import { Session, fetch } from "@inrupt/solid-client-authn-browser";
 
 // Returns a list of URLs
-const user_pods = await getPodUrlAll(webID, { fetch: fetch });
+// const user_pods = await getPodUrlAll(webID, { fetch: fetch });
 
 async function uploadFile(file: File): Promise<void> {
     // Replace 'https://your-pod.solidcommunity.net/public/' with the URL of your container
@@ -15,4 +15,4 @@ async function checkFilesInPod() {
     
 }
 
-export { uploadFile, savedFile }
+export { uploadFile }

@@ -1,21 +1,14 @@
 <template>
-  <head>
-    <meta charset="utf-8" />
-    <title>TRIPLE App Data Upload</title>
-  </head>
-
-  <body>
-    <header>
-      <h2>TRIPLE App File Upload</h2>
-    </header>
-    <section id="login" class="panel">
-      <div class="row">
-        <label id="labelLogin" for="btnLogin">Click the button to </label>
-        <button name="btnLogin" @click="handleLogin">Login</button>
-        <p id="labelStatus" class="labelStatus"></p>
-      </div>
-    </section>
-  </body>
+  <section>
+    <base-card>
+      <header>
+        <h3>{{ title }}</h3>
+      </header>
+      <label id="labelLogin" for="btnLogin"></label>
+      <button name="btnLogin" @click="handleLogin">Login</button>
+      <p id="labelStatus" class="labelStatus"></p>
+    </base-card>
+  </section>
 </template>
 
 
@@ -29,6 +22,12 @@ export default {
     async handleLogin() {
       await startLogin();
     },
+  },
+  props: {
+    title: {
+      type: String,
+      required: true
+    },
   }
 }
 
@@ -38,3 +37,25 @@ export default {
 // 3. a way to check if that data has been uploaded
 </script>
 
+
+
+<style scoped>
+button {
+  padding: 10px 15px;
+  background-color: #9b77ff;
+  color: white;
+  border: 2px solid #5e3f99; /* Darker purple outline */
+  border-radius: 10px; /* Rounded corners */
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease; /* Smooth transition effect */
+}
+
+button:hover {
+  background-color: #bda6fd;
+}
+
+button:active {
+  background-color: #9b77ff;
+}
+</style>
