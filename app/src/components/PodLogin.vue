@@ -4,6 +4,9 @@
       <header>
         <h3>{{ title }}</h3>
       </header>
+      <label for="urlInput">Pod Location URL: </label>
+      <input id="urlInput" v-model="userUrl" type="url" placeholder="Eg: http://localhost:3000/" />
+
       <label id="labelLogin" for="btnLogin"></label>
       <button name="btnLogin" @click="handleLogin">Login</button>
       <p id="labelStatus" class="labelStatus"></p>
@@ -15,12 +18,17 @@
 <script lang="ts">
 import { startLogin } from './login';
 
-
 export default {
   name: 'LoginComponent',
+  data() {
+    return {
+      userUrl: null
+    };
+  },
   methods: {
     async handleLogin() {
       await startLogin();
+      console.log(this.userUrl)
     },
   },
   props: {
@@ -31,6 +39,8 @@ export default {
   }
 }
 
+// Problem is in here somewhere... Has something to do with the v-model input field...
+
 // need to add 
 // 1. a way to get the pod url
 // 2. a way to write to a solid pod
@@ -40,6 +50,15 @@ export default {
 
 
 <style scoped>
+input {
+  padding: 10px 15px;
+  margin-bottom: 10px; /* Add some margin to separate the fields */
+  margin-right: 2rem; /* Add space between the input field and the button
+  border: 2px solid #5e3f99; /* Darker purple outline */
+  border-radius: 10px; /* Rounded corners */
+  font-size: 14px;
+}
+
 button {
   padding: 10px 15px;
   background-color: #9b77ff;
