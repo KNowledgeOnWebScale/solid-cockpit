@@ -4,32 +4,65 @@
       <header>
         <h3>{{ title }}</h3>
       </header>
-      <label for="urlInput">Pod Location URL: </label>
-      <input id="urlInput" v-model="userUrl" type="url" placeholder="Eg: http://localhost:3000/" />
+      <div id="toLogin" v-show="!loggedIn">
+        <div id="loginButton">
+          <label for="urlInput">Pod Provider: </label>
+          <input
+            id="urlInput"
+            v-model="userUrl"
+            type="url"
+            placeholder="Eg: http://localhost:3000/"
+          />
+          <button name="btnLogin" @click="handleLogin">Login</button>
+        </div>
 
-      <label id="labelLogin" for="btnLogin"></label>
-      <button name="btnLogin" @click="handleLogin">Login</button>
-      <p id="labelStatus" class="labelStatus"></p>
+        <div id="errorIndicator" v-if="error">
+          <p>Error: {{ error }}</p>
+        </div>
+
+        <div id="newpodButton">
+          <label for="btnNewpod">No Pod yet: </label>
+          <button id="btnNewpod" @click="redirectToNewPod">Create New Pod</button>
+          <span> </span>
+          <!-- add click to rediredt to documentation for executing BASH script -->
+        </div>
+      </div>
+
+      <div id="loggedIn" v-show="loggedIn">
+        <p>Currently Logged-in: {{ loggedIn }}</p>
+      </div>
     </base-card>
   </section>
 </template>
 
-
 <script lang="ts">
-import { startLogin } from './login';
+import { startLogin, isLoggedin } from './login';
 
 export default {
   name: 'LoginComponent',
   data() {
     return {
-      userUrl: null
+      userUrl: 'http://localhost:3000/',  // sets default url (if nothing is entered)
+      loggedIn: false,
+      isError: false,
+      error: null
     };
   },
   methods: {
-    async handleLogin() {
-      await startLogin();
-      console.log(this.userUrl)
-    },
+  async handleLogin() {   // for the login to a Solid pod
+    const stat = await startLogin(this.userUrl);  // Need session to remember...
+    if (stat === 'error') {
+        this.error = 'Cannot login properly...';
+    } else {
+      this.loggedIn = isLoggedin();   // this should change but does not...
+      console.log(isLoggedin())
+    }
+  },
+  redirectToNewPod() {  // placeholder for now... integrate directions for using BASH
+    this.loggedIn = isLoggedin();
+    window.open("https://communitysolidserver.github.io/CommunitySolidServer/latest/usage/starting-server/", "_blank");
+    
+  },
   },
   props: {
     title: {
@@ -41,13 +74,11 @@ export default {
 
 // Problem is in here somewhere... Has something to do with the v-model input field...
 
-// need to add 
+// need to add
 // 1. a way to get the pod url
 // 2. a way to write to a solid pod
 // 3. a way to check if that data has been uploaded
 </script>
-
-
 
 <style scoped>
 input {
@@ -59,17 +90,53 @@ input {
   font-size: 14px;
 }
 
-button {
-  padding: 10px 15px;
-  background-color: #9b77ff;
-  color: white;
-  border: 2px solid #5e3f99; /* Darker purple outline */
-  border-radius: 10px; /* Rounded corners */
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s ease; /* Smooth transition effect */
+#loginButton {
+  button {
+    padding: 10px 15px;
+    background-color: #b296fe;
+    color: white;
+    border: 2px solid #9062e5; /* Darker purple outline */
+    border-radius: 10px; /* Rounded corners */
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease; /* Smooth transition effect */
+  }
 }
 
+#newpodButton {
+  button {
+    padding: 10px 15px;
+    background-color: #9b77ff;
+    color: white;
+    border: 2px solid #5e3f99; /* Darker purple outline */
+    border-radius: 10px; /* Rounded corners */
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease; /* Smooth transition effect */
+  }
+}
+
+#errorIndicator {
+  padding: 2px 2px;
+  margin-bottom: 10px;
+  margin-right: 2rem;
+  border: 2px solid #d72920;
+  border-radius: 5px;
+  font-size: 14px;
+  font-style: italic;
+  background-color: #ffcccc; /* Highlighted background color */
+}
+
+#loggedIn {
+  padding: 2px 2px;
+  margin-bottom: 10px;
+  margin-right: 2rem;
+  border: 2px solid #307104;
+  border-radius: 5px;
+  font-size: 14px;
+  font-style: italic;
+  background-color: #9fe8b7; /* Highlighted background color */
+}
 button:hover {
   background-color: #bda6fd;
 }
