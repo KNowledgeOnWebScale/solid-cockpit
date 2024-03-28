@@ -22,21 +22,22 @@
 
         <div id="newpodButton">
           <label for="btnNewpod">No Pod yet: </label>
-          <button id="btnNewpod" @click="redirectToNewPod">Create New Pod</button>
-          <span> </span>
-          <!-- add click to rediredt to documentation for executing BASH script -->
+          <button id="btnNewpod" @click="newPodDirections = !newPodDirections">Create New Pod</button>
+          <div id="createPodDirections" v-show="newPodDirections">
+            <span><em>Run in the console: </em> <code>$ bash makePod.sh</code></span>
+          </div>
         </div>
       </div>
 
       <div id="loggedIn" v-show="loggedIn">
-        <p>Currently Logged-in: {{ loggedIn }}</p>
+        <p>Currently logged-in with WebID: {{ webId }}</p>
       </div>
     </base-card>
   </section>
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin } from './login';
+import { startLogin, isLoggedin, currentWebId } from './login';
 
 export default {
   name: 'LoginComponent',
@@ -45,7 +46,9 @@ export default {
       userUrl: 'http://localhost:3000/',  // sets default url (if nothing is entered)
       loggedIn: false,
       isError: false,
-      error: null
+      error: null,
+      newPodDirections: false,
+      webId: '',
     };
   },
   methods: {
@@ -53,16 +56,17 @@ export default {
     const stat = await startLogin(this.userUrl);  // Need session to remember...
     if (stat === 'error') {
         this.error = 'Cannot login properly...';
-    } else {
-      this.loggedIn = isLoggedin();   // this should change but does not...
-      console.log(isLoggedin())
-    }
+    } 
   },
-  redirectToNewPod() {  // placeholder for now... integrate directions for using BASH
+  loginCheck() {
     this.loggedIn = isLoggedin();
-    window.open("https://communitysolidserver.github.io/CommunitySolidServer/latest/usage/starting-server/", "_blank");
-    
+    this.webId = currentWebId()
+  } 
   },
+  mounted() {
+    setTimeout(() => {
+    this.loginCheck();
+    }, 200); // Delay of 2 seconds
   },
   props: {
     title: {
@@ -114,6 +118,11 @@ input {
     font-size: 14px;
     transition: background-color 0.3s ease; /* Smooth transition effect */
   }
+}
+
+#createPodDirections{
+  padding: 10px 5px;
+  font-size: 12px;
 }
 
 #errorIndicator {
