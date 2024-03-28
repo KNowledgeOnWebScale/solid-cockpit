@@ -9,7 +9,7 @@
             id="input_file"
             name="data"
           />
-          <button type="submit">
+          <button @click="doFileUpload">
             Upload
           </button>
         </form>
@@ -24,6 +24,11 @@ import BaseCard from './Styling/BaseCard.vue';
 import { uploadFile } from './fileUpload';
 
 export default {
+  methods: {
+    doFileUpload() {
+      uploadFile('a-url',this.input_file)
+    }
+  },
   props: {
     title: {
       type: String,

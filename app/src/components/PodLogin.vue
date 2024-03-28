@@ -25,6 +25,7 @@
           <button id="btnNewpod" @click="newPodDirections = !newPodDirections">Create New Pod</button>
           <div id="createPodDirections" v-show="newPodDirections">
             <span><em>Run in the console: </em> <code>$ bash makePod.sh</code></span>
+            <!-- Need to fix BASH script to launch an existing pod (not create a new one) -->
           </div>
         </div>
       </div>

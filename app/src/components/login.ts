@@ -1,9 +1,7 @@
 import {
-  login,
   Session,
   handleIncomingRedirect,
   getDefaultSession,
-  fetch
 } from "@inrupt/solid-client-authn-browser";
 
 const session: Session = getDefaultSession()
