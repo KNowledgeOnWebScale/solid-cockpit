@@ -30,7 +30,7 @@ function isLoggedin(): boolean {
 }
 
 function currentWebId(): string {
-  return session.info.webId
+  return session.info.webId as string;
 }
 
 async function handleRedirectAfterPageLoad(): Promise<void> {

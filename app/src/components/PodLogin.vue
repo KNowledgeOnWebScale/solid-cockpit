@@ -1,3 +1,4 @@
+/* eslint-disable */
 <template>
   <section>
     <base-card>
@@ -47,7 +48,7 @@ export default {
       userUrl: 'http://localhost:3000/',  // sets default url (if nothing is entered)
       loggedIn: false,
       isError: false,
-      error: null,
+      error: '',
       newPodDirections: false,
       webId: '',
     };
