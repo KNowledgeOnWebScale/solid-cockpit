@@ -16,13 +16,11 @@
 
 3. Navigate to the created directory
 
-   `cd TRIPLE_App/`
+   `cd TRIPLE_App/app/`
 
 5. Execute the following command:
 
-   `npx @solid/community-server -p 3000 -c @css:config/file.json -f .data`
-
-(If you would like to relaunch your pod at any point after initialization, you can then run the command `node localserver.js`)
+   `bash makePod.sh`
 
 
 #### Setting up the Solid pod
@@ -50,10 +48,3 @@ Voila, you now have a pod hosted by your local machine. Now, let us add somethin
 
 4. Now, click on the Pod displayed on the resulting screen (the dark gray box)
 
-
-#### Adding and viewing data (within Penny)
-1. Click on "Upload file(s)"
-
-2. Select local file to upload
-
-3. The file should now be shown under "Contained resources" and is now stored in your pod!
