@@ -3,9 +3,17 @@ import {
   handleIncomingRedirect,
   getDefaultSession,
 } from "@inrupt/solid-client-authn-browser";
+import {
+  getPodUrlAll,
+  getWebIdDataset,
+} from "@inrupt/solid-client";
 
 const session: Session = getDefaultSession()
-handleIncomingRedirect({restorePreviousSession: true});
+try {
+  handleIncomingRedirect({restorePreviousSession: true});
+} catch (error) {
+  console.error('Error:', error);
+}
 
 async function startLogin(purl: string): Promise<string> {
   // Start the Login Process if not already logged in.

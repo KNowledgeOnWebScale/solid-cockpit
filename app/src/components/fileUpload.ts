@@ -2,23 +2,42 @@ import {
   saveFileInContainer,
   WithResourceInfo,
   getPodUrlAll,
+  getWebIdDataset,
+  overwriteFile,
 } from "@inrupt/solid-client";
-import { getDefaultSession, fetch } from "@inrupt/solid-client-authn-browser";
+import { fetch } from "@inrupt/solid-client-authn-browser";
 
-async function getPodURLs(): Promise<string[]> {
-    const webid: string = getDefaultSession().info.webId as string;
-    const pods = await getPodUrlAll(webid, { fetch: fetch });
-    return pods
+async function getPodURLs(webid: string): Promise<string[]> {
+  let pods: string[] = [];
+  try {
+    pods = await getPodUrlAll(webid, { fetch: fetch });
+  } catch (error) {
+    pods = ["Error: probably not logged in"];
+  }
+  return pods;
 }
 
-async function uploadFile(url: string, file: File): Promise<void> {
-  const savedFile = await saveFileInContainer(url, file, 
-    { slug: file.name, contentType: file.type, fetch: fetch });
-  console.log(`Saved ${savedFile}`);
+function handleFiles(fileList: FileList, podURL: string) {
+  Array.from(fileList).forEach((file: File) => {
+    uploadToPod(`${podURL}uploads/${file.name}`, file, fetch);
+  });
+}
+
+async function uploadToPod(targetURL: string, file: File, fetch): Promise<void> {
+  try {
+    const savedFile = await overwriteFile(targetURL, file, {
+      contentType: file.type,
+      fetch: fetch,
+    });
+    console.log(savedFile)
+    console.log(`File saved at ${targetURL + file.name}`);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function checkFilesInPod() {
   // Use the Solid JavaScript Client to fetch the files
 }
 
-export { uploadFile, getPodURLs };
+export { handleFiles, getPodURLs };

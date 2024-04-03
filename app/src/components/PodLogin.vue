@@ -1,126 +1,145 @@
-/* eslint-disable */
 <template>
-  <section>
-    <base-card>
-      <header>
-        <h3>{{ title }}</h3>
-      </header>
-      <div id="toLogin" v-show="!loggedIn">
-        <div id="loginButton">
-          <label for="urlInput">Pod Provider: </label>
-          <input
-            id="urlInput"
-            v-model="userUrl"
-            type="url"
-            placeholder="Eg: http://localhost:3000/"
-          />
-          <button name="btnLogin" @click="handleLogin">Login</button>
-        </div>
+  <v-container>
+    <v-card
+      title="Solid Pod Login"
+      variant="tonal"
+      justify="center"
+      max-width="550"
+      class="mx-auto"
+      color="indigo-darken-3"
+    >
+      <v-col cols="12">
+        <div v-show="!loggedIn">
+          <!-- This login portion disappears after logging in -->
+          <v-form>
+            <v-container>
+              <v-row>
+                <!-- Portion for entering the "Pod Provider URL" -->
+                <v-text-field
+                  v-model="userUrl"
+                  label="Pod Provider:"
+                  type="url"
+                  variant="outlined"
+                  clearable
+                  required
+                >
+                  <!-- Info button -->
+                  <template v-slot:prepend>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
+                        <v-icon v-bind="props" color="info" size="small" icon="mdi-information"></v-icon>
+                      </template>
+                      Please offer the URL of your Pod Provider (Eg: http://localhost:3000/)
+                    </v-tooltip>
+                  </template>
+                  <!-- "Login" button + form submission -->
+                  <template v-slot:append>
+                    <v-btn class="mx-right" color="surface-variant" name="btnLogin" @click="handleLogin">Login</v-btn>
+                  </template>
+                </v-text-field>
+              </v-row>
+            </v-container>
+          </v-form>
 
-        <div id="errorIndicator" v-if="error">
-          <p>Error: {{ error }}</p>
-        </div>
-
-        <div id="newpodButton">
-          <label for="btnNewpod">No Pod yet: </label>
-          <button id="btnNewpod" @click="newPodDirections = !newPodDirections">Create New Pod</button>
-          <div id="createPodDirections" v-show="newPodDirections">
-            <span><em>Run in the console: </em> <code>$ bash makePod.sh</code></span>
-            <!-- Need to fix BASH script to launch an existing pod (not create a new one) -->
+          <!-- Alert that there was and issue with the Login URL -->
+          <div id="errorIndicator" v-if="error">
+            <v-alert
+              closable
+              title="Issue with the provided URL"
+              type="error"
+              icon="$error"
+            ></v-alert>
           </div>
+
+          <!-- "Create new pod" directions button -->
+          <v-dialog max-width="500">
+            <template v-slot:activator="{ props: activatorProps }">
+              <v-btn
+                v-bind="activatorProps"
+                color="surface-variant"
+                text="Create New Pod?"
+                variant="flat"
+                ></v-btn>
+            </template>
+            <!-- "Create new pod" directions pop-up -->
+            <template v-slot:default="{ isActive }">
+              <v-card title="Pod Creation Instructions:">
+                <v-card-text class="mx-auto">
+                  Run in the console: <code>$ bash makePod.sh</code>
+                </v-card-text>
+              <!-- Need to fix BASH script to launch an existing pod (not create a new one) -->
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    text="Close Dialog"
+                    @click="isActive.value = false"
+                  ></v-btn>
+                </v-card-actions>
+              </v-card>
+            </template>
+          </v-dialog>
+        
         </div>
+      </v-col>
+
+      <!-- Message that indicates a successful login -->
+      <div id="loggedIn" v-show="loggedIn">
+        <v-alert
+          class="mx-auto"
+          title="Successfully logged-in!"
+          type="success"
+          icon="$success"
+        >Current WebID: <b>{{ webId }}</b></v-alert>
       </div>
 
-      <div id="loggedIn" v-show="loggedIn">
-        <p>Currently logged-in with WebID: {{ webId }}</p>
-      </div>
-    </base-card>
-  </section>
+    </v-card>
+  </v-container>
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId } from './login';
+import { startLogin, isLoggedin, currentWebId } from "./login";
 
 export default {
-  name: 'LoginComponent',
+  name: "LoginComponent",
   data() {
     return {
-      userUrl: 'http://localhost:3000/',  // sets default url (if nothing is entered)
+      userUrl: "http://localhost:3000/", // sets default url (if nothing is entered)
       loggedIn: false,
       isError: false,
-      error: '',
+      error: "",
       newPodDirections: false,
-      webId: '',
+      webId: "",
+      isActive: false,
     };
   },
   methods: {
-  async handleLogin() {   // for the login to a Solid pod
-    const stat = await startLogin(this.userUrl);
-    if (stat === 'error') {
-        this.error = 'Cannot login properly...';
-    } 
-  },
-  loginCheck() {
-    this.loggedIn = isLoggedin();
-    this.webId = currentWebId()
-  } 
+    async handleLogin() {
+      /* 
+      For the login to a Solid pod, calls startLogin from login.ts
+      */
+      const stat = await startLogin(this.userUrl);
+      if (stat === "error") {
+        this.error = "Cannot login properly...";
+      }
+    },
+    loginCheck() {
+      /* 
+      Checks if user's current session is logged-in and displays the active webID
+      */
+      this.loggedIn = isLoggedin();
+      this.webId = currentWebId();
+    },
   },
   mounted() {
+    // This function runs following page reload to check for still active session
     setTimeout(() => {
-    this.loginCheck();
+      this.loginCheck();
     }, 200); // Delay of 2 seconds
   },
-  props: {
-    title: {
-      type: String,
-      required: true
-    },
-  }
-}
-
+};
 </script>
 
 <style scoped>
-input {
-  padding: 10px 15px;
-  margin-bottom: 10px; /* Add some margin to separate the fields */
-  margin-right: 2rem; /* Add space between the input field and the button
-  border: 2px solid #5e3f99; /* Darker purple outline */
-  border-radius: 10px; /* Rounded corners */
-  font-size: 14px;
-}
-
-#loginButton {
-  button {
-    padding: 10px 15px;
-    background-color: #b296fe;
-    color: white;
-    border: 2px solid #9062e5; /* Darker purple outline */
-    border-radius: 10px; /* Rounded corners */
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s ease; /* Smooth transition effect */
-  }
-}
-
-#newpodButton {
-  button {
-    padding: 10px 15px;
-    background-color: #9b77ff;
-    color: white;
-    border: 2px solid #5e3f99; /* Darker purple outline */
-    border-radius: 10px; /* Rounded corners */
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s ease; /* Smooth transition effect */
-  }
-}
-
-#createPodDirections{
-  padding: 10px 5px;
-  font-size: 12px;
-}
-
 #errorIndicator {
   padding: 2px 2px;
   margin-bottom: 10px;

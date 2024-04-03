@@ -13,9 +13,10 @@
   },
   "dependencies": {
     "@inrupt/solid-client": "^2.0.1",
-    "@inrupt/solid-client-authn-browser": "^2.0.0",
+    "@inrupt/solid-client-authn-browser": "^2.1.0",
     "core-js": "^3.8.3",
-    "vue": "^3.2.13"
+    "vue": "^3.2.13",
+    "vuetify": "^3.5.14"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.4.0",

@@ -1,49 +1,81 @@
 <template>
-    <section v-show="loggedIn">
-      <base-card>
-      <h3>{{ title }}</h3>
+  <v-container v-show="loggedIn">
+    <v-col cols="12">
+      <v-card
+        title="Add Data to Pod"
+        variant="tonal"
+        justify="center"
+        max-width="550"
+        class="mx-auto"
+        color="indigo-darken-3"
+      >
         <form id="writeForm">
-          <label id="writelabel" for="input_file"></label>
-          <input
+          <v-file-input 
+            label="File input" 
+            variant="underlined" 
+            show-size 
             type="file"
-            id="input_file"
-            name="data"
-          />
-          <button @click="doFileUpload">
+            @change="uploadFile($event)"
+            ref="file">
+          </v-file-input>
+          <v-btn 
+            variant="tonal" 
+            rounded="xs" 
+            @click="submitUpload">
             Upload
-          </button>
+          </v-btn>
         </form>
-      </base-card>
-    </section>
+      </v-card>
+    </v-col>
+  </v-container>
 </template>
 
 
 <script lang="ts">
-import BaseCard from './Styling/BaseCard.vue';
-import { uploadFile, getPodURLs } from './fileUpload';
-import { isLoggedin } from './login';
+import { getPodURLs, handleFiles } from './fileUpload';
+import { isLoggedin, currentWebId } from './login';
 
 export default {
   data() {
     return {
       loggedIn: false,
       podURLs: [],
+      pod: '',
+      fileToUpload: null,
+      files: FileList,
     };
   },
   methods: {
-    doFileUpload() {
-      uploadFile(this.podURLs[0], document.getElementById('input_file')); // ISSUE
-    },
-    loginCheck() {
-      this.loggedIn = isLoggedin();
-      this.podURLs = getPodURLs();
-      console.log(this.podURLs[0]) // ISSUE -> sometimes works, other times is undefined?
-    },
+  loginCheck() {
+    /*
+    Calls isLoggedin() from login.ts to check login status
+    */
+    this.loggedIn = isLoggedin(); // Calls function in login.ts to check login status
+  }, 
+  async getPodURL() {
+    /*
+    Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID
+    'pod' variable is key value returned
+    */
+    this.webId = currentWebId();
+    this.podURLs = await getPodURLs(this.webId);  // calls async function to get Pod URLs
+    this.pod = this.podURLs[0];   // can fix this to handle multiple pods (FUTURE)
   },
-  mounted() {
-    setTimeout(() => {
-    this.loginCheck();
-    }, 200); // Delay of 0.2 seconds
+  uploadFile(event: FileList) {
+    /*
+    Calls uploadFile() from fileUpload.ts to upload a file to the user's pod
+    */
+    this.files = event.target.files;
+  },
+  submitUpload() {
+    handleFiles(this.files, this.pod); // ISSUE
+  }
+  },
+    mounted() {
+      setTimeout(() => {
+        this.loginCheck();
+        this.getPodURL();
+      }, 200); // Delay of 0.2 seconds
   },
   props: {
     title: {
@@ -52,34 +84,9 @@ export default {
     },
   }
 }
-
 </script>
 
-
-
 <style scoped>
-input {
-  padding: 10px 10px;
-  color: rgb(10, 10, 10);
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.3s ease; /* Smooth transition effect */
-}
-button {
-  padding: 10px 20px;
-  background-color: #2529f7;
-  color: white;
-  border: 2px solid #037dc4; /* Darker purple outline */
-  border-radius: 10px; /* Rounded corners */
-  cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.3s ease; /* Smooth transition effect */
-}
-button:hover {
-  background-color: #b2bdfc;
-}
-button:active {
-  background-color: #c7c3ff;
-}
+
 
 </style>

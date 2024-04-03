@@ -10,4 +10,4 @@
     
     solid:oidcIssuer <http://localhost:3000/>;
     a foaf:Person;
-    <http://www.w3.org/ns/pim/space#storage> <http://localhost:3000/test/> .
+    <http://www.w3.org/ns/pim/space#storage> <../> .
