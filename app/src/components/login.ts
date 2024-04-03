@@ -5,7 +5,7 @@ import {
 } from "@inrupt/solid-client-authn-browser";
 
 const session: Session = getDefaultSession()
-handleIncomingRedirect();
+handleIncomingRedirect({restorePreviousSession: true});
 
 async function startLogin(purl: string): Promise<string> {
   // Start the Login Process if not already logged in.

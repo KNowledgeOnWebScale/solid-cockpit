@@ -20,6 +20,17 @@ export default {
     UploadComponent
   },
 };
+
+// need to add:
+// (optional) -- a way for a user to select the pod to view/edit via dropdown
+// 1. a way to write to a solid pod
+// 2. a way to check if that data has been uploaded
+
+// workflow issues:
+// 1. New pod initialization / old pod re-starting
+//    -- need to fix makePod.sh (npx vs local installation?)
+// 2. when Pod is created, it is not automatically reflected in the card$.ttl file?
+//    -- need to automate a way to add "<http://www.w3.org/ns/pim/space#storage> <../> ."
 </script>
 
 

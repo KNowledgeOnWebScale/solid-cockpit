@@ -55,7 +55,7 @@ export default {
   },
   methods: {
   async handleLogin() {   // for the login to a Solid pod
-    const stat = await startLogin(this.userUrl);  // Need session to remember...
+    const stat = await startLogin(this.userUrl);
     if (stat === 'error') {
         this.error = 'Cannot login properly...';
     } 
@@ -78,12 +78,6 @@ export default {
   }
 }
 
-// Problem is in here somewhere... Has something to do with the v-model input field...
-
-// need to add
-// 1. a way to get the pod url
-// 2. a way to write to a solid pod
-// 3. a way to check if that data has been uploaded
 </script>
 
 <style scoped>
