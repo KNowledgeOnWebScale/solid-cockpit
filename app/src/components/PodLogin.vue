@@ -28,7 +28,7 @@
                   <template v-slot:prepend>
                     <v-tooltip location="top">
                       <template v-slot:activator="{ props }">
-                        <v-icon v-bind="props" color="info" size="small" icon="mdi-information"></v-icon>
+                        <v-icon fab v-bind="props" color="info" size="small" icon="mdi-information">mdi-information</v-icon>
                       </template>
                       Please offer the URL of your Pod Provider (Eg: http://localhost:3000/)
                     </v-tooltip>
@@ -108,9 +108,9 @@ export default {
       userUrl: "http://localhost:3000/", // sets default url (if nothing is entered)
       loggedIn: false,
       isError: false,
-      error: "",
+      error: '',
       newPodDirections: false,
-      webId: "",
+      webId: '',
       isActive: false,
     };
   },

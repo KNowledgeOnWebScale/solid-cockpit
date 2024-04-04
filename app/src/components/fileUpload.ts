@@ -1,8 +1,5 @@
 import {
-  saveFileInContainer,
-  WithResourceInfo,
   getPodUrlAll,
-  getWebIdDataset,
   overwriteFile,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
@@ -58,10 +55,6 @@ async function uploadToPod(targetURL: string, file: File, fetch): Promise<void> 
   } catch (error) {
     console.error(error);
   }
-}
-
-async function checkFilesInPod() {
-  // Use the Solid JavaScript Client to fetch the files
 }
 
 export { handleFiles, getPodURLs };

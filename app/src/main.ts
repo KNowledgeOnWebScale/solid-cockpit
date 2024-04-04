@@ -1,13 +1,12 @@
 import { createApp } from 'vue'
 import App from './App.vue';
-import BaseCard from './components/Styling/BaseCard.vue';
 
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
-// import "@mdi/font/css/materialdesignicons.css" -- CSS loader webpack config problems...
+// import "@mdi/font/css/materialdesignicons.css"; << STILL DOESNT WORK >>
 
 const vuetify = createVuetify({
   components,
@@ -22,7 +21,5 @@ const vuetify = createVuetify({
 })
 
 const app = createApp(App).use(vuetify)
-
-app.component('base-card', BaseCard);  // A container for adding functionalities easily
 
 app.mount('#app')

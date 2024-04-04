@@ -1,8 +1,9 @@
 <template>
   <TheHeader title="TRIPLE App" />
   <div id="app">
-    <LoginComponent title="Solid Pod Login" />
-    <UploadComponent title="Add Data to Pod" />
+    <LoginComponent />
+    <UploadComponent />
+    <BrowserComponent />
   </div>
 </template>
 
@@ -10,21 +11,25 @@
 <script lang="ts">
 import TheHeader from './components/Styling/TheHeader.vue';
 import LoginComponent from './components/PodLogin.vue';
-import UploadComponent from './components/PodBrowser.vue'
+import UploadComponent from './components/PodUpload.vue';
+import BrowserComponent from './components/PodBrowser.vue';
 
 export default {
   name: 'App',
   components: {
     TheHeader,
     LoginComponent,
-    UploadComponent
+    UploadComponent,
+    BrowserComponent
   },
 };
 
 // need to add:
-// (optional) -- a way for a user to select the pod to view/edit via dropdown
-// 1. a way to write to a solid pod
-// 2. a way to check if that data has been uploaded
+// (optional) -- a way for a user to select the pod (view/edit via dropdown)
+// 1. a way to designate where a file is uploaded to (i.e. directory structure)
+//
+// 2. a Pod data browser
+// 
 
 // workflow issues:
 // 1. New pod initialization / old pod re-starting
