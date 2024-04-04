@@ -3,18 +3,20 @@ import {
   handleIncomingRedirect,
   getDefaultSession,
 } from "@inrupt/solid-client-authn-browser";
-import {
-  getPodUrlAll,
-  getWebIdDataset,
-} from "@inrupt/solid-client";
 
+/*
+Calls handleRedirectAfterPageLoad() on page reload.
+Crucially, stores credentials in session and fetch objects.
+*/
 const session: Session = getDefaultSession()
-try {
-  handleIncomingRedirect({restorePreviousSession: true});
-} catch (error) {
-  console.error('Error:', error);
-}
+handleRedirectAfterPageLoad()
 
+/**
+ * Begins the User login process via the login() method from @inrupt/solid-client by following a Pod Provider URL link.
+ * 
+ * @param purl The URL of user's Pod Provider.
+ * @returns A Promise that resolves to a string, if there is an error, it is returned in this string.
+*/
 async function startLogin(purl: string): Promise<string> {
   // Start the Login Process if not already logged in.
   let status = '';
@@ -33,19 +35,33 @@ async function startLogin(purl: string): Promise<string> {
   return status;
 }
 
+/**
+ * Checks if the current User is logged-in to a Solid Pod.
+ * 
+ * @returns a boolean obtained from the session object that signifies login status
+*/
 function isLoggedin(): boolean {
   return session.info.isLoggedIn
 }
 
+/**
+ * Obtains the current user's webID from the session object.
+ * 
+ * @returns a user's webID URL as a string.
+*/
 function currentWebId(): string {
   return session.info.webId as string;
 }
 
+/**
+ * Checks if the current User is logged-in to a Solid Pod after page-reload.
+*/
 async function handleRedirectAfterPageLoad(): Promise<void> {
-  await session.handleIncomingRedirect({
-    url: window.location.href,
-    restorePreviousSession: true
-  })
+  try {
+    handleIncomingRedirect({restorePreviousSession: true})
+  } catch (error) {
+    console.error('Error:', error);
+  }
 }
 
 

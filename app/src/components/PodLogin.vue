@@ -1,5 +1,6 @@
 <template>
   <v-container>
+    <!-- The card that conatins the login fields -->
     <v-card
       title="Solid Pod Login"
       variant="tonal"
@@ -96,6 +97,7 @@
   </v-container>
 </template>
 
+
 <script lang="ts">
 import { startLogin, isLoggedin, currentWebId } from "./login";
 
@@ -113,31 +115,33 @@ export default {
     };
   },
   methods: {
+    /* 
+    For the login to a Solid pod, calls startLogin from login.ts
+    */
     async handleLogin() {
-      /* 
-      For the login to a Solid pod, calls startLogin from login.ts
-      */
       const stat = await startLogin(this.userUrl);
       if (stat === "error") {
         this.error = "Cannot login properly...";
       }
     },
+    /* 
+    Checks if user's current session is logged-in and displays the active webID.
+    Obtains the loggedIn boolean and webId string.
+    */
     loginCheck() {
-      /* 
-      Checks if user's current session is logged-in and displays the active webID
-      */
       this.loggedIn = isLoggedin();
       this.webId = currentWebId();
     },
   },
   mounted() {
-    // This function runs following page reload to check for still active session
+    // Delays the execution loginCheck() on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.loginCheck();
     }, 200); // Delay of 2 seconds
   },
 };
 </script>
+
 
 <style scoped>
 #errorIndicator {
