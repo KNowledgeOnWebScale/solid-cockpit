@@ -1,17 +1,20 @@
 <template>
-  <header>
-    <h1>{{ title }}</h1>
-  </header>
+  <v-card color="#ccdff8">
+    <v-card-title class="text-center justify-center py-6">
+      <h1 class="font-weight-bold text-h2 text-courier-new">
+        TRIPLE App
+      </h1>
+    </v-card-title>
+  </v-card> 
+
+
 </template>
 
 <script lang="ts">
 export default {
-  props: {
-    title: {
-      type: String,
-      required: true
-    }
-  }
+  data: () => ({
+    
+  }),
 }
 </script>
 

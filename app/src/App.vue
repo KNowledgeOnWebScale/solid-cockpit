@@ -1,26 +1,21 @@
 <template>
-  <TheHeader title="TRIPLE App" />
-  <div id="app">
-    <LoginComponent />
-    <UploadComponent />
-    <BrowserComponent />
-  </div>
+  <header>
+    <router-view name="header"></router-view>
+  </header>
+  <FunctionSelector />
+  <main id="app">
+    <router-view></router-view>
+  </main>
 </template>
 
 
 <script lang="ts">
-import TheHeader from './components/Styling/TheHeader.vue';
-import LoginComponent from './components/PodLogin.vue';
-import UploadComponent from './components/PodUpload.vue';
-import BrowserComponent from './components/PodBrowser.vue';
+import FunctionSelector from './components/FunctionSelector.vue';
 
 export default {
   name: 'App',
   components: {
-    TheHeader,
-    LoginComponent,
-    UploadComponent,
-    BrowserComponent
+    FunctionSelector
   },
 };
 
@@ -28,8 +23,13 @@ export default {
 // (optional) -- a way for a user to select the pod (view/edit via dropdown)
 // 1. a way to designate where a file is uploaded to (i.e. directory structure)
 //
-// 2. a Pod data browser
+// 2. a Pod data browser -- getting there (maybe a comunica issue)
 // 
+// 3. On load -- (fix method of showing stuff (isLoggedin() is dumb)
+//    A. /login page
+//    B. login redirects to /home (with FunctionSelector)
+//    C. redirects work ...
+//    D. Make Query and Privacy components
 
 // workflow issues:
 // 1. New pod initialization / old pod re-starting

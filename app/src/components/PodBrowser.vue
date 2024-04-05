@@ -9,30 +9,24 @@
         class="mx-auto"
         color="indigo-darken-3"
       >
-        <v-infinite-scroll height="400" @load="load">
-          <template v-for="(item, index) in filteredItems" :key="index">
+        <v-infinite-scroll  >
+          <template v-for="(item, index) in queryItems" :key="index">
             <!-- need a clever way to filter and display results here -->
             <div
-              :class="[
-                'pa-2',
-                item.get('s') === queryItems[index].get('s')
+              :class="['pa-2',
+                  index % 1 === 0
                   ? 'bg-grey-lighten-2'
                   : '',
               ]"
             >
-              Object:{{ item.get("o").value }}
+              {{ item }}
             </div>
           </template>
-          <template v-slot:loading> Thats it. </template>
+          <template v-slot:loading> </template>
         </v-infinite-scroll>
       </v-card>
     </v-col>
   </v-container>
-  <div v-for="(i, index) in queryItems" :key="index">
-    <p>{{ i.get("s") }}</p>
-    <p>{{ i.get("p") }}</p>
-    <p>{{ i.get("o") }}</p>
-  </div>
 </template>
 
 <script lang="ts">
@@ -79,26 +73,12 @@ export default {
     Filters the binding stream to show only useful stuff...
     */
     filteredItems() {
-      return this.queryItems.filter(i => {
-        // Replace this with your actual condition
-        return i.get("s") !== 'some value';
-      });
+      // not sure
     },
     /*
     For the loading of the Pod data display
     */
-    load({ done }) {
-      // Very unsure what this does and how it does it ...
-      setTimeout(() => {
-        this.queryItems.push(
-          ...Array.from(
-            { length: 10 },
-            (k, v) => v + this.queryItems.at(-1) + 1
-          )
-        );
-        done("ok");
-      }, 4000);
-    },
+    
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)

@@ -1,4 +1,4 @@
-import { Session, fetch } from "@inrupt/solid-client-authn-browser";
+import { Session } from "@inrupt/solid-client-authn-browser";
 import { QueryEngine } from '@comunica/query-sparql';
 import { Bindings } from '@comunica/types';
 
@@ -14,9 +14,9 @@ const myEngine = new QueryEngine();
 async function executeQuery(source: string, session: Session): Promise<Bindings[]> {
   
   const bindingsStream = await myEngine.queryBindings(`
-  SELECT ?s ?p ?o WHERE {
-    ?s ?p ?o .
-  } LIMIT 100`, {
+  SELECT ?o WHERE {
+    ?s <http://www.w3.org/ns/ldp#contains> ?o .
+  }`, {
   sources: [source],
   '@comunica/actor-http-inrupt-solid-client-authn:session': session
   });

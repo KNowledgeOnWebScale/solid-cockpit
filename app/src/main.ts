@@ -1,11 +1,12 @@
 import { createApp } from 'vue'
 import App from './App.vue';
+import router from './router';
 
-import 'vuetify/styles'
-import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
-import { aliases, mdi } from 'vuetify/iconsets/mdi'
+import 'vuetify/styles';
+import { createVuetify } from 'vuetify';
+import * as components from 'vuetify/components';
+import * as directives from 'vuetify/directives';
+import { aliases, mdi } from 'vuetify/iconsets/mdi';
 // import "@mdi/font/css/materialdesignicons.css"; << STILL DOESNT WORK >>
 
 const vuetify = createVuetify({
@@ -18,8 +19,10 @@ const vuetify = createVuetify({
       mdi,
     },
   },
-})
+});
 
-const app = createApp(App).use(vuetify)
+const app = createApp(App).use(vuetify);
 
-app.mount('#app')
+app.use(router);
+
+app.mount('#app');
