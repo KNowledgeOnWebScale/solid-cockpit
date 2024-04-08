@@ -1,8 +1,8 @@
 <template>
-  <v-container v-show="loggedIn">
+  <v-container>
     <v-col cols="12">
       <v-card
-        title="Pod Contents"
+        title="Query Data"
         variant="tonal"
         justify="center"
         max-width="550"
@@ -14,4 +14,13 @@
   </v-container>
 </template>
 
-<script></script>
+<script>
+export default {
+  data: () => ({
+    user: {
+        webId: '...',
+        fullName: 'John Doe',
+        email: 'john.doe@doe.com',
+      },
+  }),
+};</script>

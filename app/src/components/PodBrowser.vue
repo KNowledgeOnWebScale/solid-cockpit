@@ -1,5 +1,5 @@
 <template>
-  <v-container v-show="loggedIn">
+  <v-container>
     <v-col cols="12">
       <v-card
         title="Pod Contents"
@@ -30,7 +30,7 @@
 </template>
 
 <script lang="ts">
-import { isLoggedin, currentWebId, session } from "./login";
+import { currentWebId, session } from "./login";
 import { getPodURLs } from "./fileUpload";
 import { executeQuery } from "./queryPod";
 export default {
@@ -44,12 +44,6 @@ export default {
     };
   },
   methods: {
-    /*
-    Calls isLoggedin() from login.ts to check login status
-    */
-    loginCheck() {
-      this.loggedIn = isLoggedin(); // Calls function in login.ts to check login status
-    },
     /*
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
@@ -83,12 +77,11 @@ export default {
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
-      this.loginCheck();
       this.getPodURL();
     }, 200);
     setTimeout(() => {
       this.podContentsQuery();
-    }, 300);
+    }, 400);
   },
 };
 </script>

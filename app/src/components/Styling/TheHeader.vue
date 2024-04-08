@@ -1,21 +1,17 @@
 <template>
   <v-card color="#ccdff8">
-    <v-card-title class="text-center justify-center py-6">
-      <h1 class="font-weight-bold text-h2 text-courier-new">
-        TRIPLE App
-      </h1>
-    </v-card-title>
-  </v-card> 
-
-
+    <v-container>
+      <v-card-title justify="center">
+        <h1 class="font-weight-bold text-h2 text-courier-new">TRIPLE App</h1>
+      </v-card-title>
+    </v-container>
+  </v-card>
 </template>
 
 <script lang="ts">
 export default {
-  data: () => ({
-    
-  }),
-}
+  data: () => ({}),
+};
 </script>
 
 <style scoped>

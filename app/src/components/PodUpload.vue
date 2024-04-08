@@ -1,7 +1,6 @@
 <template>
   <!-- The data upload card is only shown after login -->
-  <v-container v-show="loggedIn">
-    <v-col cols="12">
+  <v-container>
       <!-- Card that contains the data upload field -->
       <v-card
         title="Add Data to Pod"
@@ -14,8 +13,8 @@
         <!-- The file input section << Want to make this drag and drop? >> -->
         <form id="writeForm">
           <v-file-input 
-            label="File input" 
-            variant="underlined" 
+            clearable 
+            label="File input"  
             show-size 
             type="file"
             @change="uploadFile($event)"
@@ -30,19 +29,17 @@
           </v-btn>
         </form>
       </v-card>
-    </v-col>
   </v-container>
 </template>
 
 
 <script lang="ts">
 import { getPodURLs, handleFiles } from './fileUpload';
-import { isLoggedin, currentWebId } from './login';
+import { currentWebId } from './login';
 
 export default {
   data() {
     return {
-      loggedIn: false,
       webId: '',
       podURLs: [],
       pod: '',
@@ -51,12 +48,6 @@ export default {
     };
   },
   methods: {
-  /*
-  Calls isLoggedin() from login.ts to check login status
-  */
-  loginCheck() {
-    this.loggedIn = isLoggedin(); // Calls function in login.ts to check login status
-  }, 
   /*
   Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
   Obtains 'pod' variable (URL path to user's Pod).
@@ -78,13 +69,13 @@ export default {
   'files' variable is a FileList that contains references to all files selected using the upload UI.
   */
   submitUpload() {
+    console.log(this.pod)
     handleFiles(this.files, this.pod);
   }
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
-      this.loginCheck();
       this.getPodURL();
     }, 200);
   },

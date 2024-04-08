@@ -1,5 +1,5 @@
 <template>
-  <v-card v-if="loggedIn">
+  <v-card>
     <nav>
       <v-tabs
         v-model="tab"
@@ -16,25 +16,11 @@
 </template>
 
 <script>
-import { isLoggedin } from "./login";
-
 export default {
   data: () => ({
-    loggedIn: false,
     tab: null,
     items: ["Data Upload", "Pod Browser", "Query", "Edit Data Privacy"],
-  }),
-  methods: {
-    loginCheck() {
-      this.loggedIn = isLoggedin();
-    }
-  },
-  mounted() {
-    // Delays the execution loginCheck() on page reload (to avoid async-related errors)
-    setTimeout(() => {
-      this.loginCheck();
-    }, 200); // Delay of 2 seconds
-  },
+  }),  
 };
 </script>
 

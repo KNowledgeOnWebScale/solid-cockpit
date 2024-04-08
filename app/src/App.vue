@@ -2,7 +2,9 @@
   <header>
     <router-view name="header"></router-view>
   </header>
-  <FunctionSelector />
+  <nav>
+    <router-view name="navBar"></router-view>
+  </nav>
   <main id="app">
     <router-view></router-view>
   </main>
@@ -10,12 +12,10 @@
 
 
 <script lang="ts">
-import FunctionSelector from './components/FunctionSelector.vue';
 
 export default {
   name: 'App',
   components: {
-    FunctionSelector
   },
 };
 
