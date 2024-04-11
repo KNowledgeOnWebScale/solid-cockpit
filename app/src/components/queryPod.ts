@@ -1,5 +1,5 @@
 import { Session } from "@inrupt/solid-client-authn-browser";
-import { QueryEngine } from '@comunica/query-sparql';
+import { QueryEngine } from '@comunica/query-sparql-link-traversal-solid';
 import { Bindings } from '@comunica/types';
 
 const myEngine = new QueryEngine();
