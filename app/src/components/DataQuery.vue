@@ -5,7 +5,6 @@
         title="Query Data"
         variant="tonal"
         justify="center"
-        max-width="550"
         class="mx-auto"
         color="indigo-darken-3"
       >

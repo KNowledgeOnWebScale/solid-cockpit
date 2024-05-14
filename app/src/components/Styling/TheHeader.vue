@@ -2,7 +2,7 @@
   <v-card color="#ccdff8">
     <v-container>
       <v-card-title justify="center">
-        <h1 class="font-weight-bold text-h2 text-courier-new">TRIPLE App</h1>
+        <h1>TRIPLE App</h1>
       </v-card-title>
     </v-container>
   </v-card>
@@ -15,18 +15,12 @@ export default {
 </script>
 
 <style scoped>
-header {
-  width: 100%;
-  height: 5rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #ccdff8;
-}
 
-header h1 {
+h1 {
   color: rgb(0, 0, 0);
   margin: 0;
   font-family: "Courier New", monospace;
+  font-size: 3rem; /* Adjust as needed */
+  text-align: center;
 }
 </style>

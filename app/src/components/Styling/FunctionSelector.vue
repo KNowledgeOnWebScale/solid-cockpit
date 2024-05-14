@@ -19,7 +19,7 @@
 export default {
   data: () => ({
     tab: null,
-    items: ["Data Upload", "Pod Browser", "Query", "Edit Data Privacy"],
+    items: ["Home", "Data Upload", "Pod Browser", "Query", "Data Privacy"],
   }),  
 };
 </script>

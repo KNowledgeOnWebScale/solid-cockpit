@@ -1,10 +1,6 @@
 <template>
-  <header>
-    <router-view name="header"></router-view>
-  </header>
-  <nav>
-    <router-view name="navBar"></router-view>
-  </nav>
+  <the-header />
+  <function-selector />
   <main id="app">
     <router-view></router-view>
   </main>
@@ -12,10 +8,14 @@
 
 
 <script lang="ts">
+import FunctionSelector from './components/Styling/FunctionSelector.vue';
+import TheHeader from './components/Styling/TheHeader.vue';
 
 export default {
   name: 'App',
   components: {
+    TheHeader,
+    FunctionSelector,
   },
 };
 
