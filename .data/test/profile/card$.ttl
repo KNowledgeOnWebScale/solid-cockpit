@@ -9,4 +9,5 @@
 <http://localhost:3000/test/profile/card#me>
     
     solid:oidcIssuer <http://localhost:3000/>;
-    a foaf:Person.
+    a foaf:Person;
+    <http://www.w3.org/ns/pim/space#storage> <../> .
