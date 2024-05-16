@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The TRIPLE Solid pod access application",
   "main": "~/src/App.vue",
+  "homepage": "https://ecrum19.github.io/TRIPLE_App",
   "repository": "https://github.com/ecrum19/TRIPLE_App/tree/EDC_active",
   "author": "Elias Crum",
   "license": "MIT",
