@@ -16,7 +16,7 @@
 
 3. Navigate to the created directory
 
-   `cd TRIPLE_App/app/`
+   `cd TRIPLE_App/`
 
 5. Execute the following command:
 
