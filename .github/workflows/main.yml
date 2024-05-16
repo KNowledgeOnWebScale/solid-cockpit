@@ -17,11 +17,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20.x
-          cache: yarn
 
       - name: Install and Build 🔧
         run: |
-          yarn i
+          yarn install
           yarn run build
 
       - name: Deploy 🚀
