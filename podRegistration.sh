@@ -8,17 +8,30 @@ current_directory=$(pwd)
 target_directory="$current_directory/.data/$pod/profile"
 file_name="card$.ttl"
 full_path="$target_directory/$file_name"
-echo $full_path
+
 # check to make sure the directory is accurate
 if [ ! -d "$target_directory" ]; then
     echo "Error: $target_directory does not exist..."
     exit 1
 fi
 
-# replaces the "." with a ";" for ttl format continuity
-to_replace="a foaf:Person."
-fixed="a foaf:Person;"
-sed -i '' -e "s|$to_replace|$fixed|g" "$full_path"
+# replaces the last "." with a ";" for ttl format continuity
+to_replace="    a foaf:Person."
+fixed="    a foaf:Person;"
+awk -v search="$to_replace" -v replace="$fixed" '
+{
+    if ($0 == search) {
+        print replace
+    } else {
+        print
+    }
+}' "$full_path" > temp && mv temp "$full_path"
 
 # makes it visible where your pod is using <../pim/space#storage>
-echo "    <http://www.w3.org/ns/pim/space#storage> <../>." >> $full_path
+pod_path="    <http://www.w3.org/ns/pim/space#storage> <../>."
+if ! grep -Fxq "$pod_path" "$full_path"; then
+    echo "$pod_path" >> $full_path
+    echo "Your pod is now registered!"
+else
+    echo "Your pod is already registered!"
+fi

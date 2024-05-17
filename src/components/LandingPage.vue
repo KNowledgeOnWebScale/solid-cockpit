@@ -38,19 +38,22 @@
           help see
           <a
             href="https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository"
-            >it clone guide.</a
+            >git clone guide.</a
           >
         </li>
       </ol>
       <pre><code>$ git clone https://github.com/ecrum19/TRIPLE_App.git</code></pre>
       <ol start="2">
-        <li>To start pod set-up, execute the following command:</li>
+        <li>
+          To start pod set-up, within the TRIPLE_App/ directory execute the
+          following command:
+        </li>
       </ol>
       <pre><code>$ bash makePod.sh</code></pre>
 
       <hr />
 
-      <h2>2. Setting up the Solid pod</h2>
+      <h2 class="req">2. Setting up the Solid pod</h2>
       <ol>
         <li>
           Using a web browser navigate to
@@ -63,14 +66,31 @@
         <li>Return to the home page by clicking "Back"</li>
       </ol>
       <p>
-        Voila, you now have a pod hosted by your local machine. Now, let us add
-        something to it!
-      </p>
+        <b>Voila</b>, you now have a pod hosted by your local machine!<br />
+        <span class="detail">
+          (Please note that if the terminal window is terminated, the Solid pod will no longer be unaccessible until it is re-launched. 
+          For more info see <a href="https://communitysolidserver.github.io/CommunitySolidServer/latest/">Community Solid Server Documentation</a>.)
+        </span>
+    </p>
 
-      <h4>Launching the TRIPLE App</h4>
+      <hr />
+
+      <h2 class="req">3. Register your Pod on your new WebID</h2>
       <ol>
-        <li>First install all dependencies:</li>
+        <li>Within the TRIPLE_App/ directory, execute the command below:</li>
       </ol>
+      <pre><code>$ bash podRegistration.sh</code></pre>
+
+      <hr />
+
+      
+      <h2 class="req">4. Using the TRIPLE App</h2>
+      <p>....</p>
+
+      <hr />
+
+
+
     </div>
   </body>
 </template>
@@ -113,6 +133,14 @@ export default {
 
 .req {
   margin-top: 10px;
+}
+
+.detail {
+  font-size: 0.9em;
+}
+
+p {
+  margin-bottom: 15px;
 }
 
 body {
