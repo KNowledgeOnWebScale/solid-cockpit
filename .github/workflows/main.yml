@@ -22,6 +22,8 @@ jobs:
         run: |
           yarn install
           yarn run build
+        env:
+          NODE_ENV: production
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@releases/v4
