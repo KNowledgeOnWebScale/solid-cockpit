@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { Component, defineAsyncComponent } from "vue";
 
 import LandingPage from "./components/LandingPage.vue";
 // import TheFooter from './components/Styling/TheFooter.vue'
@@ -28,33 +27,33 @@ const router = createRouter({
       redirect: { name: "Home" }
     },
     {
-      name: "Login Page",
-      path: "login",
-      components: { default: PodLogin },
-    },
-    {
       name: "Home",
-      path: "home",
+      path: "/home",
       components: { default: LandingPage },
     },
     {
+      name: "Login Page",
+      path: "/login",
+      components: { default: PodLogin },
+    },
+    {
       name: "Data Upload",
-      path: "dataUpload",
+      path: "/dataUpload",
       components: { default: PodUpload },
     },
     {
       name: "Pod Browser",
-      path: "podBrowser",
+      path: "/podBrowser",
       components: { default: PodBrowser },
     },
     {
       name: "Query",
-      path: "dataQuery",
+      path: "/dataQuery",
       components: { default: DataQuery },
     },
     {
       name: "Data Privacy",
-      path: "privacy",
+      path: "/privacy",
       components: { default: EditPrivacy },
     },
     { 
@@ -73,7 +72,9 @@ const router = createRouter({
 setTimeout(() => {
   router.beforeEach(function (to, from, next) {
     // make sure the user is authenticated
-    if (!isLoggedin() && to.name !== "Login Page") {
+    if (!isLoggedin() && to.name !== "Login Page" && to.name !== "Home") {
+      next({ name: "Login Page" });
+    } else if ( !isLoggedin() && to.name !== "Login Page" ) {
       next({ name: "Login Page" });
     } else if (isLoggedin() && to.name === "Login Page") {
       next({ name: "Home" });
