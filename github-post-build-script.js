@@ -10,7 +10,7 @@ const routes = [
   "/privacy",
 ];
 
-console.log(publicPath);
+
 for (const route of routes) {
-  fs.cpSync(dir + "/index.html", dir + route + "/index.html");
+  fs.cpSync(dir + "/index.html", "/dist" + route + "/index.html");
 }
