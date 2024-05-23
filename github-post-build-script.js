@@ -1,5 +1,4 @@
-const { fs } = require("fs");
-const { publicPath } = require("./vue.config.js");
+import * as fs from 'fs';
 
 const routes = [
   "/home",
