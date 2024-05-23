@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import { cpSync } from 'fs';
 
 const routes = [
   "/home",
@@ -11,5 +11,5 @@ const routes = [
 
 
 for (const route of routes) {
-  fs.cpSync(dir + "/index.html", "/dist" + route + "/index.html");
+  cpSync(dir + "/index.html", "/dist" + route + "/index.html");
 }
