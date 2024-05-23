@@ -24,33 +24,37 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: "/",
+      redirect: { name: "Home" }
+    },
+    {
       name: "Login Page",
-      path: "/login",
+      path: "login",
       components: { default: PodLogin },
     },
     {
       name: "Home",
-      path: "/",
+      path: "/TRIPLE_App/",
       components: { default: LandingPage },
     },
     {
       name: "Data Upload",
-      path: "/dataUpload",
+      path: "dataUpload",
       components: { default: PodUpload },
     },
     {
       name: "Pod Browser",
-      path: "/podBrowser",
+      path: "podBrowser",
       components: { default: PodBrowser },
     },
     {
       name: "Query",
-      path: "/dataQuery",
+      path: "dataQuery",
       components: { default: DataQuery },
     },
     {
       name: "Data Privacy",
-      path: "/privacy",
+      path: "privacy",
       components: { default: EditPrivacy },
     },
     { 
