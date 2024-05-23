@@ -1,12 +1,16 @@
-import viteConfig from "./vite.config.js";
-import * as fs from "fs";
+const { fs } = require("fs");
+const { publicPath } = require("./vue.config.js");
 
 const routes = [
-  "/menu",
-  "/watch",
-  "/auth",
+  "/home",
+  "/login",
+  "/dataUpload",
+  "/podBrowser",
+  "dataQuery",
+  "/privacy",
 ];
-const dir = viteConfig.build.outDir;
+
+console.log(publicPath);
 for (const route of routes) {
   fs.cpSync(dir + "/index.html", dir + route + "/index.html");
 }
