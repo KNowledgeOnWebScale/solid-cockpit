@@ -11,5 +11,5 @@ const routes = [
 
 
 for (const route of routes) {
-  cpSync("/TRIPLE_App/dist" + "/index.html", "/TRIPLE_App/dist" + route + "/index.html");
+  cpSync("../dist" + "/index.html", "../dist" + route + "/index.html");
 }
