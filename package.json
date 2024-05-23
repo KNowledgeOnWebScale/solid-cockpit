@@ -10,7 +10,7 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "github-post-build": "node github-post-build-script.js",
+    "github-post-build": "node github-post-build-script.mjs",
     "lint": "vue-cli-service lint",
     "deploy": "gh-pages -d dist"
   },
