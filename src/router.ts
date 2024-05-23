@@ -21,7 +21,7 @@ import { isLoggedin } from "./components/login";
  * The router here allows for navigation between different functional pages of the TRIPLE App
  */
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/TRIPLE_App/'),
   routes: [
     {
       path: "/",
@@ -34,7 +34,7 @@ const router = createRouter({
     },
     {
       name: "Home",
-      path: "/TRIPLE_App/",
+      path: "home",
       components: { default: LandingPage },
     },
     {
