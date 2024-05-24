@@ -1,4 +1,5 @@
 import { cpSync } from 'fs';
+import { vueConfig } from './vue.config.js';
 
 const routes = [
   "/home",
@@ -9,7 +10,8 @@ const routes = [
   "/privacy",
 ];
 
-
+const dir = vueConfig.outputDir;
+console.log(dir)
 for (const route of routes) {
-  cpSync("../dist" + "/index.html", "../dist" + route + "/index.html");
+  cpSync(dir + "/index.html", dir + route + "/index.html");
 }
