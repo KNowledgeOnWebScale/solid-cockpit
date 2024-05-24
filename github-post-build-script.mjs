@@ -1,5 +1,5 @@
 import { cpSync } from 'fs';
-import { vueConfig } from './vue.config.js';
+import vueConfig from './vue.config.js';
 
 const routes = [
   "/home",
