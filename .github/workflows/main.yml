@@ -23,6 +23,7 @@ jobs:
         run: |
           yarn install
           yarn run build
+          yarn run github-post-build
         env:
           NODE_ENV: production
 
