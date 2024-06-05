@@ -1,4 +1,5 @@
 import {
+  WithResourceInfo,
   getPodUrlAll,
   overwriteFile,
 } from "@inrupt/solid-client";
@@ -44,16 +45,32 @@ function handleFiles(fileList: FileList, podURL: string) {
  * @param fetch A window.fetch that includes the current User's credentials (to allow for Write access).
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
 */
-async function uploadToPod(targetURL: string, file: File, fetch): Promise<void> {
-  try {
-    const savedFile = await overwriteFile(targetURL, file, {
-      contentType: file.type,
-      fetch: fetch,
-    });
-    console.log(savedFile)
-    console.log(`File saved at ${targetURL + file.name}`);
-  } catch (error) {
-    console.error(error);
+async function uploadToPod(targetURL: string, file: File, fetch): Promise<boolean> {
+  if (file.type != '') {
+    // for if the file type is captured by the well-known "secret codes"
+    try {
+      const savedFile = await overwriteFile(targetURL, file, {
+        contentType: file.type,
+        fetch: fetch,
+      });
+      console.log(`File saved at ${targetURL}`);
+      console.log(savedFile)
+      return true
+    } catch (error) {
+      console.error(error);
+    }
+  } else {
+    // for if the file type is not captured by the well-known "secret codes"
+    try {
+      const savedFile = await overwriteFile(targetURL, file, {
+        fetch: fetch,
+      });
+      console.log(`File saved at ${targetURL}`);
+      console.log(savedFile)
+      return true
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
 
