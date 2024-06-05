@@ -24,7 +24,7 @@ async function startLogin(purl: string): Promise<string> {
     try {
       await session.login({
         oidcIssuer: purl, //https does not work for some reason?? figure this out later
-        redirectUrl: new URL("/", window.location.href).toString(),
+        redirectUrl: new URL("/TRIPLE_App/", window.location.href).toString(),
         clientName: "TRIPLE app"
       });
     } catch (error) {
