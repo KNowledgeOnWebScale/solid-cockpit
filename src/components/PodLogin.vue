@@ -51,7 +51,7 @@
             ></v-alert>
           </div>
 
-          <!-- "Create new pod" directions button -->
+          <!-- "Create new pod" button redirects back to homepage -->
           <v-dialog max-width="500">
             <template v-slot:activator="{ props: activatorProps }">
               <v-btn
@@ -59,15 +59,17 @@
                 color="surface-variant"
                 text="Create New Pod?"
                 variant="flat"
+                @click="homepageRedir"
                 ></v-btn>
             </template>
+
             <!-- "Create new pod" directions pop-up -->
+            <!--
             <template v-slot:default="{ isActive }">
               <v-card title="Pod Creation Instructions:">
                 <v-card-text class="mx-auto">
                   Run in the console: <code>$ bash makePod.sh</code>
                 </v-card-text>
-              <!-- Need to fix BASH script to launch an existing pod (not create a new one) -->
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn
@@ -77,6 +79,7 @@
                 </v-card-actions>
               </v-card>
             </template>
+            -->
           </v-dialog>
         
         </div>
@@ -98,7 +101,7 @@
 
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId } from "./login";
+import { startLogin, isLoggedin, currentWebId, redirectToHomepage } from "./login";
 
 export default {
   name: "LoginComponent",
@@ -131,6 +134,13 @@ export default {
       this.loggedIn = isLoggedin();
       this.webId = currentWebId();
     },
+    /* 
+    Redirects user back to homepage (for "create a pod" directions)
+    uses href to handle the redirect
+    */
+    homepageRedir() {
+      redirectToHomepage()
+    }
   },
   mounted() {
     // Delays the execution loginCheck() on page reload (to avoid async-related errors)

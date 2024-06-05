@@ -54,6 +54,13 @@ function currentWebId(): string {
 }
 
 /**
+ * Redirects the user back to the TRIPLE App homepage
+*/
+function redirectToHomepage(): void {
+  window.location.href = new URL("/TRIPLE_App/", window.location.href).toString()
+}
+
+/**
  * Checks if the current User is logged-in to a Solid Pod after page-reload.
 */
 async function handleRedirectAfterPageLoad(): Promise<void> {
@@ -65,4 +72,4 @@ async function handleRedirectAfterPageLoad(): Promise<void> {
 }
 
 
-export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, session }
+export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, redirectToHomepage, session }
