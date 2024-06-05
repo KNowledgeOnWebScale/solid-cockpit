@@ -9,7 +9,7 @@
       class="mx-auto"
       color="indigo-darken-3"
     >
-      <!-- The file input section << Want to make this drag and drop eventually...>> -->
+      <!-- The file input section << Styling needs a little work >> -->
       <form id="writeForm">
         <v-file-input
           clearable
@@ -49,6 +49,7 @@
         </v-btn>
       </form>
 
+      <!-- Alert for if session is timed out -->
       <div v-if="this.pod === 'Error: probably not logged in'">
         <v-alert
           class="mx-auto"
@@ -58,15 +59,29 @@
           ><b>Try logging out and logging back in!</b></v-alert
         >
       </div>
-      <div v-else>
-        <div id="fileUploaded" v-if="fileUploaded">
+      <div v-else-if="!initialLoad">
+        <!-- Shows that file upload was successful -->
+        <div v-if="!fileUploaded">
           <v-alert
             class="mx-auto"
             title="File(s) successfully uploaded!"
             type="success"
             icon="$success"
-            >(File(s) can be found in the <b>{{ this.pod }}uploads/</b> directory
-            of your pod)</v-alert
+            >(File(s) can be found in the
+            <b>{{ this.pod }}uploads/</b> directory of your pod)</v-alert
+          >
+        </div>
+
+        <!-- Alert for if file upload is not successful -->
+        <div v-else>
+          <v-alert
+            class="mx-auto"
+            title="There was an error with the file(s) upload!"
+            type="error"
+            icon="$error"
+            >There seems to be an error with the file upload. There are some
+            file types not supported in the current implementation. We are
+            working on fixing this currently. Sorry!!</v-alert
           >
         </div>
       </div>
@@ -97,6 +112,7 @@ export default {
       podURLs: [],
       pod: "",
       fileUploaded: false,
+      initialLoad: true,
       files: FileList,
     };
   },
@@ -122,9 +138,8 @@ export default {
   'files' variable is a FileList that contains references to all files selected using the upload UI.
   */
     submitUpload() {
-      console.log(this.pod);
-      handleFiles(this.files, this.pod);
-      this.fileUploaded = true;
+      this.fileUploaded = handleFiles(this.files, this.pod);
+      this.initialLoad = false;
     },
   },
   mounted() {
