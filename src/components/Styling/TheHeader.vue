@@ -6,9 +6,8 @@
           <h1>TRIPLE App</h1>
         </v-card-title>
 
-        <!--
         <div class="account">
-          <div class="text-center">
+          <div class="text-right">
             <v-menu
               v-model="menu"
               :close-on-content-click="false"
@@ -20,64 +19,108 @@
                   size="medium"
                   color="grey-darken-4"
                   justify="end"
+                  v-bind="props"
+                  @click="loginCheck"
                 ></v-btn>
               </template>
 
-              <v-card min-width="300">
-                <v-list>
+              <v-card>
+                <v-list class="text-right align-self-start">
                   <v-list-item
-                    subtitle="{{ webID }}"
-                    title="WebID:"
+                    v-if="loggedIn"
+                    title="Current WebID:"
+                    :subtitle="user.webId"
                   ></v-list-item>
+                  <v-list-item v-else title="Not logged in"></v-list-item>
+                </v-list>
 
                 <v-divider></v-divider>
 
-                <v-list>
-                  <div v-show="!loggedIn">
+                <v-list class="text-right align-self-start">
+                  <div v-if="!loggedIn">
                     <v-list-item>
-                        <v-btn
-                          v-model="message"
-                          color="blue"
-                          label="Login"
-                          @click= redirect...
-                        ></v-btn>
+                      <v-btn
+                        class="loginButton"
+                        v-model="message"
+                        color="blue"
+                        label="Login"
+                        @click="LoginpageRedir"
+                        >Login</v-btn
+                      >
                     </v-list-item>
                   </div>
 
-                  <div v-show="loggedIn">
-                  <v-list-item>
-                    <v-switch
-                      v-model="message"
-                      color="blue"
-                      label="Logout"
-                      @click= redirect...
-                    ></v-switch>
-                  </v-list-item>
+                  <div v-if="loggedIn">
+                    <v-list-item>
+                      <v-btn
+                        class="loginButton"
+                        v-model="message"
+                        color="red"
+                        label="Logout"
+                        @click="userLogout"
+                        >Logout</v-btn
+                      >
+                    </v-list-item>
                   </div>
                 </v-list>
 
                 <v-card-actions>
                   <v-spacer></v-spacer>
-                  <v-btn variant="text" @click="menu = false"> Cancel </v-btn>
+                  <v-btn
+                    height="30"
+                    min-width="40"
+                    variant="text"
+                    @click="menu = false"
+                  >
+                    Cancel
+                  </v-btn>
                 </v-card-actions>
               </v-card>
             </v-menu>
           </div>
         </div>
-      -->
       </v-row>
     </v-container>
   </v-card>
 </template>
 
 <script lang="ts">
+import {
+  isLoggedin,
+  currentWebId,
+  redirectToHomepage,
+  redirectToLogin,
+  logOut,
+} from "./../login";
+
 export default {
   data: () => ({
     loggedIn: false,
-    webID: '',
+    login_status: "",
     menu: false,
     message: false,
+    user: {
+      webId: "",
+      fullName: "John Doe", // Should pull this data from #card (and integrate to pop up)
+      email: "john.doe@doe.com", // Should pull this data from #card
+    },
   }),
+  methods: {
+    async userLogout() {
+      this.login_status = await logOut();
+    },
+    loginCheck() {
+      this.loggedIn = isLoggedin();
+      this.user.webId = currentWebId();
+    },
+    homepageRedir() {
+      redirectToHomepage();
+    },
+    LoginpageRedir() {
+      redirectToLogin();
+    },
+  },
+  props: {},
 };
 </script>
 
@@ -96,4 +139,5 @@ h1 {
   top: 0;
   padding: 15px; /* Optional: adjust the padding as needed */
 }
+
 </style>

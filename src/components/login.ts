@@ -36,9 +36,27 @@ async function startLogin(purl: string): Promise<string> {
 }
 
 /**
+ * Logs the user out via the logout() method from @inrupt/solid-client by clearing the session.
+ * 
+ * @returns A Promise that resolves to a boolean. (false === 'logged out' / true === 'logged in')
+*/
+async function logOut(): Promise<boolean> {
+  if (session.info.isLoggedIn) {
+    try {
+      await session.logout({ logoutType: 'app' });
+      return session.info.isLoggedIn
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  } else {
+    return session.info.isLoggedIn
+  }
+}
+
+/**
  * Checks if the current User is logged-in to a Solid Pod.
  * 
- * @returns a boolean obtained from the session object that signifies login status
+ * @returns a boolean that signifies login status (false === 'logged out' / true === 'logged in')
 */
 function isLoggedin(): boolean {
   return session.info.isLoggedIn
@@ -61,6 +79,13 @@ function redirectToHomepage(): void {
 }
 
 /**
+ * Redirects the user to the TRIPLE App login page
+*/
+function redirectToLogin(): void {
+  window.location.href = new URL("/TRIPLE_App/login", window.location.href).toString()
+}
+
+/**
  * Checks if the current User is logged-in to a Solid Pod after page-reload.
 */
 async function handleRedirectAfterPageLoad(): Promise<void> {
@@ -72,4 +97,6 @@ async function handleRedirectAfterPageLoad(): Promise<void> {
 }
 
 
-export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, redirectToHomepage, session }
+
+
+export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, redirectToHomepage, redirectToLogin, logOut, session }
