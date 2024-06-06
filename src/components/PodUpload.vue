@@ -91,7 +91,7 @@
   <hr />
 
   <body>
-    <h2 class="req">Data Uplod Guide</h2>
+    <h2 class="req">Data Upload Guide</h2>
     <ol>
       <li>Click the <b>"File Input"</b> bar above or drag and drop a file</li>
       <li>Select the local file(s) you wish to upload</li>

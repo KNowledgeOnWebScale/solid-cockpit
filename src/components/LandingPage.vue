@@ -108,7 +108,7 @@
 
       <hr />
 
-      <h2 class="req">5. Data Uplod Functionality</h2>
+      <h2 class="req">5. Data Upload Functionality</h2>
       <ol>
         <li>Click the <b>"Data Upload"</b> tab of the nav bar above</li>
       </ol>

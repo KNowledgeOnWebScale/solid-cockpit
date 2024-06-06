@@ -7,8 +7,8 @@
         color="deep-purple-accent-4"
         bg-color="#9fbbdf"
         fixed-tabs>
-        <v-tab v-for="tabName in items" :key="tabName">
-          <router-link :to="{ name: tabName }">{{ tabName }}</router-link>
+        <v-tab border="sm" v-for="tabName in items" :key="tabName" :to="{ name: tabName }">
+          {{ tabName }}
         </v-tab>
       </v-tabs>
     </nav>
