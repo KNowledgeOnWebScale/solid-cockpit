@@ -23,6 +23,7 @@ const router = createRouter({
   history: createWebHistory('/TRIPLE_App/'),
   routes: [
     {
+      name: "root",
       path: "/",
       redirect: { name: "Home" }
     },
@@ -70,16 +71,16 @@ const router = createRouter({
  * (and returning to the login page if logged out at any point)
  */
 setTimeout(() => {
-  router.beforeEach(function (to, from, next) {
+  router.beforeEach(async (to, from) => {
     // make sure the user is authenticated
-    if (!isLoggedin() && to.name !== "Login Page" && to.name !== "Home") {
-      next({ name: "Login Page" });
-    } else if ( !isLoggedin() && to.name !== "Login Page" ) {
-      next({ name: "Login Page" });
+    if (!isLoggedin() && to.name !== "Login Page" && from.name === "Home") {
+      return { name: "Login Page" };
+    } else if (!isLoggedin() && to.name === "Home" && from.name !== "Login Page") {
+      return { name: "Home" };
+    } else if (!isLoggedin() && to.name !== "Home" && from.name === "Login Page") {
+      return { name: "Login Page" };
     } else if (isLoggedin() && to.name === "Login Page") {
-      next({ name: "Home" });
-    } else {
-      next();
+      return { name: "Home" };
     }
   });
 }, 100);
