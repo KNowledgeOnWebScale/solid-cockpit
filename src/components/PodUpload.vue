@@ -50,7 +50,7 @@
       </form>
 
       <!-- Alert for if session is timed out -->
-      <div v-if="this.pod === 'Error: probably not logged in'">
+      <div v-if="!initialLoad && this.pod === 'Error: probably not logged in'">
         <v-alert
           class="mx-auto"
           title="There was an error with the file(s) upload!"
@@ -61,7 +61,7 @@
       </div>
       <div v-else-if="!initialLoad">
         <!-- Shows that file upload was successful -->
-        <div v-if="!fileUploaded">
+        <div v-if="uploadSuccess">
           <v-alert
             class="mx-auto"
             title="File(s) successfully uploaded!"
@@ -102,7 +102,7 @@
 </template>
 
 <script lang="ts">
-import { getPodURLs, handleFiles } from "./fileUpload";
+import { getPodURLs, handleFiles, derefrenceFile } from "./fileUpload";
 import { currentWebId } from "./login";
 
 export default {
@@ -111,9 +111,10 @@ export default {
       webId: "",
       podURLs: [],
       pod: "",
-      fileUploaded: false,
+      filesUploaded: [],
       initialLoad: true,
       files: FileList,
+      uploadSuccess: false,
     };
   },
   methods: {
@@ -138,7 +139,12 @@ export default {
   'files' variable is a FileList that contains references to all files selected using the upload UI.
   */
     submitUpload() {
-      this.fileUploaded = handleFiles(this.files, this.pod);
+      this.filesUploaded = handleFiles(this.files, this.pod);
+      this.initialLoad = false;
+    },
+
+    finishedUploadCheck() {
+      this.filesUploaded = handleFiles(this.files, this.pod);
       this.initialLoad = false;
     },
   },
@@ -146,6 +152,7 @@ export default {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.getPodURL();
+      console.log(this.podURLs)
     }, 200);
   },
   props: {},

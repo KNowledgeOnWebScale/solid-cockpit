@@ -4,14 +4,14 @@ import {
   overwriteFile,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-
+import { mimeTypes } from "./mime_types.js";
 
 /**
  * Fetches a logged-in user's Pod URLs using a webID.
- * 
+ *
  * @param webid The webID URL of the current user.
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
-*/
+ */
 async function getPodURLs(webid: string): Promise<string[]> {
   let pods: string[] = [];
   try {
@@ -24,54 +24,67 @@ async function getPodURLs(webid: string): Promise<string[]> {
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() method.
- * 
+ *
  * @param fileList The list of files to be uploaded to the Pod.
  * @param podURL The URL of the Pod files are to be uploaded to.
-*/
+ */
 function handleFiles(fileList: FileList, podURL: string) {
+  const outputList = []
   Array.from(fileList).forEach((file: File) => {
     uploadToPod(`${podURL}uploads/${file.name}`, file, fetch);
   });
+
 }
 
 /**
- * Takes in a File and upload is to a Solid Pod using the @inrupt/solid-client method overwriteFile().
- * 
+ * Converts a file extension into a MIME Type for use in HTTP PUT requests.
+ * The function relies on the hash map contained in the file 'mime_types.js'.
+ *
+ * @param fileExtension The file extension string of the file for which the MIME Type should be found.
+ * @returns The MIME Type string of the file of interest or 'application/octet-stream' if not in the hash map.
+ */
+function getMimeType(fileExtension: string) {
+  console.log(fileExtension)
+  return mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
+}
+
+/**
+ * Takes in a File and uploads it to a Solid Pod using the @inrupt/solid-client method overwriteFile().
+ *
  * The directory designated in targetURL does not need to exist before execuation.
+ * The contentType of the uploaded file is determined by the getMineType() method using the file's extension.
  * The overwriteFile() method will create the conatiner (directory) path if it does not already exist.
- * 
+ *
  * @param targetURL The URL where the files are to be uploaded.
  * @param file The file that is to be uploaded to the Pod.
  * @param fetch A window.fetch that includes the current User's credentials (to allow for Write access).
- * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
-*/
-async function uploadToPod(targetURL: string, file: File, fetch): Promise<boolean> {
-  if (file.type != '') {
-    // for if the file type is captured by the well-known "secret codes"
-    try {
-      const savedFile = await overwriteFile(targetURL, file, {
-        contentType: file.type,
-        fetch: fetch,
-      });
-      console.log(`File saved at ${targetURL}`);
-      console.log(savedFile)
-      return true
-    } catch (error) {
-      console.error(error);
-    }
-  } else {
-    // for if the file type is not captured by the well-known "secret codes"
-    try {
-      const savedFile = await overwriteFile(targetURL, file, {
-        fetch: fetch,
-      });
-      console.log(`File saved at ${targetURL}`);
-      console.log(savedFile)
-      return true
-    } catch (error) {
-      console.error(error);
-    }
+ * @returns A Promise that resolves to a File & WithResourceInfo of the uploaded files.
+ */
+async function uploadToPod(
+  targetURL: string,
+  file: File,
+  fetch
+): Promise<File & WithResourceInfo> {
+  console.log(file.type, getMimeType('.' + file.name.split('.')[file.name.split('.').length - 1]))
+  try {
+    const savedFile = await overwriteFile(targetURL, file, {
+      contentType: getMimeType('.' + file.name.split('.')[file.name.split('.').length - 1]),
+      fetch: fetch,
+    });
+    console.log(`File saved at ${targetURL}`);
+    console.log(savedFile);
+    return savedFile;
+  } catch (error) {
+    console.error(error);
   }
 }
 
-export { handleFiles, getPodURLs };
+function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
+  try {
+    return [inputFile.name, String(inputFile.size), inputFile.internal_resourceInfo.sourceIri]
+  } catch (error) {
+    console.error('Error', error)
+  }
+}
+
+export { handleFiles, getPodURLs, getMimeType, derefrenceFile };
