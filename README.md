@@ -2,15 +2,20 @@
 
 ## This is an early workflow for: 
 1. Setting up and locally hosting Solid pod
-2. Viewing your pod and uploading data into that pod via the TRIPLE App
+2. Uploading data into that pod via the TRIPLE App
+3. Future aims -- see pod contents, edit data privacy, query data via sparql queries
 
 
 #### Requirements:
 - [Node.js](https://nodejs.org/en/)
     -Version 18 or higher.
 
-#### Setting up a local instance of a Solid pod:
-1. Clone this git repo
+#### Getting:
+1. Navigate to the webpage (where there are some nice instructions):
+
+   `https://ecrum19.github.io/TRIPLE_App/`
+
+2. Clone this git repo
 
    `git clone https://github.com/ecrum19/TRIPLE_App.git`
 
@@ -18,59 +23,31 @@
 
    `cd TRIPLE_App/`
 
-5. Execute the following command:
-
-   `bash makePod.sh`
+4. Follow the instructions on the home page of the TRIPLE App website!
 
 
-#### Setting up the Solid pod
-1. Using a web browser navigate to
-    http://localhost:3000/
+#### Notes:
+**General issues:**
 
-2. Click the link: "Sign up for an account"
-
-3. Fill out the fields and click "Register"
-
-4. On the "Your Account" page, click on "Create pod"
-
-5. enter a name for the pod and click "Create pod"
-
-6. Return to the home page by clicking "Back"
-
-Voila, you now have a pod hosted by your local machine. Now, let us add something to it!
-
-#### Launching the TRIPLE App
-1. First install all dependencies: 
-
-   `yarn install`
-
-2. launch the web client via a local server (will be URL in the future)
-
-   `yarn serve`
-
-3. Navigate to the webpage at the following URL: http://localhost:8080/
-
+- The Pod Browser does not work properly yet. That is something that will be implemented in the near future.
+- When uploading a file, the "Success" message will almost always appear (has to do with Promise handling). I will fix this issue and add a loading icon while file is uploading soon as well.
+- If weird things start to happen with athn issues, clear browser history and cookies and it should fix things.
 
 #### TO DO:
 - (Optional) -- 
-  - A. A way for a user to select the pod (view/edit via dropdown)
-  - B. ...
-
-**General issues:**
-
-- I. New pod initialization / old pod re-starting (CSS interface)
-- II. The presence of `<http://www.w3.org/ns/pim/space#storage> <../> .` on User `card$.ttl`
-- III. Web hosting of the application -- github pages
+  - A. ...
+  - B. Fix Pod Browser so that it actually displays pod contents
+  
 
 **Data Upload:**
 
 1. A way to designate where a file is uploaded to (i.e. directory structure)
-2. A drag and drop interface
-3. A loading icon (to tell when file upload is done)
+2. A loading icon (to tell when file upload is done)
+3. A way to display document metadata
 
 **Data Browser:**
 
-4. A Pod data browser -- use new Comunica engine
+4. A Pod data browser that actually works...
 5. Designate a way to display the directory structure (along with the files)
 
 **Data Query:**

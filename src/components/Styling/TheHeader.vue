@@ -120,6 +120,11 @@ export default {
       redirectToLogin();
     },
   },
+  mounted(){
+    setTimeout(() => {
+      this.loginCheck()
+    }, 200);
+  },
   props: {},
 };
 </script>
