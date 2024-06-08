@@ -76,6 +76,7 @@ async function uploadToPod(
     return savedFile.internal_resourceInfo.sourceIri;
   } catch (error) {
     console.error(error);
+    return "error";
   }
 }
 
@@ -85,9 +86,9 @@ async function uploadToPod(
  * @param uploadedFiles is a list of files obtained from the upload process
  * @returns a boolean value that indicated if the file uploads have been successful or not
  */
-function uploadSuccess(uploadedFiles: File[]): boolean {
+function uploadSuccess(uploadedFiles: string[]): boolean {
   let success = false;
-  Array.from(uploadedFiles).forEach((up: File) => {
+  Array.from(uploadedFiles).forEach((up: string) => {
     console.log(up)
     if (up !== undefined) {
       success = true
