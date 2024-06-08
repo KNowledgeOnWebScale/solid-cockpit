@@ -28,12 +28,14 @@ async function getPodURLs(webid: string): Promise<string[]> {
  * @param fileList The list of files to be uploaded to the Pod.
  * @param podURL The URL of the Pod files are to be uploaded to.
  */
-function handleFiles(fileList: FileList, podURL: string) {
-  const outputList = []
+async function handleFiles(fileList: FileList, podURL: string) {
+  const outputList = [];
   Array.from(fileList).forEach((file: File) => {
-    uploadToPod(`${podURL}uploads/${file.name}`, file, fetch);
+    const upload = uploadToPod(`${podURL}uploads/${file.name}`, file, fetch);
+    outputList.push(upload);
   });
-
+  // console.log(outputList)
+  return outputList;
 }
 
 /**
@@ -44,7 +46,6 @@ function handleFiles(fileList: FileList, podURL: string) {
  * @returns The MIME Type string of the file of interest or 'application/octet-stream' if not in the hash map.
  */
 function getMimeType(fileExtension: string) {
-  console.log(fileExtension)
   return mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
 }
 
@@ -64,19 +65,37 @@ async function uploadToPod(
   targetURL: string,
   file: File,
   fetch
-): Promise<File & WithResourceInfo> {
-  console.log(file.type, getMimeType('.' + file.name.split('.')[file.name.split('.').length - 1]))
+): Promise<string> {
   try {
     const savedFile = await overwriteFile(targetURL, file, {
       contentType: getMimeType('.' + file.name.split('.')[file.name.split('.').length - 1]),
       fetch: fetch,
     });
-    console.log(`File saved at ${targetURL}`);
-    console.log(savedFile);
-    return savedFile;
+    // console.log(`File saved at ${targetURL}`);
+    // console.log(savedFile); // Type of this file is <File & WithResourceInfo>
+    return savedFile.internal_resourceInfo.sourceIri;
   } catch (error) {
     console.error(error);
   }
+}
+
+/**
+ * Checks if the files uploaded from submitUpload() have .name properties (which proves upload was success).
+ * 
+ * @param uploadedFiles is a list of files obtained from the upload process
+ * @returns a boolean value that indicated if the file uploads have been successful or not
+ */
+function uploadSuccess(uploadedFiles: File[]): boolean {
+  let success = false;
+  Array.from(uploadedFiles).forEach((up: File) => {
+    console.log(up)
+    if (up !== undefined) {
+      success = true
+    } else {
+      success = false
+    }
+  });
+  return success
 }
 
 function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
@@ -87,4 +106,4 @@ function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
   }
 }
 
-export { handleFiles, getPodURLs, getMimeType, derefrenceFile };
+export { handleFiles, getPodURLs, getMimeType, uploadSuccess, derefrenceFile };

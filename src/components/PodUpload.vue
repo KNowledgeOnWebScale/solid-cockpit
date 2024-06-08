@@ -50,40 +50,41 @@
       </form>
 
       <!-- Alert for if session is timed out -->
-      <div v-if="!initialLoad && this.pod === 'Error: probably not logged in'">
+      <div v-if="this.pod === 'Error: probably not logged in'">
         <v-alert
           class="mx-auto"
           title="There was an error with the file(s) upload!"
           type="error"
           icon="$error"
-          ><b>Try logging out and logging back in!</b></v-alert
+          ><b
+            >Try logging out and logging back in!</b>(also try clearing browser
+            hostory if problem reoccurs)</v-alert
         >
       </div>
-      <div v-else-if="!initialLoad">
-        <!-- Shows that file upload was successful -->
-        <div v-if="uploadSuccess">
-          <v-alert
-            class="mx-auto"
-            title="File(s) successfully uploaded!"
-            type="success"
-            icon="$success"
-            >(File(s) can be found in the
-            <b>{{ this.pod }}uploads/</b> directory of your pod)</v-alert
-          >
-        </div>
 
-        <!-- Alert for if file upload is not successful -->
-        <div v-else>
-          <v-alert
-            class="mx-auto"
-            title="There was an error with the file(s) upload!"
-            type="error"
-            icon="$error"
-            >There seems to be an error with the file upload. There are some
-            file types not supported in the current implementation. We are
-            working on fixing this currently. Sorry!!</v-alert
-          >
-        </div>
+      <!-- Alert forsuccessful file upload -->
+      <div v-else-if="uploadDone">
+        <v-alert
+          class="mx-auto"
+          title="File(s) successfully uploaded!"
+          type="success"
+          icon="$success"
+          >(File(s) can be found in the <b>{{ this.pod }}uploads/</b> directory
+          of your pod)</v-alert
+        >
+      </div>
+
+      <!-- Alert for if file upload is not successful -->
+      <div v-else-if="problem">
+        <v-alert
+          class="mx-auto"
+          title="There was an error with the file(s) upload!"
+          type="error"
+          icon="$error"
+          >There seems to be an error with the file upload. There are some file
+          types not supported in the current implementation. We are working on
+          fixing this currently. Sorry!!</v-alert
+        >
       </div>
     </v-card>
   </v-container>
@@ -102,7 +103,7 @@
 </template>
 
 <script lang="ts">
-import { getPodURLs, handleFiles, derefrenceFile } from "./fileUpload";
+import { getPodURLs, handleFiles, uploadSuccess } from "./fileUpload";
 import { currentWebId } from "./login";
 
 export default {
@@ -112,9 +113,9 @@ export default {
       podURLs: [],
       pod: "",
       filesUploaded: [],
-      initialLoad: true,
+      problem: false,
       files: FileList,
-      uploadSuccess: false,
+      uploadDone: false,
     };
   },
   methods: {
@@ -127,6 +128,7 @@ export default {
       this.podURLs = await getPodURLs(this.webId); // calls async function to get Pod URLs
       this.pod = this.podURLs[0]; // can fix this to handle multiple pods (<< FUTURE >>)
     },
+
     /*
   Calls uploadFile() from fileUpload.ts to upload a file to the user's pod.
   obtains 'files' variable (a FileList that contains references to all files selected using the upload UI).
@@ -134,25 +136,31 @@ export default {
     uploadFile(event: FileList) {
       this.files = event.target.files;
     },
+
+    /*
+  Checks if file is finished uploading. If so, updates the uploadDone variable.
+  */
+    checkUpload():boolean {
+      return uploadSuccess(this.filesUploaded);
+    },
+
     /*
   Calls handleFiles() from fileUpload.ts parse the files selected for upload + uploads the to the pod using the overwriteFile() method from @inrupt/solid-client.
   'files' variable is a FileList that contains references to all files selected using the upload UI.
-  */
-    submitUpload() {
-      this.filesUploaded = handleFiles(this.files, this.pod);
-      this.initialLoad = false;
-    },
 
-    finishedUploadCheck() {
-      this.filesUploaded = handleFiles(this.files, this.pod);
-      this.initialLoad = false;
+  Method also checks if the files uploaded from submitUpload() have .name properties (which proves upload was success).
+  Results in update of the uploadSuccess variable if files do have names.
+  */
+    async submitUpload() {
+      // this.filesUploaded = await handleFiles(this.files, this.pod);
+      this.uploadDone = uploadSuccess(await handleFiles(this.files, this.pod));
     },
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.getPodURL();
-      console.log(this.podURLs)
+      // console.log(this.podURLs)
     }, 200);
   },
   props: {},
