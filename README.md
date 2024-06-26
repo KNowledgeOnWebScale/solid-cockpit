@@ -10,20 +10,10 @@
 - [Node.js](https://nodejs.org/en/)
     -Version 18 or higher.
 
-#### Getting:
+#### Getting Started:
 1. Navigate to the webpage (where there are some nice instructions):
 
    `https://ecrum19.github.io/TRIPLE_App/`
-
-2. Clone this git repo
-
-   `git clone https://github.com/ecrum19/TRIPLE_App.git`
-
-3. Navigate to the created directory
-
-   `cd TRIPLE_App/`
-
-4. Follow the instructions on the home page of the TRIPLE App website!
 
 
 #### Notes:
