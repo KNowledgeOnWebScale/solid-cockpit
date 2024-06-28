@@ -3,6 +3,7 @@ node_modules
 .data/*
 tsconfig.*.json
 docs/
+yarn.lock
 
 # local env files
 .env.local
