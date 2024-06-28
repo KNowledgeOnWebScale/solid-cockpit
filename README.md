@@ -10,7 +10,7 @@
 - [Node.js](https://nodejs.org/en/)
     -Version 18 or higher.
 
-#### Getting:
+#### Getting Started:
 1. Navigate to the webpage (where there are some nice instructions):
 
    `https://ecrum19.github.io/TRIPLE_App/`
