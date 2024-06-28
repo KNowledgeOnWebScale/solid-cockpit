@@ -57,20 +57,20 @@
       <ol>
         <li>
           Using a web browser navigate to
-          <a href="http://localhost:3000/">http://localhost:3000/</a>
+          <b><a href="http://localhost:3000/" target="_blank">http://localhost:3000/</a></b>
         </li>
-        <li>Click the link: <b>"Sign up for an account"</b></li>
-        <li>Fill out the fields and click <b>"Register"</b></li>
-        <li>On the <b>"Your Account"</b> page, click on <b>"Create pod"</b></li>
+        <li>Either <b><a href="http://localhost:3000/.account/login/password/register/" target="_blank">"Sign up"</a></b> or 
+          <b><a href="http://localhost:3000/.account/login/password/" target="_blank">"Login"</a></b></li>
+        <li>Once on the <b>"Your Account"</b> page, click on <b>"Create pod"</b></li>
         <li>Enter a name for the pod and click <b>"Create pod"</b></li>
         <li>Return to the home page by clicking <b>"Back"</b></li>
       </ol>
       <p>
-        <b>Voila</b>, you now have a pod hosted by your local machine!<br />
+        <b>Voila</b>, now you a pod! <strong>Time to return to the command line </strong>(briefly).<br />
         <span class="detail">
-          (Please note that if the terminal window you executed the bash script above is terminated, 
-          the Solid pod will no longer be accessible until it is re-launched. For more info
-          see
+          (Please note that if the terminal window you executed the bash script [in step <b>1</b>-II] is terminated, 
+          the Solid pod will no longer be accessible until it is re-launched (return to step <b>1</b>-II). 
+          For more info see
           <a
             href="https://communitysolidserver.github.io/CommunitySolidServer/latest/"
             >Community Solid Server Documentation</a
@@ -86,7 +86,12 @@
         <pre><code>$ bash podRegistration.sh</code></pre>
         <li>At the prompt, enter the name of your pod from above (E.g. test)</li>
       </ol>
-
+      <p>
+        Great, now <strong>we are finished with set-up!!</strong> 
+        Return to the 
+        <a href="https://ecrum19.github.io/TRIPLE_App/">Triple App</a> 
+        for the next steps.<br />
+      </p>
       <hr />
 
       <h2 class="req">4. Solid Pod Login within the TRIPLE App</h2>

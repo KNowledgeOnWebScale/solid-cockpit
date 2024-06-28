@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Community Solid Server</title>
+  <link rel="stylesheet" href="/.well-known/css/styles/main.css" type="text/css">
+</head>
+<body>
+  <header>
+    <a href=".."><img src="/.well-known/css/images/solid.svg" alt="[Solid logo]" /></a>
+    <h1>Community Solid Server</h1>
+  </header>
+  <main>
+    <h4>
+      This server implements
+      the <a href="https://solid.github.io/specification/protocol">Solid protocol</a>
+      for creating your own <a href="https://solidproject.org/about">Solid Pod</a>
+      and identity.
+    </h4>
+    
+    <br><br>
+    
+    <h2 id="users"
+      >Select one of these options to get started!
+    </h2>
+
+    <p id="registration-enabled">
+      <div class="button-container">
+        <a id="login-link" href="./.account/login/password/" class="modern-button">
+          <span id="login">Login</span><br>(Already registered)</a>
+        <a id="registration-link" href="./.account/login/password/register/" class="modern-button">
+          <span id="signup">Sign up</span><br>(No account yet)</a>
+      </div>
+    </p>
+
+    <br><br><br>
+
+    <p>
+      <strong>This is a custom Community Solid Server landing page made for the
+        <a href="https://ecrum19.github.io/TRIPLE_App/">TRIPLE App</a>.</strong>
+    </p>
+
+    <p>
+      If interested, learn more about the <a href="https://solidproject.org/">Solid Project</a> 
+      or the <a href="https://github.com/CommunitySolidServer/CommunitySolidServer/">Community Solid Server</a>.
+    </p>
+    <p>
+      You are warmly invited
+      to <a href="https://github.com/ecrum19/TRIPLE_App/discussions">share your experiences</a>
+      and to <a href="https://github.com/ecrum19/TRIPLE_App/issues">report any bugs</a> you encounter.
+    </p>
+
+  </main>
+  
+  <footer>
+    <p>
+      ©2019–2024 <a href="https://inrupt.com/">Inrupt Inc.</a>
+      and <a href="https://www.imec-int.com/">imec</a>
+    </p>
+  </footer>
+</body>
+
+<script>
+  (async() => {
+    // Since this page is in the root of the server, we can determine other URLs relative to the current URL
+    const res = await fetch('.account/');
+    const registrationUrl = (await res.json())?.controls?.html?.password?.register;
+    // We specifically want to check if the HTML page that we link to exists
+    const resRegistrationPage = await fetch(registrationUrl, { headers: { accept: 'text/html' } });
+    const registrationEnabled = registrationUrl && resRegistrationPage.status === 200;
+
+    document.getElementById('registration-enabled').classList[registrationEnabled ? 'remove' : 'add']('hidden');
+    document.getElementById('registration-link').href = registrationUrl;
+  })();
+</script>
+
+<style scoped>
+
+/* Container to display buttons side-by-side */
+.button-container {
+  display: flex;
+  justify-content: space-around; /* Adjusts spacing between buttons */
+  padding: 15px; /* Adds some padding around the buttons */
+}
+
+/* Makes buttons look like buttons */
+.modern-button {
+  background-color: #7C4DFF; /* Purple background */
+  color: white; /* White text */
+  text-decoration: none; /* Removes underline from links */
+  padding: 20px 40px; /* Increases top and bottom padding, Left and right padding to make buttons larger */
+  flex-grow: 1; /* Allows the button to grow to fill the space */
+  border-radius: 2px; /* More rounded corners */
+  text-align: center; /* Centers text horizontally */
+  margin: 0 10px; /* Adds margin to ensure buttons don't touch */
+  cursor: pointer;
+}
+
+#login, #signup {
+  font-size: 26pt;
+}
+
+/* Button hover color */
+.modern-button:hover {
+  background-color: #18a9e6;
+  color: white; /* White text */
+}
+
+/* Adjust margin for the first and last buttons for better spacing */
+.button-container > .modern-button:first-child {
+  margin-left: 0;
+}
+
+.button-container > .modern-button:last-child {
+  margin-right: 0;
+}
+</style>
+</html>

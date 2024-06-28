@@ -1,6 +1,8 @@
 .DS_Store
 node_modules
-.data/
+.data/*
+tsconfig.*.json
+docs/
 
 # local env files
 .env.local
