@@ -23,7 +23,7 @@
 
    `cd TRIPLE_App/`
 
-4. Follow the instructions on the home page of the TRIPLE App website!
+4. Follow the instructions on the home page of the [TRIPLE App](ecrum19.github.io/TRIPLE_App/) website!
 
 
 #### Notes:
