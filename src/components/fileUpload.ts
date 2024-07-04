@@ -28,12 +28,12 @@ async function getPodURLs(webid: string): Promise<string[]> {
  * @param fileList The list of files to be uploaded to the Pod.
  * @param podURL The URL of the Pod files are to be uploaded to.
  */
-async function handleFiles(fileList: FileList, podURL: string) {
-  const outputList = [];
-  Array.from(fileList).forEach((file: File) => {
-    const upload = uploadToPod(`${podURL}uploads/${file.name}`, file, fetch);
+async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
+  const outputList: string[] = [];
+  for (let i = 0; i < fileList.length; i++) {
+    const upload: string = await uploadToPod(`${podURL}uploads/${fileList[i].name}`, fileList[i], fetch);
     outputList.push(upload);
-  });
+  }
   // console.log(outputList)
   return outputList;
 }
@@ -67,7 +67,7 @@ async function uploadToPod(
   fetch
 ): Promise<string> {
   try {
-    const savedFile = await overwriteFile(targetURL, file, {
+    const savedFile: File & WithResourceInfo = await overwriteFile(targetURL, file, {
       contentType: getMimeType('.' + file.name.split('.')[file.name.split('.').length - 1]),
       fetch: fetch,
     });
@@ -88,7 +88,7 @@ async function uploadToPod(
  */
 function uploadSuccess(uploadedFiles: string[]): boolean {
   let success = false;
-  Array.from(uploadedFiles).forEach((up: string) => {
+  uploadedFiles.forEach((up: string) => {
     console.log(up)
     if (up !== undefined) {
       success = true
