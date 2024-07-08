@@ -57,8 +57,8 @@
           type="error"
           icon="$error"
           ><b
-            >Try logging out and logging back in!</b>(also try clearing browser
-            hostory if problem reoccurs)</v-alert
+            >There is an error here somewhere. Try logging out and logging back in?</b>(also could try clearing your browser
+            cookies if problem reoccurs)</v-alert
         >
       </div>
 
@@ -69,23 +69,11 @@
           title="File(s) successfully uploaded!"
           type="success"
           icon="$success"
-          >(File(s) can be found in the <b>{{ this.pod }}uploads/</b> directory
-          of your pod)</v-alert
+          >(Your file(s) <i>{{ this.filesUploaded[0].split('/')[this.filesUploaded[0].split('/').length-1] }}</i> can be found in your pod at 
+          <b>{{ this.filesUploaded[0] }}</b>)</v-alert
         >
       </div>
 
-      <!-- Alert for if file upload is not successful -->
-      <div v-else-if="problem">
-        <v-alert
-          class="mx-auto"
-          title="There was an error with the file(s) upload!"
-          type="error"
-          icon="$error"
-          >There seems to be an error with the file upload. There are some file
-          types not supported in the current implementation. We are working on
-          fixing this currently. Sorry!!</v-alert
-        >
-      </div>
     </v-card>
   </v-container>
 
@@ -113,7 +101,6 @@ export default {
       podURLs: [],
       pod: "",
       filesUploaded: [],
-      problem: false,
       files: FileList,
       uploadDone: false,
     };
@@ -138,13 +125,6 @@ export default {
     },
 
     /*
-  Checks if file is finished uploading. If so, updates the uploadDone variable.
-  */
-    checkUpload():boolean {
-      return uploadSuccess(this.filesUploaded);
-    },
-
-    /*
   Calls handleFiles() from fileUpload.ts parse the files selected for upload + uploads the to the pod using the overwriteFile() method from @inrupt/solid-client.
   'files' variable is a FileList that contains references to all files selected using the upload UI.
 
@@ -152,8 +132,9 @@ export default {
   Results in update of the uploadSuccess variable if files do have names.
   */
     async submitUpload() {
-      // this.filesUploaded = await handleFiles(this.files, this.pod);
-      this.uploadDone = uploadSuccess(await handleFiles(this.files, this.pod));
+      this.filesUploaded = await handleFiles(this.files, this.pod);
+      console.log(this.filesUploaded)
+      this.uploadDone = uploadSuccess(this.filesUploaded);
     },
   },
   mounted() {
