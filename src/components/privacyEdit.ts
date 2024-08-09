@@ -16,14 +16,20 @@ import {
   WithAcl,
 } from "@inrupt/solid-client";
 
+import { fetch } from "@inrupt/solid-client-authn-browser";
+
 /**
  * Gets the a SolidDataset from the current Pod's /Uploads container.
  *
  * @param podURL The URL of the current Pod represented as a string
  * @returns a SolidDataset representation of the Pod's /Uploads container 
  */
-async function obtainSolidDataset(podURL: string): Promise<SolidDataset & WithServerResourceInfo & WithAcl> {
-  return await getSolidDatasetWithAcl(podURL);
+async function obtainSolidDataset(podURL: string): Promise<SolidDataset & WithServerResourceInfo> {
+  const dataWacl = await getSolidDataset(podURL+"uploads/example.ttl", {fetch: fetch})
+  console.log(dataWacl)
+  return dataWacl;
+  // can't get items as SoldDatasets?? Something weird with file types I think?
+  // Need way to get all the resources found in a directory... (not sure how to do this?)
 } 
 
 /**
@@ -59,7 +65,7 @@ function obtainACL(datasetWithAcl: SolidDataset & WithServerResourceInfo & WithA
 /**
  * Changes the access control settings of the "Uploads" container using the editACL() method from Inrupt
  * Function changes rights based on user-input decisions.
- *
+ * 
  * @param currentACL The current ACL file for the Uploads container
  * @param newAccessWebID The user(s) [as list of WebID strings] that will obtain new access rights
  * @param rights a 4 item list that contains boolean values for [read, append, write, control] access rights
@@ -84,4 +90,4 @@ async function editACL(currentACL: AclDataset, newAccessWebIDs: string[], rights
 //  const newACL = createAclFromFallbackAcl(await getResourceInfo(containerURL));
 //}
 
-export default { obtainSolidDataset, obtainACL, editACL }
+export { obtainSolidDataset, obtainACL, editACL }
