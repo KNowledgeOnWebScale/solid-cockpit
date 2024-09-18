@@ -14,9 +14,31 @@ import {
   SolidDataset,
   WithServerResourceInfo,
   WithAcl,
+  createThing,
+  getSourceUrl,
+  ThingPersisted,
+  UrlString,
+  responseToResourceInfo,
+  isRawData,
+  responseToSolidDataset,
+  getEffectiveAccess,
+  
 } from "@inrupt/solid-client";
-
 import { fetch } from "@inrupt/solid-client-authn-browser";
+
+
+
+export function hasAccess(
+  resource: Parameters<typeof getEffectiveAccess>[0],
+  access: Array<keyof ReturnType<typeof getEffectiveAccess>["user"]>,
+): boolean {
+  const actualAccess = getEffectiveAccess(resource);
+  const hasRequiredAccess = access.every(
+    (requiredAccess) => actualAccess.user[requiredAccess] === true,
+  );
+  return hasRequiredAccess;
+}
+
 
 /**
  * Gets the a SolidDataset from the current Pod's /Uploads container.
@@ -84,10 +106,69 @@ async function editACL(currentACL: AclDataset, newAccessWebIDs: string[], rights
 // await saveAclFor(currentACL, updatedAcl);
 }
 
+
+export type FileData = WithServerResourceInfo & {
+  blob: Blob;
+  etag: string | null;
+};
+
+/**
+ * Function to fetch file data from a pod.
+ *  
+ */ 
+const fetcher = async ([url, _webId]: [
+  UrlString,
+  UrlString | undefined,
+]): Promise<FileData | (SolidDataset & WithServerResourceInfo)> => {
+  const urlObject = new URL(url);
+  // Ensure that when we fetch a Container that contains an `index.html`,
+  // the server doesn't serve us that HTML file:
+  const headers = urlObject.pathname.endsWith("/")
+    ? { Accept: "text/turtle" }
+    : {
+        // Otherwise ask the server to give us Turtle if it _can_ be served as
+        // Turtle. If not, serve it up in the most appropriate Content-Type:
+        Accept: "text/turtle;q=1.0, */*;q=0.5",
+      };
+  const response = await fetch(url, { headers: headers });
+  const resourceInfo = responseToResourceInfo(response);
+  if (isRawData(resourceInfo)) {
+    return {
+      ...resourceInfo,
+      blob: await response.blob(),
+      etag: response.headers.get("ETag"),
+    };
+  }
+  if (response.headers.get("Content-Type") === "application/ld+json") {
+    // Some Solid servers (at least NSS) will default to serving content
+    // available as JSON-LD as JSON-LD. Since we only ship a Turtle parser,
+    // re-request it as Turtle instead:
+    return await getSolidDataset(url, { fetch: fetch });
+  }
+  const dataset = await responseToSolidDataset(response);
+  return dataset;
+};
+
+function getResourceUrl(url: UrlString): UrlString {
+  const resourceUrl = new URL(url);
+  resourceUrl.hash = "";
+  return resourceUrl.href;
+}
+
+export function useResource(url: UrlString | null) {
+  const resourceUrl = url ? getResourceUrl(url) : null;
+  const sessionInfo = useSessionInfo();
+  const resource = useSwr(
+    resourceUrl ? [resourceUrl, sessionInfo?.webId] : null,
+    fetcher,
+  );
+
+
+
 //
 //async function generateDefaultACL(containerURL: string) {
 //  const resourceDetails = await getResourceInfo(containerURL);
 //  const newACL = createAclFromFallbackAcl(await getResourceInfo(containerURL));
 //}
 
-export { obtainSolidDataset, obtainACL, editACL }
+export { obtainSolidDataset, obtainACL, editACL, fetcher }

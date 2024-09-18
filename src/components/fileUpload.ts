@@ -19,6 +19,8 @@ async function getPodURLs(webid: string): Promise<string[]> {
   } catch (error) {
     pods = ["Error: probably not logged in"];
   }
+  console.log(pods);
+  console.log(webid);
   return pods;
 }
 
@@ -30,6 +32,7 @@ async function getPodURLs(webid: string): Promise<string[]> {
  */
 async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
   const outputList: string[] = [];
+  console.log(podURL);
   for (let i = 0; i < fileList.length; i++) {
     const upload: string = await uploadToPod(`${podURL}uploads/${fileList[i].name}`, fileList[i], fetch);
     outputList.push(upload);
@@ -90,7 +93,7 @@ function uploadSuccess(uploadedFiles: string[]): boolean {
   let success = false;
   uploadedFiles.forEach((up: string) => {
     console.log(up)
-    if (up !== undefined) {
+    if (up !== undefined || up !== 'error') {
       success = true
     } else {
       success = false
@@ -104,6 +107,7 @@ function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
     return [inputFile.name, String(inputFile.size), inputFile.internal_resourceInfo.sourceIri]
   } catch (error) {
     console.error('Error', error)
+    return ["error"];
   }
 }
 
