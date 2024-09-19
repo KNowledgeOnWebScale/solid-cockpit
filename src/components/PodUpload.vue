@@ -91,8 +91,8 @@
 </template>
 
 <script lang="ts">
-import { getPodURLs, handleFiles, uploadSuccess } from "./fileUpload";
-import { currentWebId } from "./login";
+import { handleFiles, uploadSuccess } from "./fileUpload";
+import { currentWebId, getPodURLs } from "./login";
 
 export default {
   data() {
@@ -112,7 +112,7 @@ export default {
   */
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podURLs = await getPodURLs(this.webId); // calls async function to get Pod URLs
+      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
       this.pod = this.podURLs[0]; // can fix this to handle multiple pods (<< FUTURE >>)
     },
 

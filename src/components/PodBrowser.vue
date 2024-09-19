@@ -29,8 +29,7 @@
 </template>
 
 <script lang="ts">
-import { currentWebId, session } from "./login";
-import { getPodURLs } from "./fileUpload";
+import { currentWebId, session, getPodURLs } from "./login";
 import { executeQuery } from "./queryPod";
 export default {
   data() {
@@ -49,7 +48,7 @@ export default {
     */
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podURLs = await getPodURLs(this.webId); // calls async function to get Pod URLs
+      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
       this.pod = this.podURLs[0]; // can fix this to handle multiple pods (<< FUTURE >>)
     },
 

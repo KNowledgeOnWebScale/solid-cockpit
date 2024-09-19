@@ -110,17 +110,18 @@
 </template>
 
 <script>
+import { inject } from 'vue';
 import { obtainSolidDataset } from "./privacyEdit";
-import { currentWebId } from "./login";
-import { getPodURLs } from "./fileUpload";
+import { currentWebId, getPodURLs } from "./login";
+import { useResource, WorkingData, fetchData } from './getData';
 
 export default {
+  name: "PrivacyComponent",
   data() {
     return {
       webId: "",
-      podURLs: [],
-      pod: "",
-      dirContents: "",
+      podList: "",
+      dirContents: WorkingData,
     };
   },
   methods: {
@@ -130,26 +131,27 @@ export default {
     */
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podURLs = await getPodURLs(this.webId); // calls async function to get Pod URLs
-      this.pod = this.podURLs[0]; // can fix this to handle multiple pods (<< FUTURE >>)
+      this.podList = await getPodURLs(); // calls async function to get Pod URLs
     },
-    async getPodData() {
-      this.dirContents = await obtainSolidDataset(this.pod + "uploads/");
-    },
+    /*
+    Calls useResource() from getData.ts to obtain SolidDataset from a resource...
+    */
+    async testingFun() {
+      this.dirContents = await fetchData(this.podList[0] + "uploads/");
+      console.log(this.dirContents)
+    }
+
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
-    /*
+    this.getPodURL();
     setTimeout(() => {
-      this.getPodURL();
-    }, 200);
-    setTimeout(() => {
-      this.getPodData();
-    }, 400);
-    */
+      this.testingFun();
+    }, 500);
   },
 };
 </script>
+
 
 <style scoped>
 .container {

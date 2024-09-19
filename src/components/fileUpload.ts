@@ -1,28 +1,10 @@
 import {
   WithResourceInfo,
-  getPodUrlAll,
   overwriteFile,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { mimeTypes } from "./mime_types.js";
 
-/**
- * Fetches a logged-in user's Pod URLs using a webID.
- *
- * @param webid The webID URL of the current user.
- * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
- */
-async function getPodURLs(webid: string): Promise<string[]> {
-  let pods: string[] = [];
-  try {
-    pods = await getPodUrlAll(webid, { fetch: fetch });
-  } catch (error) {
-    pods = ["Error: probably not logged in"];
-  }
-  console.log(pods);
-  console.log(webid);
-  return pods;
-}
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() method.
@@ -111,4 +93,4 @@ function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
   }
 }
 
-export { handleFiles, getPodURLs, getMimeType, uploadSuccess, derefrenceFile };
+export { handleFiles, getMimeType, uploadSuccess, derefrenceFile };
