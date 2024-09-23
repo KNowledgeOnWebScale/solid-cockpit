@@ -1,54 +1,50 @@
 <template>
-  <head>
-    <!-- Compiled and minified CSS -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    />
+  <!-- Compiled and minified CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+  />
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    rel="stylesheet"
+  />
 
-    <link
-      href="https://fonts.googleapis.com/icon?family=Material+Icons"
-      rel="stylesheet"
-    />
-  </head>
-  <v-card class="mx-auto" height="max" color="#b0c4de">
-    <body>
-      <v-container>
-        <div class="navbar-fixed">
-          <nav>
-            <div class="nav-wrapper indigo lighten-3">
-              <ul>
-                <a href="#!" class="brand-logo">Privacy Editing</a>
-                <div class="right">
-                  <li>
-                    <a href="#!"
-                      ><i class="material-icons grey-text text-darken-1"
-                        >view_list</i
-                      ></a
-                    >
-                  </li>
-                  <li>
-                    <a href="#!"
-                      ><i class="material-icons grey-text text-darken-1"
-                        >info</i
-                      ></a
-                    >
-                  </li>
-                  <li>
-                    <a href="#!"
-                      ><i class="material-icons grey-text text-darken-1"
-                        >notifications</i
-                      ></a
-                    >
-                  </li>
-                </div>
-              </ul>
+  <body class="contentBody">
+    <div class="titleContainer">
+      <nav>
+        <div class="nav-wrapper indigo lighten-3">
+          <ul>
+            <span>Privacy Editing</span>
+            <div class="right">
+              <li>
+                <a href="#!"
+                  ><i class="material-icons grey-text text-darken-1"
+                    >view_list</i
+                  ></a
+                >
+              </li>
+              <li>
+                <a href="#!"
+                  ><i class="material-icons grey-text text-darken-1"
+                    >info</i
+                  ></a
+                >
+              </li>
+              <li>
+                <a href="#!"
+                  ><i class="material-icons grey-text text-darken-1"
+                    >notifications</i
+                  ></a
+                >
+              </li>
             </div>
-          </nav>
+          </ul>
         </div>
-      </v-container>
+      </nav>
+    </div>
 
-      <v-container>
+    <div class="bodyContainer">
+      <div class="sideNav">
         <ul
           class="side-nav fixed floating indigo lighten-3 z-depth-0"
         >
@@ -58,12 +54,15 @@
               >My Pod</a
             >
           </li>
+          <li><div class="divider"></div></li>
           <li>
             <a href="#"><i class="material-icons">people</i>Shared with me</a>
           </li>
+          <li><div class="divider"></div></li>
           <li>
             <a href="#"><i class="material-icons">star</i>Starred</a>
           </li>
+          <li><div class="divider"></div></li>
           <li>
             <a href="#"><i class="material-icons">delete</i>Trash</a>
           </li>
@@ -71,46 +70,55 @@
           <li>
             <a href="#"><i class="material-icons">cloud</i>Backup</a>
           </li>
-          <li>
-            <a href="#"><i class="material-icons">cloud</i>Backup</a>
-          </li>
           
         </ul>
-        
-        <!-- need to figure out how to make container as large as needed for entries, now above determines vert len --> 
-        <div class="main">
-          <div class="container-fluid ">
-            <ul>
-              <li>
-                <div class="card-panel folder">
-                  <i class="material-icons left">folder</i>Folder
-                </div>
-              </li>
-              <li>
-                <div class="card-panel folder">
-                  <i class="material-icons left">folder</i>Folder
-                </div>
-              </li>
-              <li>
-                <div class="card-panel folder">
-                  <i class="material-icons left">folder</i>Folder
-                </div>
-              </li>
-              <li>
-                <div class="card-panel folder">
-                  <i class="material-icons left">folder</i>Folder
-                </div>
-              </li>
-            </ul>
-          </div>
+      </div>
+
+      <!-- need to figure out how to make container as large as needed for entries, now above determines vert len --> 
+      <div class="podDirectories">
+        <div class="container-fluid">
+          <ul>
+            <li v-for="(urls, index) in urls" :key="index">
+              <div class="card-panel folder">
+                <i class="material-icons left">folder</i>
+                  {{ urls }}
+                  <button @click="toggleForm(index)" class="icon-button right">
+                    <i class="material-icons right">lock</i>
+                  </button>
+      
+                  <!-- Form container -->
+                  <div id="shareBox" v-if="showFormIndex === index" class="form-container">
+                    <form @submit.prevent="submitForm">
+                      <span id="permissionsInstructions">Select the access level:</span>
+                      <label>
+                        <input type="checkbox" v-model="permissions.read" />
+                        <span>Read</span>
+                      </label>
+                      <label>
+                        <input type="checkbox" v-model="permissions.append" />
+                        <span>Append</span>
+                      </label>
+                      <label>
+                        <input type="checkbox" v-model="permissions.write" />
+                        <span>Write</span>
+                      </label>
+                      <input type="text" v-model="formData" placeholder="Enter user's WebID:" />
+                      <button type="submit">Submit</button>
+                    </form>
+                  </div>
+              </div>
+            </li>
+          </ul>
         </div>
-      </v-container>
-    </body>
-  </v-card>
+      </div>
+    </div>
+
+  </body>
 </template>
 
 <script>
 import { inject } from 'vue';
+import { getContainedResourceUrlAll, resourceUrl } from "@inrupt/solid-client";
 import { obtainSolidDataset } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
 import { useResource, WorkingData, fetchData } from './getData';
@@ -119,32 +127,58 @@ export default {
   name: "PrivacyComponent",
   data() {
     return {
+      showFormIndex: null,
+      formData: '',
+      permissions: {
+        read: false,
+        append: false,
+        write: false,
+      },
+      
       webId: "",
       podList: "",
       dirContents: WorkingData,
+      urls: [],
     };
   },
   methods: {
+    toggleForm(index) {
+      if (this.showFormIndex === index) {
+        this.showFormIndex = null; // Hide the form if it's already shown
+      } else {
+        this.showFormIndex = index; // Show the form for the clicked item
+      }
+    },
+
+    submitForm() {
+      console.log('Form submitted with data:', this.formData);
+      console.log('Permissions:', this.permissions);
+      // Handle form submission logic here
+      this.showFormIndex = null; // Optionally hide the form after submission
+    },
     /*
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
     */
-    async getPodURL() {
+    async podURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podList = await getPodURLs(); // calls async function to get Pod URLs
+      console.log(this.podList)
     },
     /*
     Calls useResource() from getData.ts to obtain SolidDataset from a resource...
     */
     async testingFun() {
-      this.dirContents = await fetchData(this.podList[0] + "uploads/");
+      this.dirContents = await fetchData(this.podList[0]);
       console.log(this.dirContents)
+      this.urls = getContainedResourceUrlAll(this.dirContents);
+      console.log(this.urls)
     }
 
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
-    this.getPodURL();
+    this.podURL();
     setTimeout(() => {
       this.testingFun();
     }, 500);
@@ -154,128 +188,75 @@ export default {
 
 
 <style scoped>
-.container {
-  position: absolute;
-  max-width: 80%;
-  background-color: #b0c4de;
-}
-
 body {
   background-color: #b0c4de;
   font-size: 13px;
 }
-.card,
-.card-panal {
-  padding: 15px, 20px;
-  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.14);
-  background-color: #b0c4de;
-}
-.container-fluid {
-  padding: 0 2.5rem;
-  margin: auto;
-  background-color: #b0c4de;
-}
-.row {
-  margin: 0 -0.75rem;
-  background-color: #b0c4de;
-}
-.main {
-  position: absolute;
-  width: calc(100% - 250px);
-  top: 118px;
-  margin-left: 240px;
-  background-color: #b0c4de;
+.contentBody {
+  display: flex;
+  flex-direction: column;
 }
 
-/* nav */
+.titleContainer {
+  display: flex;
+  flex: 1;
+}
+.titleContainer span {
+  font-size: 30pt;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 500;
+  color:#212121;
+}
+
+/* general layout */
+.bodyContainer {
+  display: flex;
+  flex: 1 1 auto;
+}
+.side-nav{
+  flex: 1 1 auto;
+}
+.podDirectories {
+  flex: 1 1 auto;
+}
+
+/* title bar */
 nav {
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
-  max-width: 90%;
-}
-nav ul li {
-  text-align: center;
-}
-nav ul.right {
-  padding-right: 12px;
-}
-nav ul.right li {
-  max-width: 150px;
-}
-nav ul a {
-  padding-right: 0 12px;
 }
 .nav-wrapper {
-  padding-left: 12px;
-}
-.nav-wrapper ul a:hover {
-  background-color: transparent;
-}
-.nav-wrapper .title {
-  font-size: 1.4rem;
-}
-.nav-wrapper .btn-flat {
-  background-color: #4285f4 !important;
-  font-size: 13px;
-  font-weight: 500;
-  height: 30px;
-  line-height: 30px;
-  width: 94px;
-}
-.nav-2,
-.nav-2 i {
-  height: 56px !important;
-  line-height: 56px !important;
-  min-height: 56px !important;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 /*sidenav*/
 .side-nav.floating {
-  width: 250px;
-  padding: 5px 2px 0 !important;
-  height: calc(100% - 130px);
-  left: initial;
-  right: initial;
-  top: 125px;
-  transform: initial;
-  z-index: auto;
-  margin: 0.5rem 0 1rem 0;
+  padding-top: 2px;
   border-radius: 2px;
-  background: transparent;
-  box-shadow: none;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
 }
 .side-nav .divider {
-  margin: 8px 0;
+  margin: 2px 0;
 }
 .side-nav .active {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(41, 35, 35, 0.05);
 }
 .side-nav .active a {
   color: #212121;
   font-weight: 500;
 }
-.side-nav .subheader {
-  line-height: 24px;
-  height: 32px;
-  margin: 0;
-  padding: 4px 16px;
-  color: #616161;
-  font-weight: normal;
-  font-size: 13px;
-}
+
 .side-nav li a,
 .side-nav li a i.material-icons {
   height: 40px;
   line-height: 40px;
-}
-.side-nav li a i.material-icons {
   margin-right: 24px;
-  margin-top: -3px;
 }
+
 .side-nav li a {
-  padding: 4px 16px;
-  font-weight: normal;
-  font-size: 13px;
-  color: #616161;
+  padding: 10px 20px;
+  font-size: 15px;
+  color: #242424;
 }
 .side-nav li a:hover {
   border-radius: 2px;
@@ -283,13 +264,52 @@ nav ul a {
 
 /*folders*/
 .folder {
-  width: 90%;
-  display: inline-block;
   margin: 3px 0px 0px 0;
-  font-weight: 500;
+  font-weight: 800;
+  font-size: large;
+  font-family: 'Courier New', Courier, monospace;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);
-  margin-top: -3px;
+  margin-top: -2px;
+}
+
+/*Share Drop Downs*/
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.form-container {
+  margin-top: 10px;
+}
+label {
+  margin-left: 20px;
+}
+form input[type="text"] {
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: larger;
+  max-width: 80%;
+}
+form button {
+  padding: 15px;
+  margin-left: 5px;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: large;
+}
+form button:hover {
+  background-color: #444;
+}
+
+label span {
+  font-size: 16px; /* Change the font size of the label text */
+  color: #000000;
 }
 </style>

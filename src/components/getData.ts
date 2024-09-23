@@ -43,6 +43,7 @@ export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
  * @retuns dataset ...
  */
 export async function fetchData(url: UrlString): Promise<WorkingData> {
+  console.log(url)
   const urlObject = new URL(url);
   // Ensure that when we fetch a Container that contains an `index.html`,
   // the server doesn't serve us that HTML file:
@@ -72,6 +73,7 @@ export async function fetchData(url: UrlString): Promise<WorkingData> {
   const dataset = await responseToSolidDataset(response);
   return dataset;
 }
+
 
 /**
  * gets a resource URL --

@@ -84,6 +84,7 @@ async function getPodURLs(): Promise<string[]> {
   let pods: string[] = [];
   try {
     pods = await getPodUrlAll(session.info.webId, { fetch: fetch });
+    console.log(pods)
   } catch (error) {
     pods = ["Error: probably not logged in"];
   }
@@ -118,4 +119,4 @@ async function handleRedirectAfterPageLoad(): Promise<void> {
 
 
 
-export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, getPodURLs, redirectToHomepage, redirectToLogin, logOut, session, podURL }
+export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, getPodURLs, redirectToHomepage, redirectToLogin, logOut, session }
