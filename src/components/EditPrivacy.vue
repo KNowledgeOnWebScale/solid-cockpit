@@ -1,5 +1,5 @@
 <template>
-  <!-- Compiled and minified CSS -->
+  <!-- Materialize CSS -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
@@ -9,6 +9,7 @@
     rel="stylesheet"
   />
 
+  <!-- Title bar --> 
   <body class="contentBody">
     <div class="titleContainer">
       <nav>
@@ -43,6 +44,7 @@
       </nav>
     </div>
 
+    <!-- the side nav --> 
     <div class="bodyContainer">
       <div class="sideNav">
         <ul
@@ -74,21 +76,40 @@
         </ul>
       </div>
 
-      <!-- need to figure out how to make container as large as needed for entries, now above determines vert len --> 
+      <!-- Pod Containers display --> 
       <div class="podDirectories">
         <div class="container-fluid">
           <ul>
-            <li v-for="(urls, index) in urls" :key="index">
+            <!-- Iterates over list of containers in a pod --> 
+            <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
                 <i class="material-icons left">folder</i>
-                  {{ urls }}
-                  <button @click="toggleForm(index)" class="icon-button right">
+                  {{ url }}
+                  <button @click="toggleShared(index), getSpecificData(url)" class="icon-button right">
                     <i class="material-icons right">lock</i>
                   </button>
-      
-                  <!-- Form container -->
+                  <!-- Current access rights --> 
+                  <div id="permissionsBox" v-if="showSharedIndex === index" class="form-container">
+                    <div>
+                      <span id="permissionsInstructions">The following users have access: (via {{ aclUrl }})</span>
+                    </div>
+                    <div>
+                      <span id="withPermissions"> </span>
+                    </div>
+
+                    <!-- Show add access form -->
+                    <div>
+                      <button @click="toggleForm(index)" class="icon-button left">
+                        <span>Add access rights </span>
+                        <i v-if="showFormIndex === null" class="material-icons right">add</i>
+                        <i v-if="showFormIndex === index" class="material-icons right">remove</i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Add access form -->
                   <div id="shareBox" v-if="showFormIndex === index" class="form-container">
-                    <form @submit.prevent="submitForm">
+                    <form @submit.prevent="submitForm(url)">
                       <span id="permissionsInstructions">Select the access level:</span>
                       <label>
                         <input type="checkbox" v-model="permissions.read" />
@@ -102,7 +123,7 @@
                         <input type="checkbox" v-model="permissions.write" />
                         <span>Write</span>
                       </label>
-                      <input type="text" v-model="formData" placeholder="Enter user's WebID:" />
+                      <input type="text" v-model="userString" placeholder="Enter user's WebID:" />
                       <button type="submit">Submit</button>
                     </form>
                   </div>
@@ -118,44 +139,83 @@
 
 <script>
 import { inject } from 'vue';
-import { getContainedResourceUrlAll, resourceUrl } from "@inrupt/solid-client";
-import { obtainSolidDataset } from "./privacyEdit";
+import { getContainedResourceUrlAll, resourceUrl, getLinkedResourceUrlAll } from "@inrupt/solid-client";
+import { changeAcl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
-import { useResource, WorkingData, fetchData } from './getData';
+import { useResource, WorkingData, fetchData, fetchAclAgents } from './getData';
 
 export default {
   name: "PrivacyComponent",
   data() {
     return {
+      showSharedIndex: null,
       showFormIndex: null,
-      formData: '',
+      userString: '',
       permissions: {
         read: false,
         append: false,
         write: false,
+        control: false
       },
       
       webId: "",
       podList: "",
       dirContents: WorkingData,
+      containerContents: WorkingData,
       urls: [],
+      aclUrl: "",
+      hasAccess:[],
+
     };
   },
   methods: {
+    /*
+    */
+    toggleShared(index) {
+      if (this.showSharedIndex === index) {
+        this.showSharedIndex = null; // Hide the form if it's already shown
+      } else {
+        this.showSharedIndex = index; // Show the form for the clicked item
+      }
+    },
     toggleForm(index) {
       if (this.showFormIndex === index) {
         this.showFormIndex = null; // Hide the form if it's already shown
       } else {
         this.showFormIndex = index; // Show the form for the clicked item
       }
+    }, 
+    submitForm(url) {
+      console.log('Form submitted with data:', this.aclUrl, this.userString, this.permissions);
+      
+      // Handle permissions permutation logic
+      if (this.permissions.read === true && this.permissions.write === true) {
+        this.permissions.control = true;
+      }
+      if (this.permissions.write === true) {
+        this.permissions.append = true;
+      }
+
+      // Call function to do the .acl changing
+      changeAcl(this.webId, url, this.userString, this.permissions);
+    },
+    removeNonDirectoryUrls() {
+      this.urls = this.urls.filter(url => url.endsWith('/'));
     },
 
-    submitForm() {
-      console.log('Form submitted with data:', this.formData);
-      console.log('Permissions:', this.permissions);
-      // Handle form submission logic here
-      this.showFormIndex = null; // Optionally hide the form after submission
+
+    /*
+    */
+    async currentAccess(containerAddress) {
+      fetchAclAgents(containerAddress)
     },
+
+    /*
+    */
+    async addToAcl(userWebId, whereContainer, user, permissions) {
+      changeAcl(userWebId, whereContainer, user, permissions);
+    },
+
     /*
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
@@ -163,24 +223,36 @@ export default {
     async podURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podList = await getPodURLs(); // calls async function to get Pod URLs
-      console.log(this.podList)
     },
+
     /*
-    Calls useResource() from getData.ts to obtain SolidDataset from a resource...
     */
-    async testingFun() {
+    async getGeneralData() {
       this.dirContents = await fetchData(this.podList[0]);
-      console.log(this.dirContents)
       this.urls = getContainedResourceUrlAll(this.dirContents);
-      console.log(this.urls)
-    }
+      this.removeNonDirectoryUrls();
+      if (!this.urls.includes(this.podList[0])) {
+        this.urls.push(this.podList[0]);
+      }
+      this.urls = this.urls.sort((a, b) => a.length - b.length);
+    },
+
+    /*
+    */
+    async getSpecificData(path) {
+      this.containerContents = await fetchData(path);
+      const rawAclUrl = getLinkedResourceUrlAll(this.containerContents)
+      this.aclUrl = rawAclUrl['acl'][0]
+      this.hasAccess = fetchAclAgents(this.aclUrl)
+    },
 
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     this.podURL();
     setTimeout(() => {
-      this.testingFun();
+      this.getGeneralData();
+      // this.getSpecificData("http://localhost:3000/test/")
     }, 500);
   },
 };

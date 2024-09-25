@@ -84,7 +84,6 @@ async function getPodURLs(): Promise<string[]> {
   let pods: string[] = [];
   try {
     pods = await getPodUrlAll(session.info.webId, { fetch: fetch });
-    console.log(pods)
   } catch (error) {
     pods = ["Error: probably not logged in"];
   }

@@ -3,10 +3,15 @@ import {
   getSolidDataset,
   SolidDataset,
   WithServerResourceInfo,
+  WithAcl,
+  AgentAccess,
   UrlString,
   responseToResourceInfo,
   isRawData,
   responseToSolidDataset,
+  getSolidDatasetWithAcl,
+  getAgentAccessAll,
+  getGroupAccessAll,
   getLinkedResourceUrlAll,
   hasServerResourceInfo,
   overwriteFile,
@@ -43,7 +48,6 @@ export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
  * @retuns dataset ...
  */
 export async function fetchData(url: UrlString): Promise<WorkingData> {
-  console.log(url)
   const urlObject = new URL(url);
   // Ensure that when we fetch a Container that contains an `index.html`,
   // the server doesn't serve us that HTML file:
@@ -74,6 +78,20 @@ export async function fetchData(url: UrlString): Promise<WorkingData> {
   return dataset;
 }
 
+/**
+ * fetch variable that designates how to get data from Solid Pod API.
+ * Specifically, is passed as a parameter into the SWRV function
+ * 
+ * @param url a url to a pod resource from which we want to get and .acl file
+ * 
+ * @retuns dataset ...
+ */
+export async function fetchAclAgents(url: UrlString): Promise<void> {
+  const solidDataAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+  const agentAccess = getAgentAccessAll(solidDataAcl);
+  const groupAccess = getGroupAccessAll(solidDataAcl);
+  console.log(solidDataAcl)
+}
 
 /**
  * gets a resource URL --

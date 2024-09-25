@@ -8,6 +8,7 @@ import {
   hasAccessibleAcl,
   hasFallbackAcl,
   setAgentResourceAccess,
+  getAgentAccess,
   saveAclFor,
   createAclFromFallbackAcl,
   AclDataset,
@@ -30,25 +31,13 @@ import { fetch } from "@inrupt/solid-client-authn-browser";
 import { WorkingData, fetchData } from "./getData"
 import { getPodURLs, currentWebId } from "./login";
 
-/**
- * Determines access of user to data containers.
- * 
- * @param resource
- * @param access
- * 
- * @retuns boolean
- */
-export function hasAccess(
-  resource: Parameters<typeof getEffectiveAccess>[0],
-  access: Array<keyof ReturnType<typeof getEffectiveAccess>["user"]>
-): boolean {
-  const actualAccess = getEffectiveAccess(resource);
-  const hasRequiredAccess = access.every(
-    (requiredAccess) => actualAccess.user[requiredAccess] === true
-  );
-  return hasRequiredAccess;
-}
 
+export type Permissions = {
+  read: boolean,
+  append: boolean,
+  write: boolean,
+  control: boolean
+}
 
 /**
  * Gets the current ACL file from a Pod's /Uploads container. (a bit of a mess rn)
@@ -56,22 +45,18 @@ export function hasAccess(
  * @param datasetWithAcl A Solid dataset (obtained from a Pod URL) with or without an ACL file
  * @returns an AclDataset that represents the current ACL for the Pod's /Uploads container 
  */
-async function obtainACL(dataset: WorkingData) {
-  const LinkedResURLs = hasServerResourceInfo(dataset)
-    ? getLinkedResourceUrlAll(dataset)
-    : {};
-  const aclUrl = LinkedResURLs.acl?.[0] ?? null;
-  const aclDataset = await fetchData(aclUrl);
-  const linkedResourceLabels: Record<UrlString, string> = {};
-
-  linkedResourceLabels[aclUrl] = "linked-resources-acl-label";
-  
-  // this is strange (for data visualization I believe) and should be further investigated ...
-  const resourceLinks = Object.keys(linkedResourceLabels).map(
-    (linkedResourceUrl) => {
-      return ({linkedResourceLabels, linkedResourceUrl});
-    },
+export async function changeAcl(myWebId: string, url: UrlString, user: string, accessLevel: Permissions): Promise<void> {
+  const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+  const agentAccess = getAgentAccess(solidDataWAcl, myWebId);
+  // const working = hasResourceAcl(solidDataAcl);
+  console.log(agentAccess);
+  const resourceAcl = getResourceAcl(solidDataWAcl);
+  const updatedAcl = setAgentResourceAccess(
+    resourceAcl,
+    user,
+    accessLevel
   );
+  console.log(resourceAcl);
 }
 
 /**
@@ -103,4 +88,4 @@ async function editACL(currentACL: AclDataset, newAccessWebIDs: string[], rights
 //  const newACL = createAclFromFallbackAcl(await getResourceInfo(containerURL));
 //}
 
-export { obtainACL, editACL }
+export { editACL }
