@@ -90,7 +90,7 @@ export async function fetchAclAgents(url: UrlString): Promise<void> {
   const solidDataAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
   const agentAccess = getAgentAccessAll(solidDataAcl);
   const groupAccess = getGroupAccessAll(solidDataAcl);
-  console.log(solidDataAcl)
+  console.log(agentAccess)
 }
 
 /**

@@ -9,10 +9,11 @@ import {
   hasFallbackAcl,
   setAgentResourceAccess,
   getAgentAccess,
-  saveAclFor,
+  WithResourceInfo,
   createAclFromFallbackAcl,
   AclDataset,
   SolidDataset,
+  saveSolidDatasetAt,
   WithServerResourceInfo,
   WithAcl,
   createThing,
@@ -39,25 +40,78 @@ export type Permissions = {
   control: boolean
 }
 
+
+
+/**
+ * Function that checks if an input string is a valid URL
+ * 
+ * @param urlString A string to be checked if it is a valid URL
+ * 
+ * @returns boolean of FALSE if the string IS a valid URL // TRUE if the string is NOT a vaild URL
+ */
+export function checkUrl(urlString: string): boolean {
+  try {
+    new URL(urlString);
+    return false;
+  } catch (err) {
+    return true;
+  }
+}
+
+
+/**
+ * A working version of the saveAclFor method described in [https://github.com/inrupt/solid-client-js/blob/5d35c2e3bd40b3045b5b04ca9c7aa43865a39837/src/acl/acl.ts#L487].
+ * 
+ * @param resource A Solid dataset (obtained from a container URL) with an ACL file
+ * 
+ * @param resourceAcl 
+ * @returns an AclDataset that represents the current ACL for the Pod's /Uploads container 
+ */
+async function saveAclFor(
+  resource: SolidDataset & WithServerResourceInfo & WithAcl,
+  resourceAcl: SolidDataset,
+): Promise<AclDataset & WithResourceInfo> {
+  if (!hasAccessibleAcl(resource)) {
+    throw new Error(
+      `Could not determine the location of the ACL for the Resource at [${getSourceUrl(
+        resource,
+      )}];`,
+    );
+  }
+  const savedDataset = await saveSolidDatasetAt(
+    resource.internal_resourceInfo.aclUrl,
+    resourceAcl,
+    { fetch: fetch },
+  );
+
+  const savedAclDataset: AclDataset & typeof savedDataset = {
+    ...savedDataset,
+    internal_accessTo: getSourceUrl(resource),
+  };
+
+  return savedAclDataset;
+}
+
+
 /**
  * Gets the current ACL file from a Pod's /Uploads container. (a bit of a mess rn)
  *
  * @param datasetWithAcl A Solid dataset (obtained from a Pod URL) with or without an ACL file
  * @returns an AclDataset that represents the current ACL for the Pod's /Uploads container 
  */
-export async function changeAcl(myWebId: string, url: UrlString, user: string, accessLevel: Permissions): Promise<void> {
+export async function changeAcl(url: UrlString, user: string, accessLevel: Permissions): Promise<void> {
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
-  const agentAccess = getAgentAccess(solidDataWAcl, myWebId);
-  // const working = hasResourceAcl(solidDataAcl);
-  console.log(agentAccess);
   const resourceAcl = getResourceAcl(solidDataWAcl);
   const updatedAcl = setAgentResourceAccess(
     resourceAcl,
     user,
     accessLevel
   );
-  console.log(resourceAcl);
+  await saveAclFor(solidDataWAcl, updatedAcl);
 }
+
+
+
 
 /**
  * Changes the access control settings of the "Uploads" container using the editACL() method from Inrupt
