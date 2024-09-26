@@ -40,8 +40,6 @@ export type Permissions = {
   control: boolean
 }
 
-
-
 /**
  * Function that checks if an input string is a valid URL
  * 
@@ -49,10 +47,15 @@ export type Permissions = {
  * 
  * @returns boolean of FALSE if the string IS a valid URL // TRUE if the string is NOT a vaild URL
  */
-export function checkUrl(urlString: string): boolean {
+export function checkUrl(urlString: string, webid: string): boolean {
   try {
     new URL(urlString);
-    return false;
+    if (urlString !== webid) {
+      return false;
+    } 
+    else {
+      return true;
+    }
   } catch (err) {
     return true;
   }
@@ -94,10 +97,14 @@ async function saveAclFor(
 
 
 /**
- * Gets the current ACL file from a Pod's /Uploads container. (a bit of a mess rn)
+ * Changes the access control settings of the "Uploads" container using the editACL() method from Inrupt
+ * Function changes rights based on user-input decisions.
  *
- * @param datasetWithAcl A Solid dataset (obtained from a Pod URL) with or without an ACL file
- * @returns an AclDataset that represents the current ACL for the Pod's /Uploads container 
+ * @param url A URL for a Solid Dataset with or without an ACL file
+ * @param user The user WebID that will obtain new access rights
+ * @param accessLevel a 4 item list that contains boolean values for [read, append, write, control] access rights
+ * 
+ * @returns an AclDataset that represents the updated ACL 
  */
 export async function changeAcl(url: UrlString, user: string, accessLevel: Permissions): Promise<void> {
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
@@ -110,29 +117,17 @@ export async function changeAcl(url: UrlString, user: string, accessLevel: Permi
   await saveAclFor(solidDataWAcl, updatedAcl);
 }
 
-
-
-
 /**
- * Changes the access control settings of the "Uploads" container using the editACL() method from Inrupt
- * Function changes rights based on user-input decisions.
+ * Adds a new .acl file with default permissions (i.e. only owner has "Control" access)
  * 
  * @param currentACL The current ACL file for the Uploads container
  * @param newAccessWebID The user(s) [as list of WebID strings] that will obtain new access rights
  * @param rights a 4 item list that contains boolean values for [read, append, write, control] access rights
  */
-async function editACL(currentACL: AclDataset, newAccessWebIDs: string[], rights: boolean[]) {
-  let updatedAcl: AclDataset;
-  for (let i=0; i<newAccessWebIDs.length; i++) {
-    updatedAcl = setAgentResourceAccess(
-      currentACL,
-      newAccessWebIDs[i],
-      { read: rights[0], append: rights[1], write: rights[2], control: rights[3] }
-    );
-  }
+export async function newgenerateDefaultACLAcl(containerURL: string) {
+  // const newACL = createAclFromFallbackAcl(await getSolidDatasetWithAcl(containerURL));
+  // logic to make new .acl here
 
-// need resource of type WithAccessibleACL
-// await saveAclFor(currentACL, updatedAcl);
 }
 
 
@@ -141,5 +136,3 @@ async function editACL(currentACL: AclDataset, newAccessWebIDs: string[], rights
 //  const resourceDetails = await getResourceInfo(containerURL);
 //  const newACL = createAclFromFallbackAcl(await getResourceInfo(containerURL));
 //}
-
-export { editACL }

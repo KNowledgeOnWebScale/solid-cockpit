@@ -84,8 +84,10 @@
                   @click="toggleShared(index), getSpecificData(url)"
                   class="icon-button right"
                 >
-                  <i class="material-icons right">lock</i>
+                  <i class="material-icons right">
+                    {{ (showSharedIndex === null) ? 'chevron_right lock' : 'keyboard_arrow_down lock' }}</i>
                 </button>
+
                 <!-- Current access rights -->
                 <div
                   id="permissionsBox"
@@ -94,10 +96,32 @@
                 >
                   <div>
                     <span id="permissionsInstructions"
-                      >The following users have access: (via {{ aclUrl }})</span
-                    >
+                      >Current Access Rights</span>
                   </div>
-                  <div>
+                  <div id="currentPermissions">
+                    <li class="access-item" v-for="(agent, inde) in hasAccess" :key="inde">
+                      <div class="user-id">
+                        <span class="user-tag">User:<br /></span>
+                        <span class="the-user"><i>{{ inde }}</i>
+                          <button @click="copyText(inde)" class="icon-button right">
+                            <i class="material-icons right">content_copy</i>
+                          </button>
+                        </span>
+                      </div>
+                      <span class="permissions-tag">Permissions:<br /></span>
+                        <ul v-for="(permission, ind) in hasAccess[inde]" :key="ind">
+                          <div class="permission-item" :class="{'true-color': permission, 'false-color': !permission}">
+                            <span class="permission-label">{{ ind }}</span>
+                            <span class="permission-value">
+                              <i>({{ permission }})</i>
+                              <i class="material-icons right">
+                                {{ permission ? 'check' : 'dangerous' }}
+                              </i>
+                            </span>
+                          </div>
+                        </ul>
+
+                    </li>
                     <span id="withPermissions"> </span>
                   </div>
 
@@ -117,9 +141,9 @@
                         remove
                       </i>
                       <v-tooltip
-                          v-if="showFormIndex === index"
-                          activator="parent"
-                          location="end"
+                        v-if="showFormIndex === index"
+                        activator="parent"
+                        location="end"
                         >Click to hide "Add access rights" field
                       </v-tooltip>
                     </button>
@@ -157,23 +181,52 @@
                         placeholder="Enter user's WebID:"
                       />
                       <div id="submitButton">
-                        <button @click="clearPermissionString" type="submit">Submit</button>
+                        <button @click="clearPermissionString" type="submit">
+                          Submit
+                        </button>
                       </div>
 
                       <!-- If provided WebID is not a valid URL -->
-                      <div id="errorIndicator" v-if="userUrlInvalid">
+                      <div
+                        id="errorIndicator"
+                        v-if="userUrlInvalid && webId !== userUrl"
+                      >
                         <v-alert
                           v-model="userUrlInvalid"
                           closable
-                          title="Not a valid WebID URL"                          
+                          title="Not a valid WebID URL"
                           type="error"
                           icon="$error"
-                        >Please follow format: <i>http://example.com/something/card#someone</i></v-alert>
+                          >Please follow format:
+                          <i
+                            >http://example.com/something/card#someone</i
+                          ></v-alert
+                        >
+                      </div>
+                      <!-- If provided WebID is the Pod Owner's WebId -->
+                      <div
+                        id="errorIndicator"
+                        v-if="userUrlInvalid && webId === userUrl"
+                      >
+                        <v-alert
+                          v-model="userUrlInvalid"
+                          closable
+                          title="Caution"
+                          type="error"
+                          icon="$error"
+                          >That is your current user WebID. Please provide a
+                          different WebID to proceed.</v-alert
+                        >
                       </div>
 
                       <!-- If added permissions are successful -->
                       <div id="successIndicator" v-if="submissionDone">
-                        <v-alert closable title="Success" type="success" icon="$success">
+                        <v-alert
+                          closable
+                          title="Success"
+                          type="success"
+                          icon="$success"
+                        >
                           WebId: <i>{{ userUrl }}</i
                           ><br />
                           Was given: <i>{{ permissionsString }}</i> rights<br />
@@ -204,7 +257,7 @@ import {
 } from "@inrupt/solid-client";
 import { changeAcl, checkUrl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
-import { useResource, WorkingData, fetchData, fetchAclAgents } from "./getData";
+import { fetchPermissionsData, WorkingData, fetchData, fetchAclAgents } from "./getData";
 import { UrlString } from "@inrupt/solid-client";
 
 export default {
@@ -227,13 +280,20 @@ export default {
       podList: "",
       dirContents: WorkingData,
       containerContents: WorkingData,
+      hasAcl: null,
       urls: [],
+      containerUrls: [],
+      inContainer: WorkingData,
+      newUrls:[],
       aclUrl: "",
       hasAccess: [],
     };
   },
   methods: {
     // methods that provide logic for UI interaction
+    copyText(text) {
+      navigator.clipboard.writeText(text);
+    },
     toggleShared(index) {
       if (this.showSharedIndex === index) {
         this.showSharedIndex = null; // Hide the form if it's already shown
@@ -250,7 +310,7 @@ export default {
     },
     async submitForm(url) {
       // Check if entered user WebId is a valid URL
-      this.userUrlInvalid = checkUrl(this.userUrl);
+      this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
 
       // Handle permissions permutation logic
       if (this.permissions.read) {
@@ -306,13 +366,18 @@ export default {
     },
     clearPermissionString() {
       this.permissionsString = "";
+      this.submissionDone = false;
     },
 
     /**
      * Removes non-Containers from Solid container URL list
      */
-    removeNonDirectoryUrls() {
-      this.urls = this.urls.filter((url) => url.endsWith("/"));
+    separateUrls() {
+      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
+      if (!this.urls.includes(this.podList[0])) {
+        this.urls.push(this.podList[0]);
+      }
+      this.urls = this.urls.sort((a, b) => a.length - b.length);
     },
 
     /**
@@ -339,25 +404,49 @@ export default {
     async getGeneralData() {
       this.dirContents = await fetchData(this.podList[0]);
       this.urls = getContainedResourceUrlAll(this.dirContents);
-      this.removeNonDirectoryUrls();
-      if (!this.urls.includes(this.podList[0])) {
-        this.urls.push(this.podList[0]);
+      this.separateUrls();
+
+      let i = this.containerUrls.length;
+      // iterate over directory structure of pod
+      while (i > 0) {
+        // start at a container and get all resources within that container
+        this.inContainer = fetchData(this.containerUrls[i-1])
+        this.newUrls = getContainedResourceUrlAll(this.inContainer);
+        // remove the container at the end of the containerUrl array
+        console.log(this.newUrls)
+        this.containerUrls.pop()
+        console.log(this.containerUrls)
+
+        // iterate over all the resources in the container
+        for (let n = 0; n < this.inContainer.length; n++) {
+
+          // add new resources to url list
+          if (!this.urls.includes(this.inContainer[n])) {
+            this.urls.push(this.inContainer[n]);
+          }
+
+          // if also a conatiner, add new the container to container list
+          if (this.inContainer[n].endsWith("/")) {
+            this.containerUrls.push(this.inContainer[n]);
+          }
+        }
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
     },
 
     /**
      * Obtains a list of agents that have access to the designated container
-     * 
+     *
      * @param path the URL of the container access rights are being displayed
-     * 
+     *
      * ...
      */
     async getSpecificData(path) {
-      this.containerContents = await fetchData(path);
-      const rawAclUrl = getLinkedResourceUrlAll(this.containerContents);
-      this.aclUrl = rawAclUrl["acl"][0];
-      this.hasAccess = fetchAclAgents(this.aclUrl);
+      // this.hasAccess = await fetchAclAgents(path);
+      this.hasAcl = await fetchPermissionsData(path);
+      
+      console.log(this.hasAcl)
+      
     },
   },
   mounted() {
@@ -373,7 +462,7 @@ export default {
 
 <style scoped>
 body {
-  background-color: #b0c4de;
+  background-color: #a1b1d3;
   font-size: 13px;
 }
 .contentBody {
@@ -389,7 +478,7 @@ body {
   font-size: 30pt;
   font-family: "Courier New", Courier, monospace;
   font-weight: 500;
-  color: #212121;
+  color: #30328e;
 }
 
 /* general layout */
@@ -413,7 +502,7 @@ nav {
   padding-right: 20px;
 }
 
-/*sidenav*/
+/* sidenav */
 .side-nav.floating {
   padding-top: 2px;
   border-radius: 2px;
@@ -440,13 +529,13 @@ nav {
 .side-nav li a {
   padding: 10px 20px;
   font-size: 15px;
-  color: #242424;
+  color: #30328e;
 }
 .side-nav li a:hover {
   border-radius: 2px;
 }
 
-/*folders*/
+/* folders */
 .folder {
   margin: 3px 0px 0px 0;
   font-weight: 800;
@@ -458,7 +547,7 @@ nav {
   margin-top: -2px;
 }
 
-/*Share Drop Downs*/
+/* Share Drop Downs */
 .icon-button {
   background: none;
   border: none;
@@ -471,6 +560,70 @@ nav {
 .form-container {
   margin-top: 10px;
 }
+
+/* Current permissions display */
+#permissionsInstructions {
+  font-weight: bold;
+}
+.access-item {
+  border-top: 1px dashed #000; /* Dashed line below each item */
+  padding-top: 10px; /* Optional: Add some padding for spacing */
+  margin-top: 10px; /* Optional: Add some margin for spacing */
+}
+.access-item:nth-last-child(2) {
+  border-bottom: 2px solid #000; /* Solid line below the last item */
+  padding-bottom: 10px; /* Optional: Add some padding for spacing */
+  margin-bottom: 10px; /* Optional: Add some margin for spacing */
+}
+
+#currentPermissions {
+  margin-left: 10px;
+}
+.user-id {
+  color: #000000;
+}
+.user-id button {
+  padding: 3px;
+  cursor: pointer;
+}
+.user-id button:active {
+  opacity: 0.5; /* Slightly translucent when clicked */
+  
+}
+.the-user {
+  margin-left: 10px;
+  font-size: large;
+}
+.the-user i {
+  font-size: medium;
+  color: #30328e;
+}
+.permissions-tag {
+  font-size: large;
+}
+.permission-item {
+  display: grid;
+  grid-template-columns: auto 1fr; /* Two columns: auto width for label, remaining space for value */
+  margin-left: 10px;
+}
+.permission-value {
+  display: flex; /* Use Flexbox for alignment */
+  align-items: center; /* Vertically center the content */
+  justify-content: flex-end; /* Align items to the left */
+}
+.true-color {
+  color: green;
+}.true-color i {
+  color: green;
+}
+.false-color {
+  color: red;
+}
+.false-color i {
+  color: red;
+}
+
+
 #sharebox {
   display: flex;
 }
