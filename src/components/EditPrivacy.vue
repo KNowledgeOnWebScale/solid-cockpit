@@ -10,9 +10,10 @@
   />
 
   <!-- Title bar -->
-  <body class="contentBody">
-    <div class="titleContainer">
-      <nav>
+  <body class="content-body">
+    <div class="title-container">
+      <nav class="title-nav">
+        <!-- Title bar and icons -->
         <div class="nav-wrapper indigo lighten-3">
           <ul>
             <span>Privacy Editing</span>
@@ -40,10 +41,59 @@
           </ul>
         </div>
       </nav>
+
+      <!-- Directory bar and navigation -->
+      <nav class="dir-nav">
+        <div class="directory-nav">
+          <ul>
+            <li>
+              <span class="current-location">{{ currentLocation }}</span>
+            </li>
+            <li>
+              <div class="select-dir">
+                <v-select
+                  bg-color="indigo-lighten-3"
+                  clearable
+                  rounded
+                  variant="solo"
+                  v-model="currentUrl"
+                  :items="childContainers(currentLocation, containerUrls)"
+                ></v-select>
+                <v-btn
+                  :disabled="currentUrl === null"
+                  @click="changeCurrentLocation(currentUrl)"
+                  >Go</v-btn
+                >
+              </div>
+            </li>
+            
+            <!-- filter functionality -->
+            <li class="the-filter right">
+              <v-menu>
+                <template v-slot:activator="{ props }">
+                  <v-btn icon="mdi-filter" variant="solo" color="indigo" rounded v-bind="props">
+                    
+                  </v-btn>
+                </template>
+                <v-list>
+                  <v-list-item
+                    v-for="(item, index) in filters"
+                    :key="index"
+                    :value="index"
+                  >
+                  <!-- this is still not done. start here -->
+                  <v-list-item-title>{{ item.label }}</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+            </li>
+          </ul>
+        </div>
+      </nav>
     </div>
 
     <!-- the side nav -->
-    <div class="bodyContainer">
+    <div class="body-container">
       <div class="sideNav">
         <ul class="side-nav fixed floating indigo lighten-3 z-depth-0">
           <li class="active">
@@ -78,14 +128,21 @@
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
-                <i class="material-icons left">folder</i>
+                <i class="material-icons left">{{
+                  containerCheck(url) ? "folder" : "description"
+                }}</i>
                 {{ url }}
                 <button
                   @click="toggleShared(index), getSpecificData(url)"
                   class="icon-button right"
                 >
                   <i class="material-icons right">
-                    {{ (showSharedIndex === null) ? 'chevron_right lock' : 'keyboard_arrow_down lock' }}</i>
+                    {{
+                      showSharedIndex === null
+                        ? "chevron_right lock"
+                        : "keyboard_arrow_down lock"
+                    }}</i
+                  >
                 </button>
 
                 <!-- Current access rights -->
@@ -96,31 +153,48 @@
                 >
                   <div>
                     <span id="permissionsInstructions"
-                      >Current Access Rights</span>
+                      >Current Access Rights</span
+                    >
                   </div>
                   <div id="currentPermissions">
-                    <li class="access-item" v-for="(agent, inde) in hasAccess" :key="inde">
+                    <li
+                      class="access-item"
+                      v-for="(agent, inde) in hasAccess"
+                      :key="inde"
+                    >
                       <div class="user-id">
                         <span class="user-tag">User:<br /></span>
-                        <span class="the-user"><i>{{ inde }}</i>
-                          <button @click="copyText(inde)" class="icon-button right">
+                        <span class="the-user"
+                          ><i>{{ inde }}</i>
+                          <button
+                            @click="copyText(inde)"
+                            class="icon-button right"
+                          >
                             <i class="material-icons right">content_copy</i>
                           </button>
                         </span>
                       </div>
                       <span class="permissions-tag">Permissions:<br /></span>
-                        <ul v-for="(permission, ind) in hasAccess[inde]" :key="ind">
-                          <div class="permission-item" :class="{'true-color': permission, 'false-color': !permission}">
-                            <span class="permission-label">{{ ind }}</span>
-                            <span class="permission-value">
-                              <i>({{ permission }})</i>
-                              <i class="material-icons right">
-                                {{ permission ? 'check' : 'dangerous' }}
-                              </i>
-                            </span>
-                          </div>
-                        </ul>
-
+                      <ul
+                        v-for="(permission, ind) in hasAccess[inde]"
+                        :key="ind"
+                      >
+                        <div
+                          class="permission-item"
+                          :class="{
+                            'true-color': permission,
+                            'false-color': !permission,
+                          }"
+                        >
+                          <span class="permission-label">{{ ind }}</span>
+                          <span class="permission-value">
+                            <i>({{ permission }})</i>
+                            <i class="material-icons right">
+                              {{ permission ? "check" : "dangerous" }}
+                            </i>
+                          </span>
+                        </div>
+                      </ul>
                     </li>
                     <span id="withPermissions"> </span>
                   </div>
@@ -251,19 +325,33 @@
 </template>
 
 <script>
+import { mergeProps } from "vue";
 import {
   getContainedResourceUrlAll,
   getLinkedResourceUrlAll,
 } from "@inrupt/solid-client";
 import { changeAcl, checkUrl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
-import { fetchPermissionsData, WorkingData, fetchData, fetchAclAgents } from "./getData";
+import {
+  fetchPermissionsData,
+  WorkingData,
+  fetchData,
+  fetchAclAgents,
+} from "./getData";
 import { UrlString } from "@inrupt/solid-client";
 
 export default {
   name: "PrivacyComponent",
   data() {
     return {
+      filters: [
+        { label: "Containers" },
+        { label: "Resources" },
+      ],
+      viewingFilters: {
+        containers: true,
+        resources: true,
+      },
       showSharedIndex: null,
       showFormIndex: null,
       userUrl: "",
@@ -281,19 +369,103 @@ export default {
       dirContents: WorkingData,
       containerContents: WorkingData,
       hasAcl: null,
+      currentLocation: "",
+      currentUrl: null,
       urls: [],
       containerUrls: [],
+      resourceUrls: [],
       inContainer: WorkingData,
-      newUrls:[],
+      newUrls: [],
       aclUrl: "",
       hasAccess: [],
     };
   },
   methods: {
     // methods that provide logic for UI interaction
+
+    containerCheck(itemUrl) {
+      return itemUrl.endsWith("/");
+    },
+
+    /**
+     * method that returns a list of child container URLs from within a specified parent container
+     *
+     * @param currentDir the current container from which child containers should be identified
+     * @param contUrlList the list of containers in the current directory
+     */
+    childContainers(currentDir, contUrlList) {
+      const newUrlLst = contUrlList
+        .filter((url) => url !== currentDir) // Remove the current parent container
+        .map((url) => {
+          const segments = url
+            .split("/")
+            .filter((segment) => segment.length > 0);
+          return segments[segments.length - 1] + "/";
+        });
+      // for navigating up a directory path (not possible when in root directory)
+      if (currentDir !== this.podList[0]) {
+        newUrlLst.push("/..");
+      }
+      return newUrlLst.sort((a, b) => a.length - b.length);
+    },
+
+    /**
+     * Similar logic as the childContainers method but for resources
+     *
+     * @param currentDir the current container from which child resources should be identified
+     * @param rescUrlList the current container from which child resources should be identified
+     */
+    childResources(currentDir, rescUrlList) {
+      const newUrlLst = rescUrlList
+        .filter((url) => url !== currentDir) // Remove the current parent container
+        .map((url) => {
+          const segments = url
+            .split("/")
+            .filter((segment) => segment.length > 0);
+          return segments[segments.length - 1];
+        });
+      return newUrlLst.sort((a, b) => a.length - b.length);
+    },
+
+    /**
+     * method that allows for the traversal of the container structure in a User's Pod
+     *
+     * @param aNewLocation the container name that a user will be traversing to
+     */
+    async changeCurrentLocation(aNewLocation) {
+      const dismembered = this.currentLocation.split("//");
+      const segments = dismembered[1]
+        .split("/")
+        .filter((segment) => segment.length > 0);
+
+      // for moving 'up' the container levels (toward the root)
+      if (aNewLocation === "/..") {
+        segments.pop();
+        const newUrl = dismembered[0] + "//" + segments.join("/") + "/";
+        this.currentLocation = newUrl;
+        await this.getSpecificData(newUrl);
+        this.currentUrl = null;
+      }
+      // for moving 'down' the container levels (away from the root)
+      else {
+        const newUrl =
+          dismembered[0] + "//" + segments.join("/") + "/" + aNewLocation;
+        this.currentLocation = newUrl;
+        await this.getSpecificData(newUrl);
+        this.currentUrl = null;
+      }
+
+      /**
+       * method for copying text to the user's clipboard
+       *
+       * @param text the text to be coppied
+       */
+    },
     copyText(text) {
       navigator.clipboard.writeText(text);
     },
+
+    //Two methods for controlling the UI
     toggleShared(index) {
       if (this.showSharedIndex === index) {
         this.showSharedIndex = null; // Hide the form if it's already shown
@@ -308,6 +480,12 @@ export default {
         this.showFormIndex = index; // Show the form for the clicked item
       }
     },
+
+    /**
+     * method that submits the alterations to the specified .acl permissions file
+     *
+     * @param url the URL of the container that .acl changes are being made to
+     */
     async submitForm(url) {
       // Check if entered user WebId is a valid URL
       this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
@@ -370,14 +548,21 @@ export default {
     },
 
     /**
-     * Removes non-Containers from Solid container URL list
+     * Sorts container URLs and resource URLs into different lists
      */
     separateUrls() {
-      this.urls = this.urls.filter((url) => url.endsWith("/"));
-      if (!this.urls.includes(this.podList[0])) {
+      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
+      this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
+      if (
+        this.currentLocation === this.podList[0] &&
+        !this.urls.includes(this.podList[0])
+      ) {
         this.urls.push(this.podList[0]);
+        this.containerUrls.push(this.podList[0]);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
+      this.container = this.urls.sort((a, b) => a.length - b.length);
+      this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
     },
 
     /**
@@ -394,6 +579,7 @@ export default {
     async podURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podList = await getPodURLs(); // calls async function to get Pod URLs
+      this.currentLocation = this.podList[0];
     },
 
     /**
@@ -405,33 +591,6 @@ export default {
       this.dirContents = await fetchData(this.podList[0]);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
-
-    //   let i = this.containerUrls.length;
-    //   // iterate over directory structure of pod
-    //   while (i > 0) {
-    //     // start at a container and get all resources within that container
-    //     this.inContainer = fetchData(this.containerUrls[i-1])
-    //     this.newUrls = getContainedResourceUrlAll(this.inContainer);
-    //     // remove the container at the end of the containerUrl array
-    //     console.log(this.newUrls)
-    //     this.containerUrls.pop()
-    //     console.log(this.containerUrls)
-
-    //     // iterate over all the resources in the container
-    //     for (let n = 0; n < this.inContainer.length; n++) {
-
-    //       // add new resources to url list
-    //       if (!this.urls.includes(this.inContainer[n])) {
-    //         this.urls.push(this.inContainer[n]);
-    //       }
-
-    //       // if also a conatiner, add new the container to container list
-    //       if (this.inContainer[n].endsWith("/")) {
-    //         this.containerUrls.push(this.inContainer[n]);
-    //       }
-    //     }
-    //   }
-    //   this.urls = this.urls.sort((a, b) => a.length - b.length);
     },
 
     /**
@@ -442,11 +601,13 @@ export default {
      * ...
      */
     async getSpecificData(path) {
+      this.dirContents = await fetchData(path);
+      this.urls = getContainedResourceUrlAll(this.dirContents);
+      this.separateUrls();
+
+      // problem is here
       this.hasAccess = await fetchAclAgents(path);
-      this.hasAcl = await fetchPermissionsData(path);
-      
-      console.log(this.hasAcl)
-      
+      // this.hasAcl = await fetchPermissionsData(path);
     },
   },
   mounted() {
@@ -454,7 +615,6 @@ export default {
     this.podURL();
     setTimeout(() => {
       this.getGeneralData();
-      // this.getSpecificData("http://localhost:3000/test/")
     }, 500);
   },
 };
@@ -465,24 +625,34 @@ body {
   background-color: #a1b1d3;
   font-size: 13px;
 }
-.contentBody {
+.content-body {
   display: flex;
   flex-direction: column;
 }
-
-.titleContainer {
-  display: flex;
+.title-nav {
+  background-color: #a1b1d3;
+}
+.title-container {
   flex: 1;
 }
-.titleContainer span {
+.title-container span {
   font-size: 30pt;
   font-family: "Courier New", Courier, monospace;
   font-weight: 500;
   color: #30328e;
 }
+.directory-nav {
+  background-color: #a1b1d3;
+}
+.directory-nav span {
+  font-size: 14pt;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: 800;
+  margin-left: 25px;
+}
 
 /* general layout */
-.bodyContainer {
+.body-container {
   display: flex;
   flex: 1 1 auto;
 }
@@ -492,7 +662,9 @@ body {
 .podDirectories {
   flex: 1 1 auto;
 }
-
+.dir-nav {
+  background-color: #97a5c4;
+}
 /* title bar */
 nav {
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
@@ -500,6 +672,20 @@ nav {
 .nav-wrapper {
   padding-left: 20px;
   padding-right: 20px;
+}
+.select-dir {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  gap: 20px;
+}
+.select-dir .v-btn {
+  margin-bottom: 15px;
+}
+.select-dir .v-select {
+  min-width: 150px; /* Set a minimum width for the v-select component */
+  margin-top: 5px;
+  font-family: "Courier New", Courier, monospace;
 }
 
 /* sidenav */
@@ -518,7 +704,6 @@ nav {
   color: #212121;
   font-weight: 500;
 }
-
 .side-nav li a,
 .side-nav li a i.material-icons {
   height: 40px;
@@ -588,7 +773,6 @@ nav {
 }
 .user-id button:active {
   opacity: 0.5; /* Slightly translucent when clicked */
-  
 }
 .the-user {
   margin-left: 10px;
@@ -613,7 +797,8 @@ nav {
 }
 .true-color {
   color: green;
-}.true-color i {
+}
+.true-color i {
   color: green;
 }
 .false-color {
@@ -622,7 +807,6 @@ nav {
 .false-color i {
   color: red;
 }
-
 
 #sharebox {
   display: flex;
