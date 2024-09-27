@@ -373,7 +373,7 @@ export default {
      * Removes non-Containers from Solid container URL list
      */
     separateUrls() {
-      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
+      this.urls = this.urls.filter((url) => url.endsWith("/"));
       if (!this.urls.includes(this.podList[0])) {
         this.urls.push(this.podList[0]);
       }
@@ -406,32 +406,32 @@ export default {
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
 
-      let i = this.containerUrls.length;
-      // iterate over directory structure of pod
-      while (i > 0) {
-        // start at a container and get all resources within that container
-        this.inContainer = fetchData(this.containerUrls[i-1])
-        this.newUrls = getContainedResourceUrlAll(this.inContainer);
-        // remove the container at the end of the containerUrl array
-        console.log(this.newUrls)
-        this.containerUrls.pop()
-        console.log(this.containerUrls)
+    //   let i = this.containerUrls.length;
+    //   // iterate over directory structure of pod
+    //   while (i > 0) {
+    //     // start at a container and get all resources within that container
+    //     this.inContainer = fetchData(this.containerUrls[i-1])
+    //     this.newUrls = getContainedResourceUrlAll(this.inContainer);
+    //     // remove the container at the end of the containerUrl array
+    //     console.log(this.newUrls)
+    //     this.containerUrls.pop()
+    //     console.log(this.containerUrls)
 
-        // iterate over all the resources in the container
-        for (let n = 0; n < this.inContainer.length; n++) {
+    //     // iterate over all the resources in the container
+    //     for (let n = 0; n < this.inContainer.length; n++) {
 
-          // add new resources to url list
-          if (!this.urls.includes(this.inContainer[n])) {
-            this.urls.push(this.inContainer[n]);
-          }
+    //       // add new resources to url list
+    //       if (!this.urls.includes(this.inContainer[n])) {
+    //         this.urls.push(this.inContainer[n]);
+    //       }
 
-          // if also a conatiner, add new the container to container list
-          if (this.inContainer[n].endsWith("/")) {
-            this.containerUrls.push(this.inContainer[n]);
-          }
-        }
-      }
-      this.urls = this.urls.sort((a, b) => a.length - b.length);
+    //       // if also a conatiner, add new the container to container list
+    //       if (this.inContainer[n].endsWith("/")) {
+    //         this.containerUrls.push(this.inContainer[n]);
+    //       }
+    //     }
+    //   }
+    //   this.urls = this.urls.sort((a, b) => a.length - b.length);
     },
 
     /**
@@ -442,7 +442,7 @@ export default {
      * ...
      */
     async getSpecificData(path) {
-      // this.hasAccess = await fetchAclAgents(path);
+      this.hasAccess = await fetchAclAgents(path);
       this.hasAcl = await fetchPermissionsData(path);
       
       console.log(this.hasAcl)
