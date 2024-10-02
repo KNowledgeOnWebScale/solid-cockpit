@@ -50,7 +50,6 @@ export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
  * @retuns dataset ...
  */
 export async function fetchData(url: UrlString): Promise<WorkingData> {
-  console.log(url);
   const urlObject = new URL(url);
   // Ensure that when we fetch a Container that contains an `index.html`,
   // the server doesn't serve us that HTML file:
@@ -81,6 +80,13 @@ export async function fetchData(url: UrlString): Promise<WorkingData> {
   return dataset;
 }
 
+/**
+ * Determine whether a given URL (container or resource) has an attached .acl file
+ * 
+ * @param url a url to a pod container/resource
+ * 
+ * @retuns the .acl contents as an obj OR null if no .acl file exists
+ */
 export async function fetchPermissionsData(url: UrlString): Promise<AclDataset | null> {
   try {
     const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
@@ -91,25 +97,16 @@ export async function fetchPermissionsData(url: UrlString): Promise<AclDataset |
 }
 
 /**
- * fetch variable that designates how to get data from Solid Pod API.
+ * Determines the list of users and access rights for a given resource or container
  * 
  * @param url a url to a pod container/resource from which we can get access information
  * 
- * @retuns dataset ...
+ * @retuns an AgentAccess object with information about users and their access rights
  */
 export async function fetchAclAgents(url: UrlString): Promise<AgentAccess | null> {
-  const solidDataAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
-  const agentAccess = getAgentAccessAll(solidDataAcl);
-  // const groupAccess = getGroupAccessAll(solidDataAcl);
-  
-  return agentAccess;
+  return getAgentAccessAll(await getSolidDatasetWithAcl(url, { fetch: fetch }));
 }
 
-export async function fetchAcl(url: string): Promise<void> {
-  const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
-  const hasAcl = getResourceAcl(solidDataWAcl)
-
-}
 
 /**
  * gets a resource URL --

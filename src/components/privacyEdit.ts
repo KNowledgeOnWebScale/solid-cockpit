@@ -11,11 +11,15 @@ import {
   getAgentAccess,
   WithResourceInfo,
   createAclFromFallbackAcl,
+  createAcl,
   AclDataset,
   SolidDataset,
   saveSolidDatasetAt,
   WithServerResourceInfo,
+  WithAccessibleAcl,
   WithAcl,
+  createSolidDataset,
+  WithFallbackAcl,
   createThing,
   getSourceUrl,
   ThingPersisted,
@@ -117,6 +121,28 @@ export async function changeAcl(url: UrlString, user: string, accessLevel: Permi
   await saveAclFor(solidDataWAcl, updatedAcl);
 }
 
+export const { freeze } = Object;
+
+/**
+ * function adopted from the 
+ * @param targetResource 
+ * @returns 
+ */
+export function createNewAcl(
+  targetResource: WorkingData,
+): AclDataset {
+  const emptyResourceAcl: AclDataset = freeze({
+    ...createSolidDataset(),
+    internal_accessTo: getSourceUrl(targetResource),
+    internal_resourceInfo: {
+      sourceIri: targetResource.internal_resourceInfo.aclUrl,
+      isRawData: false,
+      linkedResources: {},
+    },
+  });
+  return emptyResourceAcl;
+}
+
 /**
  * Adds a new .acl file with default permissions (i.e. only owner has "Control" access)
  * 
@@ -124,11 +150,32 @@ export async function changeAcl(url: UrlString, user: string, accessLevel: Permi
  * @param newAccessWebID The user(s) [as list of WebID strings] that will obtain new access rights
  * @param rights a 4 item list that contains boolean values for [read, append, write, control] access rights
  */
-export async function newgenerateDefaultACLAcl(containerURL: string) {
-  // const newACL = createAclFromFallbackAcl(await getSolidDatasetWithAcl(containerURL));
+export async function generateAcl(resourceURL: string) {
+  const location = await fetchData(resourceURL);
+  const newAcl = createNewAcl(location);
+
+  const baseAclRules = []
+  // const initializedNewAcl = baseAclRules.reduce
+  console.log(initializedNewAcl)
+
+  // const savedDataset = await saveSolidDatasetAt(
+  //   location.internal_resourceInfo.aclUrl,
+  //   newAcl,
+  //   { fetch: fetch },
+  // );
+
+  // const savedAclDataset: AclDataset & typeof savedDataset = {
+  //   ...savedDataset,
+  //   internal_accessTo: getSourceUrl(location),
+  // };
+
+  console.log(newAcl)
+
+
   // logic to make new .acl here
 
 }
+
 
 
 //

@@ -133,7 +133,7 @@
                 }}</i>
                 {{ url }}
                 <button
-                  @click="toggleShared(index), getSpecificData(url)"
+                  @click="toggleShared(index), getSpecificAclData(url)"
                   class="icon-button right"
                 >
                   <i class="material-icons right">
@@ -151,175 +151,192 @@
                   v-if="showSharedIndex === index"
                   class="form-container"
                 >
-                  <div>
-                    <span id="permissionsInstructions"
-                      >Current Access Rights</span
-                    >
-                  </div>
-                  <div id="currentPermissions">
-                    <li
-                      class="access-item"
-                      v-for="(agent, inde) in hasAccess"
-                      :key="inde"
-                    >
-                      <div class="user-id">
-                        <span class="user-tag">User:<br /></span>
-                        <span class="the-user"
-                          ><i>{{ inde }}</i>
-                          <button
-                            @click="copyText(inde)"
-                            class="icon-button right"
-                          >
-                            <i class="material-icons right">content_copy</i>
-                          </button>
-                        </span>
-                      </div>
-                      <span class="permissions-tag">Permissions:<br /></span>
-                      <ul
-                        v-for="(permission, ind) in hasAccess[inde]"
-                        :key="ind"
+                  <!-- For the case that a container/resource has an existing .acl -->
+                  <div id="aclExists" v-if="hasAcl !== null">
+                    <div>
+                      <span id="permissionsInstructions"
+                        >Current Access Rights</span
                       >
-                        <div
-                          class="permission-item"
-                          :class="{
-                            'true-color': permission,
-                            'false-color': !permission,
-                          }"
-                        >
-                          <span class="permission-label">{{ ind }}</span>
-                          <span class="permission-value">
-                            <i>({{ permission }})</i>
-                            <i class="material-icons right">
-                              {{ permission ? "check" : "dangerous" }}
-                            </i>
+                    </div>
+                    <div id="currentPermissions">
+                      <li
+                        class="access-item"
+                        v-for="(agent, inde) in hasAccess"
+                        :key="inde"
+                      >
+                        <div class="user-id">
+                          <span class="user-tag">User:<br /></span>
+                          <span class="the-user"
+                            ><i>{{ inde }}</i>
+                            <button
+                              @click="copyText(inde)"
+                              class="icon-button right"
+                            >
+                              <i class="material-icons right">content_copy</i>
+                            </button>
                           </span>
                         </div>
-                      </ul>
-                    </li>
-                    <span id="withPermissions"> </span>
-                  </div>
-
-                  <!-- Show add access form -->
-                  <div id="addAccess">
-                    <button @click="toggleForm(index)" class="icon-button">
-                      <span>Add access rights </span>
-                      <i
-                        v-if="showFormIndex === null"
-                        class="material-icons right"
-                        >add</i
-                      >
-                      <i
-                        v-if="showFormIndex === index"
-                        class="material-icons right"
-                      >
-                        remove
-                      </i>
-                      <v-tooltip
-                        v-if="showFormIndex === index"
-                        activator="parent"
-                        location="end"
-                        >Click to hide "Add access rights" field
-                      </v-tooltip>
-                    </button>
-                  </div>
-
-                  <!-- Add access form -->
-                  <div
-                    id="shareBox"
-                    v-if="showFormIndex === index"
-                    class="form-container"
-                  >
-                    <form @submit.prevent="submitForm(url)">
-                      <div id="checkBoxes">
-                        <!-- Designate access to give -->
-                        <span id="permissionsInstructions"
-                          >Select the access level:</span
+                        <span class="permissions-tag">Permissions:<br /></span>
+                        <ul
+                          v-for="(permission, ind) in hasAccess[inde]"
+                          :key="ind"
                         >
-                        <label>
-                          <input type="checkbox" v-model="permissions.read" />
-                          <span>Read</span>
-                        </label>
-                        <label>
-                          <input type="checkbox" v-model="permissions.append" />
-                          <span>Append</span>
-                        </label>
-                        <label>
-                          <input type="checkbox" v-model="permissions.write" />
-                          <span>Write</span>
-                        </label>
-                      </div>
-                      <!-- Provide added user's WebID -->
-                      <input
-                        type="text"
-                        v-model="userUrl"
-                        placeholder="Enter user's WebID:"
-                      />
-                      <div id="submitButton">
-                        <button @click="clearPermissionString" type="submit">
-                          Submit
-                        </button>
-                      </div>
+                          <div
+                            class="permission-item"
+                            :class="{
+                              'true-color': permission,
+                              'false-color': !permission,
+                            }"
+                          >
+                            <span class="permission-label">{{ ind }}</span>
+                            <span class="permission-value">
+                              <i>({{ permission }})</i>
+                              <i class="material-icons right">
+                                {{ permission ? "check" : "dangerous" }}
+                              </i>
+                            </span>
+                          </div>
+                        </ul>
+                      </li>
+                      <span id="withPermissions"> </span>
+                    </div>
 
-                      <!-- If provided WebID is not a valid URL -->
-                      <div
-                        id="errorIndicator"
-                        v-if="userUrlInvalid && webId !== userUrl"
-                      >
-                        <v-alert
-                          v-model="userUrlInvalid"
-                          closable
-                          title="Not a valid WebID URL"
-                          type="error"
-                          icon="$error"
-                          >Please follow format:
-                          <i
-                            >http://example.com/something/card#someone</i
-                          ></v-alert
+                    <!-- Show add access form -->
+                    <div id="addAccess">
+                      <button @click="toggleForm(index)" class="icon-button">
+                        <span>Add access rights </span>
+                        <i
+                          v-if="showFormIndex === null"
+                          class="material-icons right"
+                          >add</i
                         >
-                      </div>
-                      <!-- If provided WebID is the Pod Owner's WebId -->
-                      <div
-                        id="errorIndicator"
-                        v-if="userUrlInvalid && webId === userUrl"
-                      >
-                        <v-alert
-                          v-model="userUrlInvalid"
-                          closable
-                          title="Caution"
-                          type="error"
-                          icon="$error"
-                          >That is your current user WebID. Please provide a
-                          different WebID to proceed.</v-alert
+                        <i
+                          v-if="showFormIndex === index"
+                          class="material-icons right"
                         >
-                      </div>
+                          remove
+                        </i>
+                        <v-tooltip
+                          v-if="showFormIndex === index"
+                          activator="parent"
+                          location="end"
+                          >Click to hide "Add access rights" field
+                        </v-tooltip>
+                      </button>
+                    </div>
 
-                      <!-- If added permissions are successful -->
-                      <div id="successIndicator" v-if="submissionDone">
-                        <v-alert
-                          closable
-                          title="Success"
-                          type="success"
-                          icon="$success"
-                        >
-                          WebId: <i>{{ userUrl }}</i
-                          ><br />
-                          Was given: <i>{{ permissionsString }}</i> rights<br />
-                          To resources in the container: <i>{{ url }}</i>
-                        </v-alert>
-
-                        <!-- Button to reset form -->
-                        <div id="resetButton">
-                          <button @click="clearForm">Reset Form</button>
+                    <!-- Add access form -->
+                    <div
+                      id="shareBox"
+                      v-if="showFormIndex === index"
+                      class="form-container"
+                    >
+                      <form @submit.prevent="submitForm(url)">
+                        <div id="checkBoxes">
+                          <!-- Designate access to give -->
+                          <span id="permissionsInstructions"
+                            >Select the access level:</span
+                          >
+                          <label>
+                            <input type="checkbox" v-model="permissions.read" />
+                            <span>Read</span>
+                          </label>
+                          <label>
+                            <input type="checkbox" v-model="permissions.append" />
+                            <span>Append</span>
+                          </label>
+                          <label>
+                            <input type="checkbox" v-model="permissions.write" />
+                            <span>Write</span>
+                          </label>
                         </div>
-                      </div>
-                    </form>
+                        <!-- Provide added user's WebID -->
+                        <input
+                          type="text"
+                          v-model="userUrl"
+                          placeholder="Enter user's WebID:"
+                        />
+                        <div id="submitButton">
+                          <button @click="clearPermissionString" type="submit">
+                            Submit
+                          </button>
+                        </div>
+
+                        <!-- If provided WebID is not a valid URL -->
+                        <div
+                          id="errorIndicator"
+                          v-if="userUrlInvalid && webId !== userUrl"
+                        >
+                          <v-alert
+                            v-model="userUrlInvalid"
+                            closable
+                            title="Not a valid WebID URL"
+                            type="error"
+                            icon="$error"
+                            >Please follow format:
+                            <i
+                              >http://example.com/something/card#someone</i
+                            ></v-alert
+                          >
+                        </div>
+                        <!-- If provided WebID is the Pod Owner's WebId -->
+                        <div
+                          id="errorIndicator"
+                          v-if="userUrlInvalid && webId === userUrl"
+                        >
+                          <v-alert
+                            v-model="userUrlInvalid"
+                            closable
+                            title="Caution"
+                            type="error"
+                            icon="$error"
+                            >That is your current user WebID. Please provide a
+                            different WebID to proceed.</v-alert
+                          >
+                        </div>
+
+                        <!-- If added permissions are successful -->
+                        <div id="successIndicator" v-if="submissionDone">
+                          <v-alert
+                            closable
+                            title="Success"
+                            type="success"
+                            icon="$success"
+                          >
+                            WebId: <i>{{ userUrl }}</i
+                            ><br />
+                            Was given: <i>{{ permissionsString }}</i> rights<br />
+                            To resources in the container: <i>{{ url }}</i>
+                          </v-alert>
+
+                          <!-- Button to reset form -->
+                          <div id="resetButton">
+                            <button @click="clearForm">Reset Form</button>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+
+                  <!-- For the case that a container/resource does not have an existing .acl -->
+                  <div id="noAclExists" v-if="hasAcl === null">
+                    <v-alert
+                      type="warning"
+                      title="There is no .acl (permissions file) for this resource"
+                    >Click the button below to create and initalize one.</v-alert>
+                    <button @click="makeNewAcl(url)" class="new-acl">
+                      <span>Generate .acl</span>
+                    </button>
                   </div>
                 </div>
               </div>
             </li>
+            
           </ul>
         </div>
+        
       </div>
+      
     </div>
   </body>
 </template>
@@ -330,7 +347,7 @@ import {
   getContainedResourceUrlAll,
   getLinkedResourceUrlAll,
 } from "@inrupt/solid-client";
-import { changeAcl, checkUrl } from "./privacyEdit";
+import { changeAcl, checkUrl, generateAcl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
 import {
   fetchPermissionsData,
@@ -383,6 +400,9 @@ export default {
   methods: {
     // methods that provide logic for UI interaction
 
+    /*
+    Checks if the input item url is a container
+    */
     containerCheck(itemUrl) {
       return itemUrl.endsWith("/");
     },
@@ -566,13 +586,6 @@ export default {
     },
 
     /**
-     * Working on this to show agents that currently have access to container
-     */
-    async currentAccess(containerAddress) {
-      fetchAclAgents(containerAddress);
-    },
-
-    /**
      * Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
      * Obtains 'pod' variable (URL path to user's Pod).
      */
@@ -594,21 +607,44 @@ export default {
     },
 
     /**
-     * Obtains a list of agents that have access to the designated container
+     * Obtains a list containers and/or resources located in the provided container
      *
-     * @param path the URL of the container access rights are being displayed
-     *
+     * @param path the URL of the container for which access rights are being displayed
      * ...
      */
     async getSpecificData(path) {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
-
-      // problem is here
       this.hasAccess = await fetchAclAgents(path);
+    },
+
+    /**
+     * Obtains a list of agents that have access to the designated resource or container
+     *
+     * @param path the URL of the resource or container for which access rights are to be displayed
+     * ...
+     */
+     async getSpecificAclData(path) {
+      this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
+      if (this.hasAcl !== null) {
+        this.hasAccess = await fetchAclAgents(path);
+      }
+
+      // this.hasAccess = await fetchAclAgents(path);
       // this.hasAcl = await fetchPermissionsData(path);
     },
+
+    /**
+     * Makes a new .acl file
+     *
+     * @param path the URL of the resource or container for which an .acl is to be made
+     * ...
+     */
+    async makeNewAcl(path) {
+      await generateAcl(path)
+    }
+
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
@@ -852,5 +888,22 @@ label span {
 }
 #resetButton {
   margin-top: 5px;
+}
+#noAclExists {
+  margin-top: 10px;
+  font-size: small;
+}
+.new-acl {
+  padding: 15px;
+  margin-top: 5px;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: "Courier New", Courier, monospace;
+  font-size: large;
+}
+.new-acl:hover {
+  background-color: #444;
 }
 </style>
