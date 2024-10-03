@@ -1,11 +1,9 @@
 import {
   WithResourceInfo,
   overwriteFile,
-  createContainerAt,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { mimeTypes } from "./mime_types.js";
-
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() method.
@@ -13,7 +11,7 @@ import { mimeTypes } from "./mime_types.js";
  * @param fileList The list of files to be uploaded to the Pod.
  * @param podURL The URL of the Pod files are to be uploaded to.
  */
-async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
+export async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
   const outputList: string[] = [];
   console.log(podURL);
   for (let i = 0; i < fileList.length; i++) {
@@ -31,7 +29,7 @@ async function handleFiles(fileList: FileList, podURL: string): Promise<string[]
  * @param fileExtension The file extension string of the file for which the MIME Type should be found.
  * @returns The MIME Type string of the file of interest or 'application/octet-stream' if not in the hash map.
  */
-function getMimeType(fileExtension: string) {
+export function getMimeType(fileExtension: string) {
   return mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
 }
 
@@ -70,9 +68,10 @@ async function uploadToPod(
  * Checks if the files uploaded from submitUpload() have .name properties (which proves upload was success).
  * 
  * @param uploadedFiles is a list of files obtained from the upload process
+ * 
  * @returns a boolean value that indicated if the file uploads have been successful or not
  */
-function uploadSuccess(uploadedFiles: string[]): boolean {
+export function uploadSuccess(uploadedFiles: string[]): boolean {
   let success = false;
   uploadedFiles.forEach((up: string) => {
     console.log(up)
@@ -85,7 +84,14 @@ function uploadSuccess(uploadedFiles: string[]): boolean {
   return success
 }
 
-function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
+/**
+ * Function that returns different bits of information about a file
+ * 
+ * @param inputFile the file that info is to be determined from
+ * 
+ * @returns the file NAME, the file SIZE, and the file's URI (URL)
+ */
+export function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
   try {
     return [inputFile.name, String(inputFile.size), inputFile.internal_resourceInfo.sourceIri]
   } catch (error) {
@@ -93,9 +99,3 @@ function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
     return ["error"];
   }
 }
-
-async function createContainer(url: string) {
-  // maybe this is necessary but will reassess
-}
-
-export { handleFiles, getMimeType, uploadSuccess, derefrenceFile };

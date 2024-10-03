@@ -354,21 +354,16 @@
 </template>
 
 <script>
-import { mergeProps } from "vue";
 import {
   getContainedResourceUrlAll,
-  getLinkedResourceUrlAll,
-  getResourceAcl,
 } from "@inrupt/solid-client";
 import { changeAcl, checkUrl, generateAcl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
 import {
   fetchPermissionsData,
-  WorkingData,
   fetchData,
   fetchAclAgents,
 } from "./getData";
-import { UrlString } from "@inrupt/solid-client";
 
 export default {
   name: "PrivacyComponent",
@@ -406,8 +401,6 @@ export default {
     };
   },
   methods: {
-    // methods that provide logic for UI interaction
-
     /*
     Keeps the filter menu open while toggling the viewing options
     */
@@ -499,7 +492,9 @@ export default {
       navigator.clipboard.writeText(text);
     },
 
-    //Two methods for controlling the UI
+    /*
+    Two methods for controlling the UI
+    */
     toggleShared(index) {
       if (this.showSharedIndex === index) {
         this.showSharedIndex = null; // Hide the form if it's already shown
@@ -604,9 +599,9 @@ export default {
      * Obtains 'pod' variable (URL path to user's Pod).
      */
     async podURL() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podList = await getPodURLs(); // calls async function to get Pod URLs
-      this.currentLocation = this.podList[0];
+      this.webId = currentWebId();
+      this.podList = await getPodURLs();
+      this.currentLocation = this.podList[0]; // assuming that the user only has one pod at the moment...
     },
 
     /**
@@ -624,7 +619,6 @@ export default {
      * Obtains a list containers and/or resources located in the provided container
      *
      * @param path the URL of the container for which access rights are being displayed
-     * ...
      */
     async getSpecificData(path) {
       this.dirContents = await fetchData(path);
@@ -637,26 +631,22 @@ export default {
      * Obtains a list of agents that have access to the designated resource or container
      *
      * @param path the URL of the resource or container for which access rights are to be displayed
-     * ...
      */
     async getSpecificAclData(path) {
       this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(path);
       }
-
-      // this.hasAccess = await fetchAclAgents(path);
-      // this.hasAcl = await fetchPermissionsData(path);
     },
 
     /**
-     * Makes a new .acl file
+     * Makes a new .acl file for containers or resources that do not have a vaild .acl
      *
      * @param path the URL of the resource or container for which an .acl is to be made
-     * ...
      */
     async makeNewAcl(path) {
       await generateAcl(path, this.webId);
+      await this.getSpecificAclData(path)
     },
   },
   mounted() {
@@ -732,11 +722,9 @@ nav {
   margin-bottom: 15px;
 }
 .select-dir .v-select {
-  min-width: 150px; /* Set a minimum width for the v-select component */
+  min-width: 150px;
   margin-top: 5px;
   font-family: "Courier New", Courier, monospace;
-}
-.the-filter {
 }
 
 /* sidenav */
@@ -790,8 +778,8 @@ nav {
   cursor: pointer;
 }
 #addAccess button {
-  margin-top: 20px; /* Add space above */
-  margin-bottom: 10px; /* Add space below */
+  margin-top: 20px;
+  margin-bottom: 10px;
 }
 .form-container {
   margin-top: 10px;
@@ -802,14 +790,14 @@ nav {
   font-weight: bold;
 }
 .access-item {
-  border-top: 1px dashed #000; /* Dashed line below each item */
-  padding-top: 10px; /* Optional: Add some padding for spacing */
-  margin-top: 10px; /* Optional: Add some margin for spacing */
+  border-top: 1px dashed #000;
+  padding-top: 10px;
+  margin-top: 10px;
 }
 .access-item:nth-last-child(2) {
-  border-bottom: 2px solid #000; /* Solid line below the last item */
-  padding-bottom: 10px; /* Optional: Add some padding for spacing */
-  margin-bottom: 10px; /* Optional: Add some margin for spacing */
+  border-bottom: 2px solid #000;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
 }
 
 #currentPermissions {
@@ -823,7 +811,7 @@ nav {
   cursor: pointer;
 }
 .user-id button:active {
-  opacity: 0.5; /* Slightly translucent when clicked */
+  opacity: 0.5;
 }
 .the-user {
   margin-left: 10px;
@@ -842,9 +830,9 @@ nav {
   margin-left: 10px;
 }
 .permission-value {
-  display: flex; /* Use Flexbox for alignment */
-  align-items: center; /* Vertically center the content */
-  justify-content: flex-end; /* Align items to the left */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 .true-color {
   color: green;
@@ -890,7 +878,7 @@ form button:hover {
   background-color: #444;
 }
 label span {
-  font-size: 16px; /* Change the font size of the label text */
+  font-size: 16px;
   color: #000000;
 }
 #errorIndicator {
