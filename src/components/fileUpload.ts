@@ -1,6 +1,7 @@
 import {
   WithResourceInfo,
   overwriteFile,
+  createContainerAt,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { mimeTypes } from "./mime_types.js";
@@ -91,6 +92,10 @@ function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
     console.error('Error', error)
     return ["error"];
   }
+}
+
+async function createContainer(url: string) {
+  // maybe this is necessary but will reassess
 }
 
 export { handleFiles, getMimeType, uploadSuccess, derefrenceFile };

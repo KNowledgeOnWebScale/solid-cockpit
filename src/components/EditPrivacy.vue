@@ -20,13 +20,6 @@
             <div class="right">
               <li>
                 <a href="#!"
-                  ><i class="material-icons grey-text text-darken-1"
-                    >view_list</i
-                  ></a
-                >
-              </li>
-              <li>
-                <a href="#!"
                   ><i class="material-icons grey-text text-darken-1">info</i></a
                 >
               </li>
@@ -66,26 +59,37 @@
                 >
               </div>
             </li>
-            
-            <!-- filter functionality -->
-            <li class="the-filter right">
-              <v-menu>
-                <template v-slot:activator="{ props }">
-                  <v-btn icon="mdi-filter" variant="solo" color="indigo" rounded v-bind="props">
-                    
-                  </v-btn>
-                </template>
-                <v-list>
-                  <v-list-item
-                    v-for="(item, index) in filters"
-                    :key="index"
-                    :value="index"
-                  >
-                  <!-- this is still not done. start here -->
-                  <v-list-item-title>{{ item.label }}</v-list-item-title>
-                  </v-list-item>
-                </v-list>
-              </v-menu>
+
+            <!-- filter functionality -- doesn't work and im sick of trying to figure it out -->
+            <li class="right">
+              <div class="the-filter">
+                <v-menu v-model="filterMenuOpen">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      icon="mdi-filter"
+                      variant="solo"
+                      color="indigo"
+                      rounded
+                      v-bind="props"
+                    >
+                    </v-btn>
+                  </template>
+                  <v-list>
+                    <v-list-item
+                      v-for="(item, index) in filters"
+                      :key="index"
+                      :value="index"
+                    >
+                        <v-switch
+                          v-model="filterValues[index]"
+                          color="primary"
+                          :label="`${filters[index]}`"
+                          hide-details
+                        ></v-switch>
+                    </v-list-item>
+                  </v-list>
+                </v-menu>
+              </div>
             </li>
           </ul>
         </div>
@@ -108,16 +112,9 @@
           </li>
           <li><div class="divider"></div></li>
           <li>
-            <a href="#"><i class="material-icons">star</i>Starred</a>
+            <a href="#"><i class="material-icons">star</i>Shared with others</a>
           </li>
           <li><div class="divider"></div></li>
-          <li>
-            <a href="#"><i class="material-icons">delete</i>Trash</a>
-          </li>
-          <li><div class="divider"></div></li>
-          <li>
-            <a href="#"><i class="material-icons">cloud</i>Backup</a>
-          </li>
         </ul>
       </div>
 
@@ -155,7 +152,16 @@
                   <div id="aclExists" v-if="hasAcl !== null">
                     <div>
                       <span id="permissionsInstructions"
-                        >Current Access Rights</span
+                        >Current Access Rights
+                        <button
+                          @click="getSpecificAclData(url)"
+                          class="icon-button right"
+                        >
+                          <i class="material-icons right">refresh</i>
+                          <v-tooltip activator="parent" location="end"
+                            >Refresh access rights
+                          </v-tooltip>
+                        </button></span
                       >
                     </div>
                     <div id="currentPermissions">
@@ -242,11 +248,17 @@
                             <span>Read</span>
                           </label>
                           <label>
-                            <input type="checkbox" v-model="permissions.append" />
+                            <input
+                              type="checkbox"
+                              v-model="permissions.append"
+                            />
                             <span>Append</span>
                           </label>
                           <label>
-                            <input type="checkbox" v-model="permissions.write" />
+                            <input
+                              type="checkbox"
+                              v-model="permissions.write"
+                            />
                             <span>Write</span>
                           </label>
                         </div>
@@ -305,7 +317,8 @@
                           >
                             WebId: <i>{{ userUrl }}</i
                             ><br />
-                            Was given: <i>{{ permissionsString }}</i> rights<br />
+                            Was given:
+                            <i>{{ permissionsString }}</i> rights<br />
                             To resources in the container: <i>{{ url }}</i>
                           </v-alert>
 
@@ -323,7 +336,9 @@
                     <v-alert
                       type="warning"
                       title="There is no .acl (permissions file) for this resource"
-                    >Click the button below to create and initalize one.</v-alert>
+                      >Click the button below to create and initalize
+                      one.</v-alert
+                    >
                     <button @click="makeNewAcl(url)" class="new-acl">
                       <span>Generate .acl</span>
                     </button>
@@ -331,12 +346,9 @@
                 </div>
               </div>
             </li>
-            
           </ul>
         </div>
-        
       </div>
-      
     </div>
   </body>
 </template>
@@ -346,6 +358,7 @@ import { mergeProps } from "vue";
 import {
   getContainedResourceUrlAll,
   getLinkedResourceUrlAll,
+  getResourceAcl,
 } from "@inrupt/solid-client";
 import { changeAcl, checkUrl, generateAcl } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
@@ -361,14 +374,9 @@ export default {
   name: "PrivacyComponent",
   data() {
     return {
-      filters: [
-        { label: "Containers" },
-        { label: "Resources" },
-      ],
-      viewingFilters: {
-        containers: true,
-        resources: true,
-      },
+      filters: ["containers", "resources"],
+      filterValues: [true, true],
+      filterMenuOpen: false,
       showSharedIndex: null,
       showFormIndex: null,
       userUrl: "",
@@ -382,7 +390,7 @@ export default {
       },
       permissionsString: "",
       webId: "",
-      podList: "",
+      podList: [],
       dirContents: WorkingData,
       containerContents: WorkingData,
       hasAcl: null,
@@ -400,6 +408,12 @@ export default {
   methods: {
     // methods that provide logic for UI interaction
 
+    /*
+    Keeps the filter menu open while toggling the viewing options
+    */
+    keepMenuOpen() {
+      this.filterMenuClosed = false; // Keep the menu open after clicking an item
+    },
     /*
     Checks if the input item url is a container
     */
@@ -625,7 +639,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      * ...
      */
-     async getSpecificAclData(path) {
+    async getSpecificAclData(path) {
       this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(path);
@@ -642,9 +656,8 @@ export default {
      * ...
      */
     async makeNewAcl(path) {
-      await generateAcl(path)
-    }
-
+      await generateAcl(path, this.webId);
+    },
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
@@ -722,6 +735,8 @@ nav {
   min-width: 150px; /* Set a minimum width for the v-select component */
   margin-top: 5px;
   font-family: "Courier New", Courier, monospace;
+}
+.the-filter {
 }
 
 /* sidenav */

@@ -129,8 +129,9 @@ export const { freeze } = Object;
  * @returns 
  */
 export function createNewAcl(
-  targetResource: WorkingData,
+  targetResource: WorkingData 
 ): AclDataset {
+  // initialize empty ACL
   const emptyResourceAcl: AclDataset = freeze({
     ...createSolidDataset(),
     internal_accessTo: getSourceUrl(targetResource),
@@ -140,46 +141,52 @@ export function createNewAcl(
       linkedResources: {},
     },
   });
+
   return emptyResourceAcl;
 }
 
 /**
  * Adds a new .acl file with default permissions (i.e. only owner has "Control" access)
  * 
- * @param currentACL The current ACL file for the Uploads container
- * @param newAccessWebID The user(s) [as list of WebID strings] that will obtain new access rights
+ * @param resourceURL The URL of the conatainer that needs an ACL configured
+ * @param userWebId The webID that base level access rights should be granted to
  * @param rights a 4 item list that contains boolean values for [read, append, write, control] access rights
  */
-export async function generateAcl(resourceURL: string) {
+export async function generateAcl(resourceURL: string, userWebId: string) {
+  // create blank ACL at current location
   const location = await fetchData(resourceURL);
   const newAcl = createNewAcl(location);
 
-  const baseAclRules = []
-  // const initializedNewAcl = baseAclRules.reduce
-  console.log(initializedNewAcl)
+  // add base user permissions
+  const userAccess:Permissions = {
+    read: true,
+    append: true,
+    write: true,
+    control: true
+  }
 
-  // const savedDataset = await saveSolidDatasetAt(
-  //   location.internal_resourceInfo.aclUrl,
-  //   newAcl,
-  //   { fetch: fetch },
-  // );
+  // add that root ACL info to empty acl
+  const updatedNewAcl = setAgentResourceAccess(
+    newAcl,
+    userWebId,
+    userAccess
+  );
 
-  // const savedAclDataset: AclDataset & typeof savedDataset = {
-  //   ...savedDataset,
-  //   internal_accessTo: getSourceUrl(location),
-  // };
+  const savedDataset = await saveSolidDatasetAt(
+    location.internal_resourceInfo.aclUrl,
+    updatedNewAcl,
+    { fetch: fetch },
+  );
 
-  console.log(newAcl)
+  const savedAclDataset: AclDataset & typeof savedDataset = {
+    ...savedDataset,
+    internal_accessTo: getSourceUrl(location),
+  };
 
-
-  // logic to make new .acl here
-
+  console.log(savedAclDataset)
 }
-
-
-
 //
 //async function generateDefaultACL(containerURL: string) {
 //  const resourceDetails = await getResourceInfo(containerURL);
 //  const newACL = createAclFromFallbackAcl(await getResourceInfo(containerURL));
-//}
+// }
