@@ -63,7 +63,7 @@
                 ></v-btn>
             </template>
 
-            <!-- "Create new pod" directions pop-up -->
+            <!-- "Create new pod" directions pop-up -- not in use anymore -->
             <!--
             <template v-slot:default="{ isActive }">
               <v-card title="Pod Creation Instructions:">
@@ -101,10 +101,14 @@
 
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, redirectToHomepage } from "./login";
+import { startLogin, isLoggedin, currentWebId, redirectToHomepage, session } from "./login";
+import { provide } from 'vue';
 
 export default {
   name: "LoginComponent",
+  setup() {
+    provide('sessionI', session.info)
+  },
   data() {
     return {
       userUrl: "http://localhost:3000/", // sets default url (if nothing is entered)

@@ -10,9 +10,6 @@ import DataQuery from "./components/DataQuery.vue";
 import EditPrivacy from "./components/EditPrivacy.vue";
 import NotFound from "./components/Styling/NotFound.vue";
 
-// Async components to optimize loading of components as necessary
-// const PodUpload = () => import('./components/PodUpload.vue');
-// const NotFound = () => import('./components/Styling/NotFound.vue');
 
 import { isLoggedin } from "./components/login";
 

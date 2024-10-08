@@ -3,6 +3,9 @@ import {
   handleIncomingRedirect,
   getDefaultSession,
 } from "@inrupt/solid-client-authn-browser";
+import {
+  getPodUrlAll
+} from "@inrupt/solid-client";
 
 /*
 Calls handleRedirectAfterPageLoad() on page reload.
@@ -72,6 +75,22 @@ function currentWebId(): string {
 }
 
 /**
+ * Fetches a logged-in user's Pod URLs using a webID.
+ *
+ * @param webid The webID URL of the current user.
+ * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
+ */
+async function getPodURLs(): Promise<string[]> {
+  let pods: string[] = [];
+  try {
+    pods = await getPodUrlAll(session.info.webId, { fetch: fetch });
+  } catch (error) {
+    pods = ["Error: probably not logged in"];
+  }
+  return pods;
+}
+
+/**
  * Redirects the user back to the TRIPLE App homepage
 */
 function redirectToHomepage(): void {
@@ -99,4 +118,4 @@ async function handleRedirectAfterPageLoad(): Promise<void> {
 
 
 
-export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, redirectToHomepage, redirectToLogin, logOut, session }
+export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, getPodURLs, redirectToHomepage, redirectToLogin, logOut, session }

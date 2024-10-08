@@ -11,17 +11,21 @@ const myEngine = new QueryEngine();
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
 */
 
-async function executeQuery(source: string, session: Session): Promise<Bindings[]> {
+async function executeQuery(source: string, session: Session): Promise<Bindings[] | null> {
+  try {
+    const bindingsStream = await myEngine.queryBindings(`
+      SELECT ?o WHERE {
+        ?s <http://www.w3.org/ns/ldp#contains> ?o .
+      }`, {
+      sources: [source],
+      '@comunica/actor-http-inrupt-solid-client-authn:session': session
+    });
+    
+    return await bindingsStream.toArray()
+  } catch (err) {
+    return null;
+  }
   
-  const bindingsStream = await myEngine.queryBindings(`
-  SELECT ?o WHERE {
-    ?s <http://www.w3.org/ns/ldp#contains> ?o .
-  }`, {
-  sources: [source],
-  '@comunica/actor-http-inrupt-solid-client-authn:session': session
-  });
-
-  return await bindingsStream.toArray()
 }
 
 export { executeQuery };

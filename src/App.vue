@@ -27,28 +27,25 @@ export default {
  * B. ...
  * 
  * General issues:
- * I. New pod initialization / old pod re-starting (CSS interface)
- * II. the presence of <http://www.w3.org/ns/pim/space#storage> <../> . on User card$.ttl
- * III. Web hosting of the application -- github pages
+ * I. ...
  * 
  * Data Upload:
  * 1. a way to designate where a file is uploaded to (i.e. directory structure)
- * 2. a drag and drop interface
- * 3. a loading icon (to tell when file upload is done)
+ * 2. a loading icon (to tell when file upload is done)
  * 
  * Data Browser:
- * 4. a Pod data browser -- use new Comunica engine
- * 5. designate a way to display the directory structure (along with the files)
+ * 3. a Pod data browser -- use new Comunica engine
+ * 4. designate a way to display the directory structure (along with the files)
  * 
  * Data Query:
- * 6. Area to write the query
- * 7. Area to designate sources
- * 8. submit query button
- * 9. streamed output display
+ * 5. Area to write the query
+ * 6. Area to designate sources
+ * 7. submit query button
+ * 8. streamed output display
  * 
  * Data Privacy:
- * 10. A view of the current privacy
- * 11. A way to add/change privacy
+ * 9. A view of the current privacy
+ * 10. A way to add/change privacy
  */
 </script>
 
