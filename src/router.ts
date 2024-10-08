@@ -70,7 +70,6 @@ const router = createRouter({
 setTimeout(() => {
   router.beforeEach(async (to, from) => {
     // make sure the user is authenticated
-    console.log(from, ' --> ', to)
     if (!isLoggedin() && to.name !== "Login Page" && from.name === "Home") {
       return { name: "Login Page" };
     } else if (!isLoggedin() && to.name === "Home" && from.name !== "Login Page") {
