@@ -1,28 +1,39 @@
 <template>
   <v-container>
     <v-col cols="12">
+      <!-- Displays contents if the query returns results without an error -->
       <v-card
         title="Pod Contents"
         variant="tonal"
         justify="center"
         class="mx-auto"
         color="indigo-darken-3"
+        v-if="queryItems !== null"
       >
-        <v-infinite-scroll  >
+        <v-infinite-scroll>
           <template v-for="(item, index) in queryItems" :key="index">
             <!-- need a clever way to filter and display results here -->
-            <div
-              :class="['pa-2',
-                  index % 1 === 0
-                  ? 'bg-grey-lighten-2'
-                  : '',
-              ]"
-            >
+            <div :class="['pa-2', index % 1 === 0 ? 'bg-grey-lighten-2' : '']">
               {{ item }}
             </div>
           </template>
           <template v-slot:loading> </template>
         </v-infinite-scroll>
+      </v-card>
+
+      <!-- Displays warning if query encounters an error -->
+      <v-card
+        variant="tonal"
+        justify="center"
+        class="mx-auto"
+        color="indigo-darken-3"
+        v-if="queryItems === null"
+      >
+        <v-alert
+          type="error"
+          title="Error occurred when querying Pod with Comunica"
+          >Apologies, but currently unable to display pod contents at the moment. Functionality will hopefully be fixed soon :/</v-alert
+        >
       </v-card>
     </v-col>
   </v-container>
@@ -70,7 +81,6 @@ export default {
     /*
     For the loading of the Pod data display
     */
-    
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)

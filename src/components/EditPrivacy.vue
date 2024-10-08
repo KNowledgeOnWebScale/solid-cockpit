@@ -332,7 +332,7 @@
                   </div>
 
                   <!-- For the case that a container/resource does not have an existing .acl -->
-                  <div id="noAclExists" v-if="hasAcl === null">
+                  <div id="noAclExists" v-if="(hasAcl === null) && (!cannotMakeAcl)">
                     <v-alert
                       type="warning"
                       title="There is no .acl (permissions file) for this resource"
@@ -343,12 +343,33 @@
                       <span>Generate .acl</span>
                     </button>
                   </div>
+                  
+                  <!-- For the case that a an .acl connot be initialized (e.g. for a file) -->
+                  <div id="noAclMade" v-if="(hasAcl === null) && (cannotMakeAcl)">
+                    <v-alert
+                      type="error"
+                      title="Cannot initialize an .acl for this item"
+                      closable
+                      >The .acl of the container this file is located within will be used for access controls.</v-alert
+                    >
+                  </div>
                 </div>
               </div>
             </li>
           </ul>
         </div>
       </div>
+    </div>
+
+    <hr />
+    <div class="req">
+      <h2>Privacy Editing Guide</h2>
+      <ol>
+        <li>Click the <b>Lock icon</b> next to a container or resource to see current access rights</li>
+        <li>Select the <b>"Add access rights +"</b> section to adjust access for a provided WebID</li>
+        <li>Use the nav bar above the container/resource list to navigate between containers</li>
+        <li><b>Note:</b> The left nav bar, the filter, and the info/notifications icons are not currently functional</li>
+      </ol>
     </div>
   </body>
 </template>
@@ -357,7 +378,7 @@
 import {
   getContainedResourceUrlAll,
 } from "@inrupt/solid-client";
-import { changeAcl, checkUrl, generateAcl } from "./privacyEdit";
+import { changeAcl, checkUrl, generateAcl, WorkingData } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
 import {
   fetchPermissionsData,
@@ -389,6 +410,7 @@ export default {
       dirContents: WorkingData,
       containerContents: WorkingData,
       hasAcl: null,
+      cannotMakeAcl: false,
       currentLocation: "",
       currentUrl: null,
       urls: [],
@@ -636,6 +658,7 @@ export default {
       this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(path);
+        this.cannotMakeAcl = false;
       }
     },
 
@@ -645,8 +668,13 @@ export default {
      * @param path the URL of the resource or container for which an .acl is to be made
      */
     async makeNewAcl(path) {
-      await generateAcl(path, this.webId);
-      await this.getSpecificAclData(path)
+      try {
+        await generateAcl(path, this.webId);
+        await this.getSpecificAclData(path);
+      } catch (err) {
+        console.error(err);
+        this.cannotMakeAcl = true;
+      }
     },
   },
   mounted() {
@@ -908,5 +936,21 @@ label span {
 }
 .new-acl:hover {
   background-color: #444;
+}
+.req {
+  font-family: "Courier New", monospace;
+  padding: 20px;
+  background: #d0e0fc;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.req h2 {
+  font-size: 30pt;
+  margin-top: 5px
+  ;
+}
+.req ol {
+  font-size: 16pt;
+  margin-left: 40px;
 }
 </style>

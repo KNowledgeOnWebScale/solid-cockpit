@@ -65,7 +65,7 @@ export async function fetchPermissionsData(url: UrlString): Promise<AclDataset |
   try {
     const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
     return getResourceAcl(solidDataWAcl);
-  }catch (error) {
+  } catch (error) {
     return null;
   }
 }

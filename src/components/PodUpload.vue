@@ -133,7 +133,6 @@ export default {
   */
     async submitUpload() {
       this.filesUploaded = await handleFiles(this.files, this.pod);
-      console.log(this.filesUploaded)
       this.uploadDone = uploadSuccess(this.filesUploaded);
     },
   },

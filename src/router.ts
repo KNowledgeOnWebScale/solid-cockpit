@@ -10,9 +10,6 @@ import DataQuery from "./components/DataQuery.vue";
 import EditPrivacy from "./components/EditPrivacy.vue";
 import NotFound from "./components/Styling/NotFound.vue";
 
-// Async components to optimize loading of components as necessary
-// const PodUpload = () => import('./components/PodUpload.vue');
-// const NotFound = () => import('./components/Styling/NotFound.vue');
 
 import { isLoggedin } from "./components/login";
 
@@ -73,6 +70,7 @@ const router = createRouter({
 setTimeout(() => {
   router.beforeEach(async (to, from) => {
     // make sure the user is authenticated
+    console.log(from, ' --> ', to)
     if (!isLoggedin() && to.name !== "Login Page" && from.name === "Home") {
       return { name: "Login Page" };
     } else if (!isLoggedin() && to.name === "Home" && from.name !== "Login Page") {
