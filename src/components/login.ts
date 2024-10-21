@@ -27,8 +27,8 @@ async function startLogin(purl: string): Promise<string> {
     try {
       await session.login({
         oidcIssuer: purl, //https does not work for some reason?? figure this out later
-        redirectUrl: new URL("/TRIPLE_App/", window.location.href).toString(),
-        clientName: "TRIPLE app"
+        redirectUrl: new URL("/solid-cockpit/", window.location.href).toString(),
+        clientName: "Solid Cockpit"
       });
     } catch (error) {
       console.error('Error:', error);
@@ -94,14 +94,14 @@ async function getPodURLs(): Promise<string[]> {
  * Redirects the user back to the TRIPLE App homepage
 */
 function redirectToHomepage(): void {
-  window.location.href = new URL("/TRIPLE_App/", window.location.href).toString()
+  window.location.href = new URL("/solid-cockpit/", window.location.href).toString()
 }
 
 /**
  * Redirects the user to the TRIPLE App login page
 */
 function redirectToLogin(): void {
-  window.location.href = new URL("/TRIPLE_App/login", window.location.href).toString()
+  window.location.href = new URL("/solid-cockpit/login", window.location.href).toString()
 }
 
 /**

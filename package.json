@@ -1,10 +1,10 @@
 {
-  "name": "triple_app",
+  "name": "solid-cockpit",
   "version": "1.0.0",
-  "description": "The TRIPLE Solid pod access application",
+  "description": "The Solid Cockpit applicaiton for Pod utilization",
   "main": "~/src/App.vue",
-  "homepage": "https://ecrum19.github.io/TRIPLE_App",
-  "repository": "https://github.com/ecrum19/TRIPLE_App/tree/EDC_active",
+  "homepage": "https://knowledgeonwebscale.github.io/solid-cockpit",
+  "repository": "https://github.com/KNowledgeOnWebScale/solid-cockpit/tree/EDC_active",
   "author": "Elias Crum",
   "license": "MIT",
   "scripts": {
