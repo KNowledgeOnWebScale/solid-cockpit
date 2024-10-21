@@ -8,7 +8,7 @@
         color="indigo-darken-3"
       >
         <div class="entry">
-          <h1>Welcome to the TRIPLE App!</h1>
+          <h1>Welcome to Solid Cockpit!</h1>
           <h2>Below is a guide to get you started.</h2>
           <h3>(Similar instructions found in the README)</h3>
         </div>
@@ -45,7 +45,7 @@
       <pre><code>$ git clone https://github.com/ecrum19/TRIPLE_App.git</code></pre>
       <ol start="2">
         <li>
-          To start pod set-up, within the TRIPLE_App/ directory execute the
+          To start pod set-up, within the solid-cockpit/ directory execute the
           following command:
         </li>
       </ol>
@@ -89,7 +89,7 @@
       <p>
         Great, now <strong>we are finished with set-up!!</strong> 
         Return to the 
-        <a href="https://ecrum19.github.io/TRIPLE_App/">Triple App</a> 
+        <a href="">Solid Cockpit App</a> 
         for the next steps.<br />
       </p>
       <hr />
