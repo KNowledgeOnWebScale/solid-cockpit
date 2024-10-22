@@ -1,10 +1,9 @@
 body {
-  background-color: #b0c4de; /* This is a light grey color */
-  font-family: "Arial", sans-serif; /* This sets the font to Arial */margin: 0;
+  background-color: #a9a7ad;
   margin: 0;
 }
 
 #app {
-  color: #333; /* This sets the text color inside the #app div to a dark grey */
+  color: #EDE7F6; /* This sets the text color inside the #app div to a dark grey */
 }
 

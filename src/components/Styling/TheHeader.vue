@@ -1,10 +1,25 @@
 <template>
-  <v-card color="#ccdff8">
+  <v-card color="#AAA7AD">
     <v-container>
-      <v-row align="center" justify="center">
+      <v-row align="center" justify="left">
+        <img
+          src="../../assets/solid-cockpit-logo.png"
+          alt="Solid Cockpit logo"
+        />
         <v-card-title justify="start">
-          <h1>TRIPLE App</h1>
+          <h1>Solid Cockpit</h1>
         </v-card-title>
+
+        <div class="select-pod" v-if="podList !== null">
+          <v-select
+            bg-color="indigo-lighten-3"
+            clearable
+            rounded
+            variant="solo"
+            v-model="currentPod"
+            :items="findPodList"
+          ></v-select>
+        </div>
 
         <div class="account">
           <div class="text-right">
@@ -91,6 +106,7 @@ import {
   redirectToHomepage,
   redirectToLogin,
   logOut,
+  getPodURLs,
 } from "./../login";
 
 export default {
@@ -99,6 +115,9 @@ export default {
     login_status: "",
     menu: false,
     message: false,
+    potentialPodList: null,
+    podList: null,
+    currentPod: "",
     user: {
       webId: "",
       fullName: "John Doe", // Should pull this data from #card (and integrate to pop up)
@@ -119,11 +138,18 @@ export default {
     LoginpageRedir() {
       redirectToLogin();
     },
+    async findPodList() {
+      this.podList = await getPodURLs();
+      console.log(this.podList);
+    }
   },
-  mounted(){
+  mounted() {
     setTimeout(() => {
-      this.loginCheck()
+      this.loginCheck();
     }, 200);
+    setTimeout(() => {
+      this.findPodList();
+    }, 400);
   },
   props: {},
 };
@@ -132,10 +158,14 @@ export default {
 <style scoped>
 h1 {
   color: rgb(0, 0, 0);
-  margin: 0;
-  font-family: "Courier New", monospace;
-  font-size: 3rem; /* Adjust as needed */
-  text-align: center;
+  font-family: "Orbitron";
+  font-size: 3rem;
+  margin-left: 10px;
+  text-align: Left;
+}
+img {
+  width: 100px;
+  height: auto;
 }
 
 .account {
@@ -144,5 +174,4 @@ h1 {
   top: 0;
   padding: 15px; /* Optional: adjust the padding as needed */
 }
-
 </style>

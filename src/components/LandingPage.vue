@@ -5,7 +5,7 @@
         variant="tonal"
         justify="center"
         class="mx-auto"
-        color="indigo-darken-3"
+        color="blue-grey-darken-1"
       >
         <div class="entry">
           <h1>Welcome to Solid Cockpit!</h1>
@@ -172,11 +172,11 @@ p {
 body {
   line-height: 1.6;
   margin: 15px;
-  background-color: #f4f4f4;
+  background-color: #28353e;
 }
 
 code {
-  background: #f4f4f4;
+  background: #28353e;
   border: 1px solid #ddd;
   padding: 10px;
   border-radius: 5px;
@@ -204,7 +204,7 @@ ol li {
 }
 
 a {
-  color: #0066cc;
+  color: #86b2df;
   text-decoration: none;
 }
 
@@ -217,7 +217,7 @@ a:hover {
   max-width: 900px;
   margin: auto;
   padding: 20px;
-  background: #d0e0fc;
+  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
