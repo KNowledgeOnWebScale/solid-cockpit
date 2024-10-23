@@ -1,9 +1,9 @@
 <template>
   <v-card color="#AAA7AD">
     <v-container>
-      <v-row align="center" justify="left">
+      <v-row align="center" justify="start">
         <img
-          src="../../assets/solid-cockpit-logo.png"
+          :src="require('../../assets/solid-cockpit-logo.png')"
           alt="Solid Cockpit logo"
         />
         <v-card-title justify="start">
@@ -30,13 +30,13 @@
             >
               <template v-slot:activator="{ props }">
                 <v-btn
-                  icon="mdi-account"
-                  size="medium"
+                  icon
+                  size="large"
                   color="grey-darken-4"
                   justify="end"
                   v-bind="props"
                   @click="loginCheck"
-                ></v-btn>
+                ><v-icon size="36px">mdi-account</v-icon></v-btn>
               </template>
 
               <v-card>
@@ -51,7 +51,7 @@
 
                 <v-divider></v-divider>
 
-                <v-list class="text-right align-self-start">
+                <v-list class="text-center align-self-start">
                   <div v-if="!loggedIn">
                     <v-list-item>
                       <v-btn
@@ -82,6 +82,7 @@
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn
+                    class="text-center"
                     height="30"
                     min-width="40"
                     variant="text"
@@ -164,14 +165,14 @@ h1 {
   text-align: Left;
 }
 img {
-  width: 100px;
+  width: 80px;
   height: auto;
 }
 
 .account {
   position: absolute;
   right: 0;
-  top: 0;
+  text-align: center;
   padding: 15px; /* Optional: adjust the padding as needed */
 }
 </style>
