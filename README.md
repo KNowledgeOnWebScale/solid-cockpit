@@ -1,43 +1,45 @@
-# TRIPLE_upload_dev
-
-## This is an early workflow for: 
-1. Setting up and locally hosting Solid pod
-2. Uploading data into that pod via the TRIPLE App
-3. Future aims -- see pod contents, edit data privacy, query data via sparql queries
+![Solid Cockpit Header Logo](./src/assets/full-sc-logo.png "SC Logo")
 
 
-#### Requirements:
-- [Node.js](https://nodejs.org/en/)
-    -Version 18 or higher.
 
-#### Getting Started:
-1. Navigate to the webpage (where there are some nice instructions):
+---
 
-   `https://ecrum19.github.io/TRIPLE_App/`
+# Solid Cockpit
 
-2. Clone this git repo
+This repository contains all code and guides for the Solid Cockpit web application. Solid Cockpit is an intuitive web application for accessing, editing, and interacting with Solid Pods. 
 
-   `git clone https://github.com/ecrum19/TRIPLE_App.git`
+This applicaiton was originally made for the CHIST-ERA TRIPLE project. For additional getting started guides and information about this project please see ... .
 
-3. Navigate to the created directory
-
-   `cd TRIPLE_App/`
-
-4. Follow the instructions on the home page of the [TRIPLE App](ecrum19.github.io/TRIPLE_App/) website!
+**To use this App, you need to already have a Solid Pod! **
 
 
-#### Notes:
-**General issues:**
 
-- The Pod Browser does not work properly yet. That is something that will be implemented in the near future.
-- When uploading a file, the "Success" message will almost always appear (has to do with Promise handling). I will fix this issue and add a loading icon while file is uploading soon as well.
+## Ways to Get a Solid Pod:
+
+- [Community Solid Server](https://communitysolidserver.github.io/CommunitySolidServer/latest/): For hosting a Solid Pod on your local machine or on a custom server.
+- [Solidcommunity.net](https://solidcommunity.net/): A community-run Solid server (very easy).
+- [Other Solid Pod Hosting Services](https://solidproject.org/for-developers#hosted-pod-services): A catologue of other services that offer Solid Pod hosting.
+
+
+
+## Contribute
+
+Code contributions are welcome! Please commit any pull requests against the `main` branch. Learn more about how to contribute by reading the [Contributing Guidelines](https://contributing.bitwarden.com/contributing/). Check out the [Contributing Documentation](https://contributing.bitwarden.com/) for how to get started with your first contribution.
+
+Issue reporting and other general feedback are welcome. Please use GitHub Issues open an issue or GitHub Discussions where applicable.
+
+
+
+## Development Notes:
+
+#### General issues:
+
+- The Pod Browser and query functionalities do not work properly yet. That is something that will be implemented in the near future.
 - If weird things start to happen with athn issues, clear browser history and cookies and it should fix things.
 
+
+
 #### TO DO:
-- (Optional) -- 
-  - A. ...
-  - B. Fix Pod Browser so that it actually displays pod contents
-  
 
 **Data Upload:**
 
@@ -60,4 +62,13 @@
 **Data Privacy:**
 
 10. A view of the current privacy
+
 11. A way to add/change privacy
+
+    
+
+---
+
+
+
+Enjoy using Solid Cockpit!

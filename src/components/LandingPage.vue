@@ -1,130 +1,81 @@
 <template>
   <v-container>
     <v-col cols="12">
+      <img
+          :src="require('../assets/full-sc-logo.png')"
+          alt="Full Solid Cockpit logo"
+        />
       <v-card
         variant="tonal"
         justify="center"
         class="mx-auto"
-        color="indigo-darken-3"
+        color="blue-grey-darken-1"
       >
+      
         <div class="entry">
-          <h1>Welcome to Solid Cockpit!</h1>
-          <h2>Below is a guide to get you started.</h2>
-          <h3>(Similar instructions found in the README)</h3>
+          <h2>Below are some resources if you are new</h2>
+          <!-- Make these drop downs (with more in-depth guides for non-experts)-->
+          <h3>README</h3>
+          <h3>Community Solid Server (local Solid pod)</h3>
         </div>
       </v-card>
     </v-col>
   </v-container>
 
+  <div>
+    <pod-login />
+  </div>
+
   <body>
     <div class="container">
-      <h1 class="guide">Getting Started:</h1>
+      <h1 class="guide">What can this application do?</h1>
+      
       <hr />
 
-      <h2 class="req">Requirements:</h2>
-      <ul>
-        <li>
-          <a href="https://nodejs.org/en/">Node.js</a>
-        </li>
-        <li><a href="https://www.npmjs.com/package/download">npm</a></li>
-        <li><a href="https://git-scm.com/downloads">git</a></li>
-      </ul>
-      <hr />
-
-      <h2 class="req">1. Repo Cloning and Starting your local Solid pod</h2>
-      <ol>
-        <li>
-          Clone the project git repo (it has some useful scripts for later).<br />For
-          help see
-          <a
-            href="https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository"
-            >git clone guide.</a
-          >
-        </li>
-      </ol>
-      <pre><code>$ git clone https://github.com/ecrum19/TRIPLE_App.git</code></pre>
-      <ol start="2">
-        <li>
-          To start pod set-up, within the solid-cockpit/ directory execute the
-          following command:
-        </li>
-      </ol>
-      <pre><code>$ bash makePod.sh</code></pre>
+      <h2 class="req">1. Connect to your Pod</h2>
+      
+      <p>Login to your pod via your pod provider + personal credentials.</p>
 
       <hr />
 
-      <h2 class="req">2. Setting up the Solid pod</h2>
-      <ol>
-        <li>
-          Using a web browser navigate to
-          <b><a href="http://localhost:3000/" target="_blank">http://localhost:3000/</a></b>
-        </li>
-        <li>Either <b><a href="http://localhost:3000/.account/login/password/register/" target="_blank">"Sign up"</a></b> or 
-          <b><a href="http://localhost:3000/.account/login/password/" target="_blank">"Login"</a></b></li>
-        <li>Once on the <b>"Your Account"</b> page, click on <b>"Create pod"</b></li>
-        <li>Enter a name for the pod and click <b>"Create pod"</b></li>
-        <li>Return to the home page by clicking <b>"Back"</b></li>
-      </ol>
+      <h2 class="req">2. Manage files in your pod</h2>
       <p>
-        <b>Voila</b>, now you a pod! <strong>Time to return to the command line </strong>(briefly).<br />
-        <span class="detail">
-          (Please note that if the terminal window you executed the bash script [in step <b>1</b>-II] is terminated, 
-          the Solid pod will no longer be accessible until it is re-launched (return to step <b>1</b>-II). 
-          For more info see
-          <a
-            href="https://communitysolidserver.github.io/CommunitySolidServer/latest/"
-            >Community Solid Server Documentation</a
-          >.)
-        </span>
+        Upload, delete, and move files in your Solid Pod.
       </p>
 
       <hr />
 
-      <h2 class="req">3. Register your Pod on your new WebID</h2>
-      <ol>
-        <li>Within the TRIPLE_App/ directory, execute the command below:</li>
-        <pre><code>$ bash podRegistration.sh</code></pre>
-        <li>At the prompt, enter the name of your pod from above (E.g. test)</li>
-      </ol>
+      <h2 class="req">3. Query your pod (and SPARQL endpoints you specify)</h2>
       <p>
-        Great, now <strong>we are finished with set-up!!</strong> 
-        Return to the 
-        <a href="">Solid Cockpit App</a> 
-        for the next steps.<br />
+        Execute SPARQL queries over your pod and other accessible Solid Pods or SPARQL Endpoints.
       </p>
-      <hr />
-
-      <h2 class="req">4. Solid Pod Login within the TRIPLE App</h2>
-      <ol>
-        <li>
-          Click the <b>"Data Upload"</b> tab in the nav bar within the TRIPLE
-          App
-        </li>
-        <li>
-          If you followed the above sections to launch a local Solid Pod, simply
-          click the <b>"Login"</b> button that appears (because your pod provider is localhost:3000)
-        </li>
-        <li>After the redirect, click the <b>"Authorize"</b> button</li>
-        <li>
-          Once redirected back to the main page of the TRIPLE App, use the nav
-          bar to select the <b>"Data Upload"</b> tab
-        </li>
-      </ol>
 
       <hr />
 
-      <h2 class="req">5. Data Upload Functionality</h2>
-      <ol>
-        <li>Click the <b>"Data Upload"</b> tab of the nav bar above</li>
-      </ol>
+      <h2 class="req">4. Edit the privacy of files in your pod</h2>
+      <p>
+        Modify access controls for files and containers in your pod + notify others of the changes.
+      </p>
+
+      <hr />
+
+      <h2 class="req">5. Coming soon: edit the profile information associated with your Pod/webId</h2>
+      <p>
+        Edit the personal data incorporated with your Solid Pod and/or your WebID.
+      </p>
+
     </div>
   </body>
 </template>
 
 <script>
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
+import PodLogin from "./PodLogin.vue";
 
 export default {
+  components: {
+    PodLogin,
+  },
   data: () => ({
     login_status: true,
   }),
@@ -140,7 +91,6 @@ export default {
       // Delays the execution of these functions on page reload (to avoid async-related errors)
       setTimeout(() => {
         this.login_status = this.loggedIn();
-        console.log(this.login_status);
       }, 200);
     },
   },
@@ -148,9 +98,15 @@ export default {
 </script>
 
 <style scoped>
+img {
+  max-width: 850px;
+  height: auto;
+}
+
 .entry {
-  font-family: "Courier New", monospace;
+  font-family: "B612", monospace;
   text-align: center;
+  margin-top: 20px;
 }
 
 .guide {
@@ -172,11 +128,11 @@ p {
 body {
   line-height: 1.6;
   margin: 15px;
-  background-color: #f4f4f4;
+  background-color: #28353e;
 }
 
 code {
-  background: #f4f4f4;
+  background: #28353e;
   border: 1px solid #ddd;
   padding: 10px;
   border-radius: 5px;
@@ -204,7 +160,7 @@ ol li {
 }
 
 a {
-  color: #0066cc;
+  color: #86b2df;
   text-decoration: none;
 }
 
@@ -213,11 +169,11 @@ a:hover {
 }
 
 .container {
-  font-family: "Courier New", monospace;
+  font-family: "B612", monospace;
   max-width: 900px;
   margin: auto;
   padding: 20px;
-  background: #d0e0fc;
+  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }

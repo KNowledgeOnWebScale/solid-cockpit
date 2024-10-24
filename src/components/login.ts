@@ -80,14 +80,12 @@ function currentWebId(): string {
  * @param webid The webID URL of the current user.
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
  */
-async function getPodURLs(): Promise<string[]> {
-  let pods: string[] = [];
+async function getPodURLs(): Promise<string[] | null> {
   try {
-    pods = await getPodUrlAll(session.info.webId, { fetch: fetch });
+    return await getPodUrlAll(session.info.webId, { fetch: fetch });
   } catch (error) {
-    pods = ["Error: probably not logged in"];
+    return null;
   }
-  return pods;
 }
 
 /**
