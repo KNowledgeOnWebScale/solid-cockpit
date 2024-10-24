@@ -1,22 +1,30 @@
 <template>
   <v-container>
     <v-col cols="12">
+      <img
+          :src="require('../assets/full-sc-logo.png')"
+          alt="Full Solid Cockpit logo"
+        />
       <v-card
         variant="tonal"
         justify="center"
         class="mx-auto"
         color="blue-grey-darken-1"
       >
+      
         <div class="entry">
-          <h1>Welcome to Solid Cockpit!</h1>
-          <h2>Below are some resources for setting up a Solid Pod <br /> (if you don't already have one)</h2>
+          <h2>Below are some resources if you are new</h2>
           <!-- Make these drop downs (with more in-depth guides for non-experts)-->
-          <h3>Hosting service (SolidCommunity.net etc)</h3>
+          <h3>README</h3>
           <h3>Community Solid Server (local Solid pod)</h3>
         </div>
       </v-card>
     </v-col>
   </v-container>
+
+  <div>
+    <pod-login />
+  </div>
 
   <body>
     <div class="container">
@@ -62,8 +70,12 @@
 
 <script>
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
+import PodLogin from "./PodLogin.vue";
 
 export default {
+  components: {
+    PodLogin,
+  },
   data: () => ({
     login_status: true,
   }),
@@ -86,9 +98,15 @@ export default {
 </script>
 
 <style scoped>
+img {
+  max-width: 850px;
+  height: auto;
+}
+
 .entry {
-  font-family: "Courier New", monospace;
+  font-family: "B612", monospace;
   text-align: center;
+  margin-top: 20px;
 }
 
 .guide {
@@ -151,7 +169,7 @@ a:hover {
 }
 
 .container {
-  font-family: "Courier New", monospace;
+  font-family: "B612", monospace;
   max-width: 900px;
   margin: auto;
   padding: 20px;

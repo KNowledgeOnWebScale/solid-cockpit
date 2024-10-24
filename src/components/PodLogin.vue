@@ -2,12 +2,11 @@
   <v-container>
     <!-- The card that conatins the login fields -->
     <v-card
-      title="Solid Pod Login"
-      variant="tonal"
+      id="card"
       justify="center"
       class="mx-auto"
-      color="indigo-darken-3"
-    >
+      color="#445560"
+    ><h2>Solid Pod Login</h2>
       <v-col cols="12">
         <div v-show="!loggedIn">
           <!-- This login portion disappears after logging in -->
@@ -15,28 +14,32 @@
             <v-container>
               <v-row>
                 <!-- Portion for entering the "Pod Provider URL" -->
-                <v-text-field
+                <v-combobox 
                   v-model="userUrl"
-                  label="Pod Provider:"
-                  type="url"
-                  variant="outlined"
                   clearable
                   required
+                  variant="outlined"
+                  density="comfortable"
+                  auto-select-first="exact"
+                  label="Pod Provider:"
+                  type="url"
+                  :items="['https://triple.ilabt.imec.be/', 'https://solidcommunity.net/', 'https://solidweb.org/', 'https://inrupt.net/', 'https://auth.inrupt.com/', 'http://localhost:3000/']"
                 >
+
                   <!-- Info button -->
                   <template v-slot:prepend>
                     <v-tooltip location="top">
                       <template v-slot:activator="{ props }">
-                        <v-icon fab v-bind="props" color="info" size="small" icon="mdi-information">mdi-information</v-icon>
+                        <v-icon fab v-bind="props" color="white" size="small" icon="mdi-information">mdi-information</v-icon>
                       </template>
-                      Please offer the URL of your Pod Provider (Eg: http://localhost:3000/)
+                      Please offer the URL of your Pod Provider (Format: https://example.com/)
                     </v-tooltip>
                   </template>
                   <!-- "Login" button + form submission -->
                   <template v-slot:append>
-                    <v-btn class="mx-right" color="surface-variant" name="btnLogin" @click="handleLogin">Login</v-btn>
+                    <v-btn class="mx-right" color="#EDE7F6" name="btnLogin" @click="handleLogin">Login</v-btn>
                   </template>
-                </v-text-field>
+                </v-combobox>
               </v-row>
             </v-container>
           </v-form>
@@ -51,17 +54,13 @@
             ></v-alert>
           </div>
 
-          <!-- "Create new pod" button redirects back to homepage -->
-          <v-dialog max-width="500">
-            <template v-slot:activator="{ props: activatorProps }">
+          <!-- "Create new pod" button redirects to Pod Provider site -->
               <v-btn
-                v-bind="activatorProps"
-                color="surface-variant"
-                text="Create New Pod?"
+                color="#EDE7F6"
+                text="Don't have a pod?"
                 variant="flat"
-                @click="homepageRedir"
+                @click="newpodRedir"
                 ></v-btn>
-            </template>
 
             <!-- "Create new pod" directions pop-up -- not in use anymore -->
             <!--
@@ -80,13 +79,12 @@
               </v-card>
             </template>
             -->
-          </v-dialog>
         
         </div>
       </v-col>
 
       <!-- Message that indicates a successful login -->
-      <div id="loggedIn" v-show="loggedIn">
+      <div class="logged-in" v-show="loggedIn">
         <v-alert
           class="mx-auto"
           title="Successfully logged-in!"
@@ -101,7 +99,7 @@
 
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, redirectToHomepage, session } from "./login";
+import { startLogin, isLoggedin, currentWebId, session } from "./login";
 import { provide } from 'vue';
 
 export default {
@@ -111,7 +109,7 @@ export default {
   },
   data() {
     return {
-      userUrl: "http://localhost:3000/", // sets default url (if nothing is entered)
+      userUrl: "", // sets default url (if nothing is entered)
       loggedIn: false,
       isError: false,
       error: '',
@@ -139,39 +137,43 @@ export default {
       this.webId = currentWebId();
     },
     /* 
-    Redirects user back to homepage (for "create a pod" directions)
-    uses href to handle the redirect
+    Redirects user to page with Pod Providers
     */
-    homepageRedir() {
-      redirectToHomepage()
+    newpodRedir() {
+      window.open('https://solidproject.org/for-developers#hosted-pod-services', '_blank');
     }
   },
   mounted() {
     // Delays the execution loginCheck() on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.loginCheck();
-    }, 200); // Delay of 2 seconds
+    }, 500); // Delay of 2 seconds
   },
 };
 </script>
 
 
 <style scoped>
+#card {
+  font-family: "B612", monospace;
+  font-size: larger;
+}
+
+h2 {
+  margin-left: 10px;
+  margin-top: 10px;
+}
 #errorIndicator {
   padding: 2px 2px;
-  margin-bottom: 10px;
-  margin-right: 2rem;
   border: 2px solid #d72920;
   border-radius: 5px;
   font-size: 14px;
   font-style: italic;
-  background-color: #ffcccc; /* Highlighted background color */
+  background-color: #ffcccc;
 }
 
-#loggedIn {
+.logged-in {
   padding: 2px 2px;
-  margin-bottom: 10px;
-  margin-right: 2rem;
   border: 2px solid #307104;
   border-radius: 5px;
   font-size: 14px;

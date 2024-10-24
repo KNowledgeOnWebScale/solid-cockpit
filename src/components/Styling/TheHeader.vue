@@ -32,11 +32,11 @@
                 <v-btn
                   icon
                   size="large"
-                  color="grey-darken-4"
+                  color="#445560"
                   justify="end"
                   v-bind="props"
                   @click="loginCheck"
-                ><v-icon size="36px">mdi-account</v-icon></v-btn>
+                ><v-icon size="36px" color="#EDE7F6">mdi-account</v-icon></v-btn>
               </template>
 
               <v-card>
@@ -51,7 +51,7 @@
 
                 <v-divider></v-divider>
 
-                <v-list class="text-center align-self-start">
+                <v-list class="text-right align-self-start">
                   <div v-if="!loggedIn">
                     <v-list-item>
                       <v-btn
@@ -82,7 +82,7 @@
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn
-                    class="text-center"
+                    class="text-right"
                     height="30"
                     min-width="40"
                     variant="text"
@@ -172,7 +172,7 @@ img {
 .account {
   position: absolute;
   right: 0;
-  text-align: center;
+  text-align: right;
   padding: 15px; /* Optional: adjust the padding as needed */
 }
 </style>
