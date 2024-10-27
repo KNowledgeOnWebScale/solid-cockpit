@@ -155,8 +155,9 @@ export default {
 
 <style scoped>
 #card {
-  font-family: "B612", monospace;
+  font-family: "Oxanium", monospace;
   font-size: larger;
+  width: 80%;
 }
 
 h2 {

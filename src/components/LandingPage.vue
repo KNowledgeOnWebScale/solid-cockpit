@@ -1,24 +1,20 @@
 <template>
   <v-container>
     <v-col cols="12">
-      <img
-          :src="require('../assets/full-sc-logo.png')"
-          alt="Full Solid Cockpit logo"
-        />
-      <v-card
-        variant="tonal"
-        justify="center"
-        class="mx-auto"
-        color="blue-grey-darken-1"
-      >
+      <div class="logo-container">
+        <img
+            :src="require('../assets/full-sc-logo-nb.png')"
+            alt="Full Solid Cockpit logo"
+          />
+        </div>
       
         <div class="entry">
-          <h2>Below are some resources if you are new</h2>
-          <!-- Make these drop downs (with more in-depth guides for non-experts)-->
+          <h1>The best way to pilot your <a href="https://solidproject.org/">Solid Pod</a> is with <span>Solid Cockpit</span></h1>
+          <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
           <h3>README</h3>
           <h3>Community Solid Server (local Solid pod)</h3>
         </div>
-      </v-card>
+      
     </v-col>
   </v-container>
 
@@ -27,6 +23,7 @@
   </div>
 
   <body>
+    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
     <div class="container">
       <h1 class="guide">What can this application do?</h1>
       
@@ -98,15 +95,29 @@ export default {
 </script>
 
 <style scoped>
+.logo-container {
+  display: flex;
+  align-items: center; 
+  justify-content: center;
+}
 img {
-  max-width: 850px;
+  max-width: 70%;
   height: auto;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .entry {
-  font-family: "B612", monospace;
+  font-family: "Oxanium", monospace;
+  color: #28353e;
   text-align: center;
   margin-top: 20px;
+}
+.entry a {
+  text-decoration: none;
+  color: #28353e;
+}
+.entry span {
+  font-family: 'Orbitron';
 }
 
 .guide {
@@ -169,8 +180,8 @@ a:hover {
 }
 
 .container {
-  font-family: "B612", monospace;
-  max-width: 900px;
+  font-family: "Oxanium", monospace;
+  max-width: 70%;
   margin: auto;
   padding: 20px;
   background: #445560;
