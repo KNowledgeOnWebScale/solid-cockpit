@@ -19,9 +19,8 @@ To **set up** your Solid Pod using the TRIPLE platform, follow these steps:
 
 1. **🔗 Navigate to our Solid Pod Hosting website**
    - Go to [https://triple.ilabt.imec.be/](https://triple.ilabt.imec.be/)
-   - ~~Use the following credentials to enter the site:~~
-     - ~~**Username**: `triple`~~
-     - ~~**Password**: `solid`~~
+   - Use the following credentials to enter the site:
+     - **Password**: `triple`
    
 2. **🔐 Sign Up to make a Pod**
    - Click **Sign Up** (assuming this is your first time)
@@ -35,9 +34,8 @@ To **set up** your Solid Pod using the TRIPLE platform, follow these steps:
 1. **Navigate to our Solid Pod Hosting website**
 
    - Go to [https://triple.ilabt.imec.be/](https://triple.ilabt.imec.be/)
-   - ~~Use the following credentials to enter the site:~~
-     - ~~**Username**: `triple`~~
-     - ~~**Password**: `solid`~~
+   - Use the following credentials to enter the site:
+     - **Password**: `triple`
 
 2. **Login using your credentials**
 
