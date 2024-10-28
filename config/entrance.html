@@ -5,34 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Community Solid Server</title>
   <link rel="stylesheet" href="/.well-known/css/styles/main.css" type="text/css">
+  <style>
+    #content {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <a href=".."><img src="/.well-known/css/images/solid.svg" alt="[Solid logo]" /></a>
-    <h1>Community Solid Server</h1>
-  </header>
-  <main>
-    <h4>
-      This server implements
-      the <a href="https://solid.github.io/specification/protocol">Solid protocol</a>
-      for creating your own <a href="https://solidproject.org/about">Solid Pod</a>
-      and identity.
-    </h4>
-    
-    <br><br>
-    
-    <h2 id="users"
-      >Select one of these options to get started!
-    </h2>
+  <div id="content">
+    <header>
+      <a href=".."><img src="/.well-known/css/images/solid.svg" alt="[Solid logo]" /></a>
+      <h1>Community Solid Server</h1>
+    </header>
+    <main>
+      <h4>
+        This server implements
+        the <a href="https://solid.github.io/specification/protocol">Solid protocol</a>
+        for creating your own <a href="https://solidproject.org/about">Solid Pod</a>
+        and identity.
+      </h4>
+      
+      <br><br>
+      
+      <h2 id="users"
+        >Select one of these options to get started!
+      </h2>
 
-    <p id="registration-enabled">
-      <div class="button-container">
-        <a id="login-link" href="./.account/login/password/" class="modern-button">
-          <span id="login">Login</span><br>(Already registered)</a>
-        <a id="registration-link" href="./.account/login/password/register/" class="modern-button">
-          <span id="signup">Sign up</span><br>(No account yet)</a>
-      </div>
-    </p>
+      <p id="registration-enabled">
+        <div class="button-container">
+          <a id="login-link" href="./.account/login/password/" class="modern-button">
+            <span id="login">Login</span><br>(Already registered)</a>
+          <a id="registration-link" href="./.account/login/password/register/" class="modern-button">
+            <span id="signup">Sign up</span><br>(No account yet)</a>
+        </div>
+      </p>
+    </div>
 
     <br><br><br>
 
@@ -63,6 +70,19 @@
 
 <script>
   (async() => {
+    //password protection for creating a pod on the server
+    let password = '';
+    const correctPassword = "triple";
+    while (password !== correctPassword) {
+      password = prompt("Please enter the password:");
+      if (password === correctPassword) {
+        document.getElementById('content').style.display = 'block';
+      } else {
+        alert("Incorrect password. Access denied.");
+      }
+    }
+    
+    
     // Since this page is in the root of the server, we can determine other URLs relative to the current URL
     const res = await fetch('.account/');
     const registrationUrl = (await res.json())?.controls?.html?.password?.register;
