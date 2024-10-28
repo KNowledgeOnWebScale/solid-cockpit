@@ -3,17 +3,17 @@
   <v-container>
     <!-- Card that contains the data upload field -->
     <v-card
-      title="Add Data to Pod"
+      class="mx-auto upload-section"
+      title="Add Files to Pod"
       variant="tonal"
       justify="center"
-      class="mx-auto"
-      color="indigo-darken-3"
+      color="#445560"
     >
-      <!-- The file input section << Styling needs a little work >> -->
+      <!-- The file input section -->
       <form id="writeForm">
         <v-file-input
           clearable
-          label="Click to select file(s) OR drag and drop a file(s) here"
+          label="Click to select file(s) OR drag and drop file(s) here"
           placeholder="Select your files"
           show-size
           type="file"
@@ -85,7 +85,7 @@
       <li>Click the <b>"File Input"</b> bar above or drag and drop a file</li>
       <li>Select the local file(s) you wish to upload</li>
       <li>Click the <b>"Upload"</b> button</li>
-      <li>Voila! Your files should then be in your pod.</li>
+      <li>Once the success label appears, your files should then be in your pod.</li>
     </ol>
   </body>
 </template>
@@ -113,7 +113,7 @@ export default {
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
-      this.pod = this.podURLs[0]; // can fix this to handle multiple pods (<< FUTURE >>)
+      this.pod = this.podURLs[0]; // TODO: fix this to handle multiple pods (<< FUTURE >>)
     },
 
     /*
@@ -151,23 +151,28 @@ export default {
 body {
   line-height: 1.6;
   margin: 15px;
-  font-family: "Courier New", monospace;
-  max-width: 900px;
+  font-family: "Oxanium", monospace;
+  max-width: 80%;
   margin: auto;
+  margin-top: 20px;
   padding: 20px;
-  background: #d0e0fc;
+  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .container {
-  font-family: "Courier New", monospace;
-  max-width: 900px;
+  font-family: "Oxanium", monospace;
+  max-width: 90%;
   margin: auto;
   padding: 20px;
-  background: #d0e0fc;
+  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.upload-section {
+  font-family: "Oxanium", monospace;
 }
 
 .v-btn {

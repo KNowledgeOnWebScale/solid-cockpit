@@ -10,5 +10,5 @@
 ## Fonts
 
 * **Logo**:  <span style="font-family: Orbitron">Orbitron</span>
-* **Web page**:  <span style="font-family: B612">B612</span>
+* **Web page**:  <span style="font-family: Oxanium">Oxanium</span>
 

@@ -1,13 +1,6 @@
 <template>
   <!-- Materialize CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-  />
-  <link
-    href="https://fonts.googleapis.com/icon?family=Material+Icons"
-    rel="stylesheet"
-  />
+  
 
   <!-- Title bar -->
   <body class="content-body">
@@ -688,6 +681,9 @@ export default {
 </script>
 
 <style scoped>
+/* @import url('https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css'); */
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
 body {
   background-color: #a1b1d3;
   font-size: 13px;
