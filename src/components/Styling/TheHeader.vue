@@ -10,7 +10,7 @@
           <h1>Solid Cockpit</h1>
         </v-card-title>
 
-        <!-- the pod choosing / registering section -->
+        <!-- TODO: the pod choosing / registering section -->
         <div class="header-right">
           <div class="register-pod" v-if="!podAccess">
             <v-btn variant="tonal" rounded="xs" @click="webIdData">
@@ -150,6 +150,7 @@ export default {
     LoginpageRedir() {
       redirectToLogin();
     },
+    // TODO: fix this mess
     async findPodList() {
       this.podList = await getPodURLs();
       this.currentPod = this.podList[0];
@@ -164,8 +165,8 @@ export default {
       console.log(this.podAccess);
     },
     async webIdData() {
-      await webIdDataset(this.user.webId, this.customPodUrl);
-      this.findPodList()
+      //await webIdDataset(this.user.webId, this.customPodUrl);
+      //this.findPodList()
 
     }
   },
@@ -174,7 +175,7 @@ export default {
       this.loginCheck();
     }, 200);
     setTimeout(() => {
-      this.findPodList();
+      //this.findPodList();
     }, 500);
   },
 };
