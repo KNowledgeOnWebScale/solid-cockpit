@@ -11,6 +11,12 @@ import {
   getAgentAccessAll,
   getResourceAcl,
   AclDataset,
+  getWebIdDataset,
+  getThing,
+  addUrl,
+  setThing,
+  saveSolidDatasetAt,
+  addStringNoLocale,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 
@@ -20,6 +26,49 @@ export type FileData = WithServerResourceInfo & {
   etag: string | null;
 };
 export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
+
+// TODO: Fix this stupid pod registration thing (it should be working, not sure why it isn't ...)
+/**
+ * Method to Fetch WebId data from the Solid Pod API.
+ * 
+ * @param url the URL of the Solid pod or resource from which data should be obtained
+ * 
+ * @retuns a SolidDataset of the WebId from the WebId url provided
+ */
+export async function webIdDataset(url: UrlString, customLoc: UrlString | null): Promise<void> {
+  const profData = await getWebIdDataset(url);
+  const profThing = getThing(profData, url);
+  let updatedThing = null;
+  
+  console.log(profThing);
+  /* if the user did not sepcify a Pod url */
+  if (customLoc === null) {
+    const parsedUrl = new URL(url);
+
+    /* if the user is using the triple pod hosting server */
+    if (parsedUrl.hostname === 'triple.ilabt.imec.be') {
+      const pathSegments = parsedUrl.pathname.split('/').filter(segment => segment.length > 0);
+      const rootPath = (parsedUrl.origin + '/' + pathSegments[0] + '/').toString();
+      // updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", rootPath);
+      updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
+      /* saves the updated card to the User's Pod (with their pod is registered) */
+      const newCard = setThing(profData, updatedThing);
+      const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
+      console.log(updatedCard);
+    } 
+
+  /* if the user did specify their Pod's URL */
+  } else {
+    updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
+
+    /* saves the updated card to the User's Pod (with their pod is registered) */
+    const newCard = setThing(profData, updatedThing);
+    console.log(newCard);
+  }
+  
+  
+}
+
 
 /**
  * Method to Fetch SolidDatasets from Solid Pod API. (Adapted from https://gitlab.com/vincenttunru/penny)

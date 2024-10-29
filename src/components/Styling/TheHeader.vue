@@ -10,89 +10,98 @@
           <h1>Solid Cockpit</h1>
         </v-card-title>
 
-        <div class="select-pod" v-if="podList !== null">
-          <v-select
-            bg-color="indigo-lighten-3"
-            clearable
-            rounded
-            variant="solo"
-            v-model="currentPod"
-            :items="findPodList"
-          ></v-select>
-        </div>
+        <!-- TODO: the pod choosing / registering section -->
+        <div class="header-right">
+          <div class="register-pod" v-if="!podAccess">
+            <v-btn variant="tonal" rounded="xs" @click="webIdData">
+              Register Pod 
+            </v-btn>
 
-        <div class="account">
-          <div class="text-right">
-            <v-menu
-              v-model="menu"
-              :close-on-content-click="false"
-              location="end"
-            >
-              <template v-slot:activator="{ props }">
-                <v-btn
-                  icon
-                  size="large"
-                  color="#445560"
-                  justify="end"
-                  v-bind="props"
-                  @click="loginCheck"
-                ><v-icon size="36px" color="#EDE7F6">mdi-account</v-icon></v-btn>
-              </template>
+          </div>
+          
+          <div class="select-pod" v-if="podAccess">
+            <v-select
+              variant="outlined"
+              color="#445560"
+              v-model="currentPod"
+              :items="podList"
+            ></v-select>
+          </div>
 
-              <v-card>
-                <v-list class="text-right align-self-start">
-                  <v-list-item
-                    v-if="loggedIn"
-                    title="Current WebID:"
-                    :subtitle="user.webId"
-                  ></v-list-item>
-                  <v-list-item v-else title="Not logged in"></v-list-item>
-                </v-list>
-
-                <v-divider></v-divider>
-
-                <v-list class="text-right align-self-start">
-                  <div v-if="!loggedIn">
-                    <v-list-item>
-                      <v-btn
-                        class="loginButton"
-                        v-model="message"
-                        color="blue"
-                        label="Login"
-                        @click="LoginpageRedir"
-                        >Login</v-btn
-                      >
-                    </v-list-item>
-                  </div>
-
-                  <div v-if="loggedIn">
-                    <v-list-item>
-                      <v-btn
-                        class="loginButton"
-                        v-model="message"
-                        color="red"
-                        label="Logout"
-                        @click="userLogout"
-                        >Logout</v-btn
-                      >
-                    </v-list-item>
-                  </div>
-                </v-list>
-
-                <v-card-actions>
-                  <v-spacer></v-spacer>
+          <div class="account">
+            <div class="text-right">
+              <v-menu
+                v-model="menu"
+                :close-on-content-click="false"
+                location="end"
+              >
+                <template v-slot:activator="{ props }">
                   <v-btn
-                    class="text-right"
-                    height="30"
-                    min-width="40"
-                    variant="text"
-                    @click="menu = false"
-                  >
-                    Cancel
-                  </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-menu>
+                    icon
+                    size="large"
+                    color="#445560"
+                    justify="end"
+                    v-bind="props"
+                    @click="loginCheck"
+                    ><v-icon size="36px" color="#EDE7F6">mdi-account</v-icon></v-btn>
+                </template>
+
+                <v-card>
+                  <v-list class="text-right align-self-start">
+                    <v-list-item
+                      v-if="loggedIn"
+                      title="Current WebID:"
+                      :subtitle="user.webId"
+                    ></v-list-item>
+                    <v-list-item v-else title="Not logged in"></v-list-item>
+                  </v-list>
+
+                  <v-divider></v-divider>
+
+
+                  <v-list class="text-right align-self-start">
+                    <div v-if="!loggedIn">
+                      <v-list-item>
+                        <v-btn
+                          class="loginButton"
+                          v-model="message"
+                          color="blue"
+                          label="Login"
+                          @click="LoginpageRedir"
+                          >Login</v-btn
+                        >
+                      </v-list-item>
+                    </div>
+
+                    <div v-if="loggedIn">
+                      <v-list-item>
+                        <v-btn
+                          class="loginButton"
+                          v-model="message"
+                          color="red"
+                          label="Logout"
+                          @click="userLogout"
+                          >Logout</v-btn
+                        >
+                      </v-list-item>
+                    </div>
+                  </v-list>
+
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn
+                      class="text-right"
+                      height="30"
+                      min-width="40"
+                      variant="text"
+                      @click="menu = false"
+                    >
+                      Cancel
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </v-menu>
+            </div>
           </div>
         </div>
       </v-row>
@@ -109,6 +118,7 @@ import {
   logOut,
   getPodURLs,
 } from "./../login";
+import { webIdDataset } from "./../getData";
 
 export default {
   data: () => ({
@@ -116,8 +126,9 @@ export default {
     login_status: "",
     menu: false,
     message: false,
-    potentialPodList: null,
+    podAccess: false,
     podList: null,
+    customPodUrl: null,
     currentPod: "",
     user: {
       webId: "",
@@ -139,9 +150,24 @@ export default {
     LoginpageRedir() {
       redirectToLogin();
     },
+    // TODO: fix this mess
     async findPodList() {
       this.podList = await getPodURLs();
+      this.currentPod = this.podList[0];
       console.log(this.podList);
+      if (this.podList !== null) {
+        try {
+          this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
+        } catch(err) {
+          console.log(err);
+        }
+      }
+      console.log(this.podAccess);
+    },
+    async webIdData() {
+      //await webIdDataset(this.user.webId, this.customPodUrl);
+      //this.findPodList()
+
     }
   },
   mounted() {
@@ -149,10 +175,9 @@ export default {
       this.loginCheck();
     }, 200);
     setTimeout(() => {
-      this.findPodList();
-    }, 400);
+      //this.findPodList();
+    }, 500);
   },
-  props: {},
 };
 </script>
 
@@ -169,10 +194,22 @@ img {
   height: auto;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.select-pod {
+  margin-right: 20px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+}
+
 .account {
-  position: absolute;
-  right: 0;
+  display: flex;
   text-align: right;
-  padding: 15px; /* Optional: adjust the padding as needed */
+  padding: 15px;
 }
 </style>

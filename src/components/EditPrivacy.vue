@@ -1,20 +1,13 @@
 <template>
   <!-- Materialize CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-  />
-  <link
-    href="https://fonts.googleapis.com/icon?family=Material+Icons"
-    rel="stylesheet"
-  />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
 
   <!-- Title bar -->
   <body class="content-body">
     <div class="title-container">
       <nav class="title-nav">
         <!-- Title bar and icons -->
-        <div class="nav-wrapper indigo lighten-3">
+        <div class="nav-wrapper #445560">
           <ul>
             <span>Privacy Editing</span>
             <div class="right">
@@ -45,10 +38,8 @@
             <li>
               <div class="select-dir">
                 <v-select
-                  bg-color="indigo-lighten-3"
                   clearable
-                  rounded
-                  variant="solo"
+                  variant="outlined"
                   v-model="currentUrl"
                   :items="childContainers(currentLocation, containerUrls)"
                 ></v-select>
@@ -68,7 +59,7 @@
                     <v-btn
                       icon="mdi-filter"
                       variant="solo"
-                      color="indigo"
+                      color="#EDE7F6"
                       rounded
                       v-bind="props"
                     >
@@ -99,7 +90,7 @@
     <!-- the side nav -->
     <div class="body-container">
       <div class="sideNav">
-        <ul class="side-nav fixed floating indigo lighten-3 z-depth-0">
+        <ul class="side-nav fixed floating #28353e z-depth-0">
           <li class="active">
             <a href="#"
               ><i class="material-icons purple-text text-darken-1">dashboard</i
@@ -688,8 +679,11 @@ export default {
 </script>
 
 <style scoped>
+/* @import url('https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css'); */
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
 body {
-  background-color: #a1b1d3;
+  background-color: #445560;
   font-size: 13px;
 }
 .content-body {
@@ -697,23 +691,23 @@ body {
   flex-direction: column;
 }
 .title-nav {
-  background-color: #a1b1d3;
+  background-color: #445560;
 }
 .title-container {
   flex: 1;
 }
 .title-container span {
   font-size: 30pt;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium", monospace;
   font-weight: 500;
-  color: #30328e;
+  color: #EDE7F6;
 }
 .directory-nav {
-  background-color: #a1b1d3;
+  background-color: #445560;
 }
 .directory-nav span {
   font-size: 14pt;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium", monospace;
   font-weight: 800;
   margin-left: 25px;
 }
@@ -730,7 +724,7 @@ body {
   flex: 1 1 auto;
 }
 .dir-nav {
-  background-color: #97a5c4;
+  background-color: #445560;
 }
 /* title bar */
 nav {
@@ -752,7 +746,7 @@ nav {
 .select-dir .v-select {
   min-width: 150px;
   margin-top: 5px;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium", monospace;
 }
 
 /* sidenav */
@@ -781,18 +775,20 @@ nav {
 .side-nav li a {
   padding: 10px 20px;
   font-size: 15px;
-  color: #30328e;
+  color: #EDE7F6;
 }
 .side-nav li a:hover {
   border-radius: 2px;
 }
 
 /* folders */
+
 .folder {
   margin: 3px 0px 0px 0;
   font-weight: 800;
   font-size: large;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium", monospace;
+  background-color: #28353e;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);
@@ -847,7 +843,7 @@ nav {
 }
 .the-user i {
   font-size: medium;
-  color: #30328e;
+  color: #EDE7F6;
 }
 .permissions-tag {
   font-size: large;
@@ -895,19 +891,19 @@ form input[type="text"] {
 form button {
   padding: 15px;
   margin-top: 5px;
-  background-color: #333;
-  color: #fff;
+  background-color: #EDE7F6;
+  color: #445560;
   border: none;
   cursor: pointer;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium" monospace;
   font-size: large;
 }
 form button:hover {
-  background-color: #444;
+  background-color: #a9a7ad;
 }
 label span {
   font-size: 16px;
-  color: #000000;
+  color: #EDE7F6;
 }
 #errorIndicator {
   margin-top: 10px;
@@ -927,20 +923,20 @@ label span {
 .new-acl {
   padding: 15px;
   margin-top: 5px;
-  background-color: #333;
-  color: #fff;
+  background-color: #EDE7F6;
+  color: #445560;
   border: none;
   cursor: pointer;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Oxanium", monospace;
   font-size: large;
 }
 .new-acl:hover {
-  background-color: #444;
+  background-color: #a9a7ad;
 }
 .req {
-  font-family: "Courier New", monospace;
+  font-family: "Oxanium", monospace;
   padding: 20px;
-  background: #d0e0fc;
+  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
