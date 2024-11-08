@@ -10,9 +10,7 @@
       
         <div class="entry">
           <h1>The best way to pilot your <a href="https://solidproject.org/">Solid Pod</a> is with <span>Solid Cockpit</span></h1>
-          <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
-          <h3>README</h3>
-          <h3>Community Solid Server (local Solid pod)</h3>
+          <!-- TODO: Make drop downs (with more in-depth guides for non-experts)-->
         </div>
       
     </v-col>
@@ -20,6 +18,10 @@
 
   <div>
     <pod-login />
+  </div>
+
+  <div>
+    <pod-registration />
   </div>
 
   <body>
@@ -68,10 +70,12 @@
 <script>
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
 import PodLogin from "./PodLogin.vue";
+import PodRegistration from "./PodRegistration.vue";
 
 export default {
   components: {
     PodLogin,
+    PodRegistration,
   },
   data: () => ({
     login_status: true,
@@ -181,7 +185,7 @@ a:hover {
 
 .container {
   font-family: "Oxanium", monospace;
-  max-width: 70%;
+  max-width: 85%;
   margin: auto;
   padding: 20px;
   background: #445560;

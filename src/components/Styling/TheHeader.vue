@@ -10,15 +10,7 @@
           <h1>Solid Cockpit</h1>
         </v-card-title>
 
-        <!-- TODO: the pod choosing / registering section -->
         <div class="header-right">
-          <div class="register-pod" v-if="!podAccess">
-            <v-btn variant="tonal" rounded="xs" @click="webIdData">
-              Register Pod 
-            </v-btn>
-
-          </div>
-          
           <div class="select-pod" v-if="podAccess">
             <v-select
               variant="outlined"
@@ -164,11 +156,6 @@ export default {
       }
       console.log(this.podAccess);
     },
-    async webIdData() {
-      //await webIdDataset(this.user.webId, this.customPodUrl);
-      //this.findPodList()
-
-    }
   },
   mounted() {
     setTimeout(() => {

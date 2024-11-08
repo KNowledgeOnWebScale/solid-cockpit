@@ -49,8 +49,8 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | null):
     if (parsedUrl.hostname === 'triple.ilabt.imec.be') {
       const pathSegments = parsedUrl.pathname.split('/').filter(segment => segment.length > 0);
       const rootPath = (parsedUrl.origin + '/' + pathSegments[0] + '/').toString();
-      // updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", rootPath);
-      updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
+      updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", rootPath);
+      // updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
       /* saves the updated card to the User's Pod (with their pod is registered) */
       const newCard = setThing(profData, updatedThing);
       const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
@@ -59,8 +59,9 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | null):
 
   /* if the user did specify their Pod's URL */
   } else {
-    updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
-
+    // updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
+    updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
+    
     /* saves the updated card to the User's Pod (with their pod is registered) */
     const newCard = setThing(profData, updatedThing);
     console.log(newCard);
