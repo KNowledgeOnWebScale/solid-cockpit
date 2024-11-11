@@ -1,5 +1,23 @@
 <template>
   <!-- The data upload card is only shown after login -->
+
+  <!-- Title bar -->
+  <div class="title-container">
+    <span>Data Upload</span>
+  </div>
+
+  <!-- Container location bar -->
+  <div class="container-location">
+    <ul class="horizontal-list">
+      <li>
+        <span><b>Data upload location:</b> </span>
+      </li>
+      <li>
+        <container-nav />
+      </li>
+    </ul>
+  </div>
+
   <v-container>
     <!-- Card that contains the data upload field -->
     <v-card
@@ -57,8 +75,10 @@
           type="error"
           icon="$error"
           ><b
-            >There is an error here somewhere. Try logging out and logging back in?</b>(also could try clearing your browser
-            cookies if problem reoccurs)</v-alert
+            >There is an error here somewhere. Try logging out and logging back
+            in?</b
+          >(also could try clearing your browser cookies if problem
+          reoccurs)</v-alert
         >
       </div>
 
@@ -69,23 +89,30 @@
           title="File(s) successfully uploaded!"
           type="success"
           icon="$success"
-          >(Your file(s) <i>{{ this.filesUploaded[0].split('/')[this.filesUploaded[0].split('/').length-1] }}</i> can be found in your pod at 
-          <b>{{ this.filesUploaded[0] }}</b>)</v-alert
+          >(Your file(s)
+          <i>{{
+            this.filesUploaded[0].split("/")[
+              this.filesUploaded[0].split("/").length - 1
+            ]
+          }}</i>
+          can be found in your pod at <b>{{ this.filesUploaded[0] }}</b
+          >)</v-alert
         >
       </div>
-
     </v-card>
   </v-container>
 
   <hr />
 
-  <body>
+  <body class="use-guide">
     <h2 class="req">Data Upload Guide</h2>
     <ol>
       <li>Click the <b>"File Input"</b> bar above or drag and drop a file</li>
       <li>Select the local file(s) you wish to upload</li>
       <li>Click the <b>"Upload"</b> button</li>
-      <li>Once the success label appears, your files should then be in your pod.</li>
+      <li>
+        Once the success label appears, your files should then be in your pod.
+      </li>
     </ol>
   </body>
 </template>
@@ -93,8 +120,12 @@
 <script lang="ts">
 import { handleFiles, uploadSuccess } from "./fileUpload";
 import { currentWebId, getPodURLs } from "./login";
+import ContainerNav from "./ContainerNav.vue";
 
 export default {
+  components: {
+    ContainerNav,
+  },
   data() {
     return {
       webId: "",
@@ -152,6 +183,7 @@ body {
   line-height: 1.6;
   margin: 15px;
   font-family: "Oxanium", monospace;
+  font-size: 13px;
   max-width: 80%;
   margin: auto;
   margin-top: 20px;
@@ -161,43 +193,78 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Title bar */
+.title-container {
+  background-color: #445560;
+  border-radius: 8px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+.title-container span {
+  font-size: 30pt;
+  font-family: "Oxanium", monospace;
+  font-weight: 500;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+.container-location {
+  background-color: #445560;
+  border-radius: 8px;
+}
+
+/* Container location bar */
+.horizontal-list {
+  display: flex;
+  align-items: center;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+.horizontal-list span {
+  font-size: 18pt;
+  font-family: "Oxanium", monospace;
+  font-weight: 400;
+  margin-left: 15px;
+}
+
+/* Data upload container */
 .container {
   font-family: "Oxanium", monospace;
-  max-width: 90%;
+  max-width: 95%;
   margin: auto;
   padding: 20px;
   background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-
 .upload-section {
   font-family: "Oxanium", monospace;
 }
-
 .v-btn {
   margin-left: 15px;
   margin-bottom: 15px;
 }
-
 ul,
 ol {
   margin-left: 20px;
   margin-bottom: 15px;
   margin-top: 5px;
 }
-
 ol li {
   margin-bottom: 10px;
   margin-left: 20px;
   list-style-type: upper-roman;
   align-items: Left;
 }
-
 .guide {
   text-align: Left;
 }
 
+/* User guide */
+.use-guide {
+  font-size: 16px;
+  max-width: 95%;
+}
 .req {
   margin-top: 10px;
 }

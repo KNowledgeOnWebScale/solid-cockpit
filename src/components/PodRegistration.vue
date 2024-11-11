@@ -28,9 +28,6 @@ import { webIdDataset } from "./getData";
 import {
   isLoggedin,
   currentWebId,
-  redirectToHomepage,
-  redirectToLogin,
-  logOut,
   getPodURLs,
 } from "./login";
 

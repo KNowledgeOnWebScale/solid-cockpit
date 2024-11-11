@@ -51,7 +51,7 @@
               </div>
             </li>
 
-            <!-- filter functionality -- doesn't work and im sick of trying to figure it out -->
+            <!-- TODO: filter functionality -- doesn't work and im sick of trying to figure it out -->
             <li class="right">
               <div class="the-filter">
                 <v-menu v-model="filterMenuOpen">
@@ -494,13 +494,12 @@ export default {
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
       }
-
-      /**
+    },
+    /**
        * method for copying text to the user's clipboard
        *
        * @param text the text to be coppied
        */
-    },
     copyText(text) {
       navigator.clipboard.writeText(text);
     },
