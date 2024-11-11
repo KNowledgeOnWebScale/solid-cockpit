@@ -9,8 +9,7 @@
         </div>
       
         <div class="entry">
-          <h1>The best way to pilot your <a href="https://solidproject.org/">Solid Pod</a> is with <span>Solid Cockpit</span></h1>
-          <!-- TODO: Make drop downs (with more in-depth guides for non-experts)-->
+          <h1>The best way to pilot your <a href="https://solidproject.org/">Solid Pod</a> is with <br /> <span>Solid Cockpit</span></h1>
         </div>
       
     </v-col>
@@ -25,7 +24,7 @@
   </div>
 
   <body>
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
+    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
     <div class="container">
       <h1 class="guide">What can this application do?</h1>
       

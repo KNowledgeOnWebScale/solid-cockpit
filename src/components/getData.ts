@@ -31,18 +31,19 @@ export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
 /**
  * Method to Fetch WebId data from the Solid Pod API.
  * 
- * @param url the URL of the Solid pod or resource from which data should be obtained
+ * @param url the URL of the User's WebId (for inferring the Pod URL)
+ * @param customLoc the URL of the Solid pod that is to be added to the WebId
  * 
  * @retuns a SolidDataset of the WebId from the WebId url provided
  */
-export async function webIdDataset(url: UrlString, customLoc: UrlString | null): Promise<void> {
+export async function webIdDataset(url: UrlString, customLoc: UrlString | string): Promise<void> {
   const profData = await getWebIdDataset(url);
   const profThing = getThing(profData, url);
   let updatedThing = null;
   
   console.log(profThing);
-  /* if the user did not sepcify a Pod url */
-  if (customLoc === null) {
+  /* if the user DID NOT sepcify a Pod url */
+  if (customLoc === '') {
     const parsedUrl = new URL(url);
 
     /* if the user is using the triple pod hosting server */
@@ -57,14 +58,17 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | null):
       console.log(updatedCard);
     } 
 
-  /* if the user did specify their Pod's URL */
+  /* if the user DID specify their Pod's URL */
   } else {
-    // updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
-    updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
+    /* TODO: Add another conditional and logic for inferring a Pod URL when one is not provided */
+
+    updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
+    // updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
     
     /* saves the updated card to the User's Pod (with their pod is registered) */
     const newCard = setThing(profData, updatedThing);
-    console.log(newCard);
+    const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
+    console.log(updatedCard);
   }
   
   
