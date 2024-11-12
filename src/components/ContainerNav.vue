@@ -32,6 +32,10 @@ import { currentWebId, getPodURLs } from "./login";
 import { fetchPermissionsData, fetchData, fetchAclAgents } from "./getData";
 
 export default {
+  name: 'ContainerNav',
+  props: {
+    currentPod: String
+  },
   data() {
     return {
       filters: ["containers", "resources"],
@@ -42,9 +46,7 @@ export default {
       userUrl: "",
       userUrlInvalid: false,
       submissionDone: false,
-
       webId: "",
-      podList: [],
       dirContents: WorkingData,
       containerContents: WorkingData,
       hasAcl: null,
@@ -77,7 +79,7 @@ export default {
           return segments[segments.length - 1] + "/";
         });
       // for navigating up a directory path (not possible when in root directory)
-      if (currentDir !== this.podList[0]) {
+      if (currentDir !== this.currentPod) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
@@ -116,7 +118,7 @@ export default {
      * then sorts the array to reflect heirarchy
      */
     async getGeneralData() {
-      this.dirContents = await fetchData(this.podList[0]);
+      this.dirContents = await fetchData(this.currentPod);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
@@ -138,8 +140,7 @@ export default {
      */
     async podURL() {
       this.webId = currentWebId();
-      this.podList = await getPodURLs();
-      this.currentLocation = this.podList[0]; // assuming that the user only has one pod at the moment...
+      this.currentLocation = this.currentPod; 
     },
     /**
      * Sorts container URLs and resource URLs into different lists
@@ -148,11 +149,11 @@ export default {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.podList[0] &&
-        !this.urls.includes(this.podList[0])
+        this.currentLocation === this.currentPod &&
+        !this.urls.includes(this.currentPod)
       ) {
-        this.urls.push(this.podList[0]);
-        this.containerUrls.push(this.podList[0]);
+        this.urls.push(this.currentPod);
+        this.containerUrls.push(this.currentPod);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
@@ -163,7 +164,11 @@ export default {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     this.podURL();
     setTimeout(() => {
-      this.getGeneralData();
+      try {
+        this.getGeneralData();
+      } catch(err) {
+        console.log(err);
+      }
     }, 500);
   },
 };

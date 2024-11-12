@@ -1,5 +1,4 @@
 <template>
-  <!-- TODO: the pod choosing / registering section -->
   <div class="pod-register" v-if="loggedIn">
     <div v-if="!podAccess">
       <v-alert
@@ -52,17 +51,35 @@
         </form>
       </v-alert>
     </div>
-    
-    <!-- TODO: Add a section for pod selection -->
+
     <!-- Pod Selection dropdown -->
     <div class="select-pod" v-if="podAccess">
-      <span>Current Pod</span>
-      <v-select
-        variant="outlined"
-        color="#445560"
-        v-model="currentPod"
-        :items="podList"
-      ></v-select>
+      <ul class="horizontal-list">
+        <li>
+          <span>Selected Pod:</span>
+        </li>
+        <li>
+          <div class="sel-pod">
+            <v-select
+              variant="outlined"
+              v-model="currentPod"
+              :items="podList"
+            ></v-select>
+            <v-btn
+              class="pod-selectButton"
+              variant="tonal"
+              rounded="xs"
+              @click="selectPod"
+            >
+              Select Pod
+              <v-tooltip activator="parent" location="end"
+                >Click to select this pod
+              </v-tooltip>
+            </v-btn>
+            <v-icon v-if="podSuccess" color="green">mdi-check</v-icon>
+          </div>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -73,6 +90,7 @@ import { checkUrl } from "./privacyEdit";
 import { isLoggedin, currentWebId, getPodURLs } from "./login";
 
 export default {
+  name: "PodRegistration",
   data: () => ({
     loggedIn: false,
     menu: false,
@@ -82,6 +100,7 @@ export default {
     customPodUrl: "",
     currentPod: "",
     showFormIndex: false,
+    podSuccess: false,
     user: {
       webId: "",
       fullName: "John Doe", // TODO: Should pull this data from #card (and integrate to pop up)
@@ -103,11 +122,19 @@ export default {
      */
     async addToWebIdData() {
       console.log(checkUrl(this.customPodUrl, this.currentPod));
-      if (!checkUrl(this.customPodUrl, this.currentPod)) {
-        console.log(this.customPodUrl);
+      /* For TRIPLE consortium */
+      if (this.customPodUrl === "") {
         await webIdDataset(this.user.webId, this.customPodUrl);
       } else {
-        console.log("Not a valid URL ... ");
+        /* For provided URL */
+        if (!checkUrl(this.customPodUrl, this.currentPod)) {
+          console.log(this.customPodUrl);
+          await webIdDataset(this.user.webId, this.customPodUrl);
+        } else {
+          /* For invalid URL 
+        TODO: make this a little prettier */
+          console.log("Not a valid URL ... ");
+        }
       }
     },
 
@@ -116,8 +143,8 @@ export default {
      */
     async findPodList() {
       this.podList = await getPodURLs();
-      this.currentPod = this.podList[0];
       if (this.podList !== null) {
+        this.currentPod = this.podList[0];
         try {
           this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
         } catch (err) {
@@ -128,6 +155,17 @@ export default {
     /* Toggles the Custom URL field */
     toggleForm() {
       this.showFormIndex = !this.showFormIndex;
+    },
+
+    successfulSelection() {
+      this.podSuccess = true;
+    },
+    /* Emits selected pod to Parent component (LandingPage.vue) */
+    selectPod() {
+      const selectedPod = this.currentPod;
+      this.$emit("pod-selected", selectedPod);
+      console.log("Selected pod: " + selectedPod);
+      this.successfulSelection();
     },
   },
   mounted() {
@@ -144,9 +182,9 @@ export default {
 <style scoped>
 .pod-register {
   font-family: "Oxanium", monospace;
-  max-width: 75%;
   margin: auto;
-  margin-bottom: 20px;
+  margin-left: 15px;
+  margin-bottom: 10px;
 }
 
 /* For pod registration */
@@ -157,22 +195,43 @@ export default {
 .pod-registerButton {
   margin-top: 10px;
 }
-#addAccess{
+#addAccess {
   display: flex;
 }
-.refresh{
+.refresh {
   margin-left: auto;
 }
 
-/* For pod selection */
+/* For pod selection 
+   TODO: Fix the alignment of this :( */
 .select-pod {
-  padding: 15px;
-  margin: auto;
-  background-color: #445560;
+  margin-top: 10px;
+}
+.horizontal-list {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
 }
 .select-pod span {
   margin-bottom: 20px;
   font-size: 24px;
   font-weight: 700;
+}
+.sel-pod {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  gap: 20px;
+}
+.sel-pod .v-btn {
+  margin-bottom: 15px;
+}
+.sel-pod .v-select {
+  min-width: 150px;
+  margin-top: 15px;
+  font-family: "Oxanium", monospace;
 }
 </style>
