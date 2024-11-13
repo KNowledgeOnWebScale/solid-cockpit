@@ -11,8 +11,7 @@
       <div class="entry">
         <h1>
           The best way to pilot your
-          <a href="https://solidproject.org/">Solid Pod</a> is with <br />
-          <span>Solid Cockpit</span>
+          <a href="https://solidproject.org/">Solid Pod</a>
         </h1>
       </div>
     </v-col>

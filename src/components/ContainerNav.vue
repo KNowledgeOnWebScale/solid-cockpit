@@ -27,9 +27,9 @@
 
 <script>
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
-import { changeAcl, checkUrl, generateAcl, WorkingData } from "./privacyEdit";
-import { currentWebId, getPodURLs } from "./login";
-import { fetchPermissionsData, fetchData, fetchAclAgents } from "./getData";
+import { WorkingData } from "./privacyEdit";
+import { currentWebId } from "./login";
+import { fetchData, fetchAclAgents } from "./getData";
 
 export default {
   name: 'ContainerNav',
@@ -38,27 +38,13 @@ export default {
   },
   data() {
     return {
-      filters: ["containers", "resources"],
-      filterValues: [true, true],
-      filterMenuOpen: false,
-      showSharedIndex: null,
-      showFormIndex: null,
-      userUrl: "",
-      userUrlInvalid: false,
-      submissionDone: false,
       webId: "",
       dirContents: WorkingData,
-      containerContents: WorkingData,
-      hasAcl: null,
-      cannotMakeAcl: false,
       currentLocation: "",
       currentUrl: null,
       urls: [],
       containerUrls: [],
       resourceUrls: [],
-      inContainer: WorkingData,
-      newUrls: [],
-      aclUrl: "",
       hasAccess: [],
     };
   },

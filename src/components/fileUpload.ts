@@ -14,6 +14,7 @@ import { mimeTypes } from "./mime_types.js";
 export async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
   const outputList: string[] = [];
   console.log(podURL);
+  // TODO: Make this actually work with the provided container location ... 
   for (let i = 0; i < fileList.length; i++) {
     const upload: string = await uploadToPod(`${podURL}uploads/${fileList[i].name}`, fileList[i], fetch);
     outputList.push(upload);

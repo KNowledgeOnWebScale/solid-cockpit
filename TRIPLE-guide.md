@@ -32,16 +32,18 @@ To **set up** your Solid Pod using the TRIPLE platform, follow these steps:
 
 ## 🔑 Logging into your Solid Pod (after creation)
 1. **Navigate to our Solid Pod Hosting website**
-
    - Go to [https://triple.ilabt.imec.be/](https://triple.ilabt.imec.be/)
    - Use the following credentials to enter the site:
      - **Password**: `triple`
 
 2. **Login using your credentials**
-
    - Click **Login** (assuming you have already made an account)
 
-     
+3. **Register your Pod on your new WebID card**
+   - Navigate to the "Home" page of the [Solid-Cockpit Webpage](https://knowledgeonwebscale.github.io/solid-cockpit/home)
+   - Login to your Solid Pod using the "https://triple.ilabt.imec.be/" provider
+   - CLICK the "REGISTER POD" button (not necessary to enter any PodURL)
+   - Thats it. Now you are connected to your new Pod!!
 
 ## 🛫 Using the Solid Cockpit App
 
@@ -54,7 +56,7 @@ The Solid Cockpit app provides several functionalities for managing and interact
    - When uploading RDF data, file validity can be assessed before uploading.
    - Specify and modify the metadata of uploaded files.
 
-2. 🗂️ **Data Browser**
+2. 🗂️ **Data Browser** (under construction)
    - View, modify, move, and delete the contents of your Pod.
    - Explore and edit the container structure of your Pod.
 
@@ -63,7 +65,7 @@ The Solid Cockpit app provides several functionalities for managing and interact
    - A user input to designate the sources for the queries.
    - Options that impact the the output formats, query execution, and other relevant parameters.
    
-4. 🔒 **Data Privacy Management**
+4. 🔒 **Data Privacy Management** (under construction)
    - View the current privacy settings for your data (Read, Write, and Append).
    - Add or change privacy settings to containers and resources in your Pod.
    - Give and receive notifications related to new access rights to the data of others.

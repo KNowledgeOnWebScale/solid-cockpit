@@ -114,8 +114,8 @@
   <body class="use-guide">
     <h2 class="req">Data Upload Guide</h2>
     <ol>
+      <li>Select the pod and container you want to upload a file to (Not Fully Funtional)</li>
       <li>Click the <b>"File Input"</b> bar above or drag and drop a file</li>
-      <li>Select the local file(s) you wish to upload</li>
       <li>Click the <b>"Upload"</b> button</li>
       <li>
         Once the success label appears, your files should then be in your pod.
