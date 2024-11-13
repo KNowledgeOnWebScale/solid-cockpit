@@ -3,18 +3,17 @@
     <v-col cols="12">
       <div class="logo-container">
         <img
-            :src="require('../assets/full-sc-logo-nb.png')"
-            alt="Full Solid Cockpit logo"
-          />
-        </div>
-      
-        <div class="entry">
-          <h1>The best way to pilot your <a href="https://solidproject.org/">Solid Pod</a> is with <span>Solid Cockpit</span></h1>
-          <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
-          <h3>README</h3>
-          <h3>Community Solid Server (local Solid pod)</h3>
-        </div>
-      
+          :src="require('../assets/full-sc-logo-nb.png')"
+          alt="Full Solid Cockpit logo"
+        />
+      </div>
+
+      <div class="entry">
+        <h1>
+          The best way to pilot your
+          <a href="https://solidproject.org/">Solid Pod</a>
+        </h1>
+      </div>
     </v-col>
   </v-container>
 
@@ -22,45 +21,52 @@
     <pod-login />
   </div>
 
+  <div class="pod-reg">
+    <pod-registration />
+  </div>
+
   <body>
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts)-->
+    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
     <div class="container">
       <h1 class="guide">What can this application do?</h1>
-      
+
       <hr />
 
       <h2 class="req">1. Connect to your Pod</h2>
-      
+
       <p>Login to your pod via your pod provider + personal credentials.</p>
 
       <hr />
 
       <h2 class="req">2. Manage files in your pod</h2>
-      <p>
-        Upload, delete, and move files in your Solid Pod.
-      </p>
+      <p>Upload, delete, and move files in your Solid Pod.</p>
 
       <hr />
 
       <h2 class="req">3. Query your pod (and SPARQL endpoints you specify)</h2>
       <p>
-        Execute SPARQL queries over your pod and other accessible Solid Pods or SPARQL Endpoints.
+        Execute SPARQL queries over your pod and other accessible Solid Pods or
+        SPARQL Endpoints.
       </p>
 
       <hr />
 
       <h2 class="req">4. Edit the privacy of files in your pod</h2>
       <p>
-        Modify access controls for files and containers in your pod + notify others of the changes.
+        Modify access controls for files and containers in your pod + notify
+        others of the changes.
       </p>
 
       <hr />
 
-      <h2 class="req">5. Coming soon: edit the profile information associated with your Pod/webId</h2>
+      <h2 class="req">
+        5. Coming soon: edit the profile information associated with your
+        Pod/webId
+      </h2>
       <p>
-        Edit the personal data incorporated with your Solid Pod and/or your WebID.
+        Edit the personal data incorporated with your Solid Pod and/or your
+        WebID.
       </p>
-
     </div>
   </body>
 </template>
@@ -68,10 +74,15 @@
 <script>
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
 import PodLogin from "./PodLogin.vue";
+import PodRegistration from "./PodRegistration.vue";
 
 export default {
   components: {
     PodLogin,
+    PodRegistration,
+  },
+  props: {
+    currPod: String,
   },
   data: () => ({
     login_status: true,
@@ -97,7 +108,7 @@ export default {
 <style scoped>
 .logo-container {
   display: flex;
-  align-items: center; 
+  align-items: center;
   justify-content: center;
 }
 img {
@@ -106,18 +117,25 @@ img {
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
+.pod-reg {
+  background-color: #445560;
+  border-radius: 8px;
+  max-width: 80%;
+  margin: auto;
+}
+
 .entry {
   font-family: "Oxanium", monospace;
   color: #28353e;
   text-align: center;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 .entry a {
   text-decoration: none;
   color: #28353e;
 }
 .entry span {
-  font-family: 'Orbitron';
+  font-family: "Orbitron";
 }
 
 .guide {
@@ -181,7 +199,7 @@ a:hover {
 
 .container {
   font-family: "Oxanium", monospace;
-  max-width: 70%;
+  max-width: 85%;
   margin: auto;
   padding: 20px;
   background: #445560;

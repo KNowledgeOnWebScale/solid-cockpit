@@ -11,6 +11,7 @@
 import FunctionSelector from './components/Styling/FunctionSelector.vue';
 import TheHeader from './components/Styling/TheHeader.vue';
 
+
 export default {
   name: 'App',
   components: {

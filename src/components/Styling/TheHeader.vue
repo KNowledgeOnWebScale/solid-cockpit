@@ -2,6 +2,7 @@
   <v-card color="#AAA7AD">
     <v-container>
       <v-row align="center" justify="start">
+        <!-- Logo and App Title -->
         <img
           :src="require('../../assets/solid-cockpit-logo.png')"
           alt="Solid Cockpit logo"
@@ -10,24 +11,8 @@
           <h1>Solid Cockpit</h1>
         </v-card-title>
 
-        <!-- TODO: the pod choosing / registering section -->
         <div class="header-right">
-          <div class="register-pod" v-if="!podAccess">
-            <v-btn variant="tonal" rounded="xs" @click="webIdData">
-              Register Pod 
-            </v-btn>
-
-          </div>
-          
-          <div class="select-pod" v-if="podAccess">
-            <v-select
-              variant="outlined"
-              color="#445560"
-              v-model="currentPod"
-              :items="podList"
-            ></v-select>
-          </div>
-
+          <!-- Account Icon -->
           <div class="account">
             <div class="text-right">
               <v-menu
@@ -46,6 +31,7 @@
                     ><v-icon size="36px" color="#EDE7F6">mdi-account</v-icon></v-btn>
                 </template>
 
+                <!-- Current session info -->
                 <v-card>
                   <v-list class="text-right align-self-start">
                     <v-list-item
@@ -58,7 +44,7 @@
 
                   <v-divider></v-divider>
 
-
+                  <!-- If logged out -->
                   <v-list class="text-right align-self-start">
                     <div v-if="!loggedIn">
                       <v-list-item>
@@ -73,6 +59,7 @@
                       </v-list-item>
                     </div>
 
+                    <!-- If logged in -->
                     <div v-if="loggedIn">
                       <v-list-item>
                         <v-btn
@@ -116,9 +103,7 @@ import {
   redirectToHomepage,
   redirectToLogin,
   logOut,
-  getPodURLs,
 } from "./../login";
-import { webIdDataset } from "./../getData";
 
 export default {
   data: () => ({
@@ -150,25 +135,7 @@ export default {
     LoginpageRedir() {
       redirectToLogin();
     },
-    // TODO: fix this mess
-    async findPodList() {
-      this.podList = await getPodURLs();
-      this.currentPod = this.podList[0];
-      console.log(this.podList);
-      if (this.podList !== null) {
-        try {
-          this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
-        } catch(err) {
-          console.log(err);
-        }
-      }
-      console.log(this.podAccess);
-    },
-    async webIdData() {
-      //await webIdDataset(this.user.webId, this.customPodUrl);
-      //this.findPodList()
-
-    }
+    
   },
   mounted() {
     setTimeout(() => {
@@ -198,13 +165,6 @@ img {
   display: flex;
   align-items: center;
   margin-left: auto;
-}
-
-.select-pod {
-  margin-right: 20px;
-  margin-top: 20px;
-  display: flex;
-  align-items: center;
 }
 
 .account {
