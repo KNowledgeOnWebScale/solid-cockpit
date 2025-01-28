@@ -556,7 +556,7 @@ export default {
     // TODO: write a new structured data creation algorithm to store the sharing status data
     createSharingDoc(docExists) {
       if (!docExists) {
-
+        console.log("make file");
       }
       else {
         // await this.uploadedSharingDoc = uploadToPod();
