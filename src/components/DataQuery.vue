@@ -26,9 +26,14 @@
           <div class="top-container">
             <span>Input a New Query</span>
             <!-- TODO: Make a dropdown of example queries here -->
+            <span id="sample-queries">sample queries</span>
+            <v-dropdown>
+
+            </v-dropdown>
           </div>
           <!-- SPARQL Query input box -->
           <!-- Source Designation -->
+          <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) -->
           <div class="source-selection">
             <span>Datasources: </span>
             <v-autocomplete
@@ -127,7 +132,7 @@ export default {
       currentPod: "",
       currentView: "newQuery", // Tracks the active view: 'newQuery' or 'previousQueries'
       possibleSources: [
-        "This Pod", "Bgee", "GlyConnect", "HAMAP","MetaNetX", "OMA", "OrthoDB", "Rhea", 
+        "This Solid Pod", "Bgee", "GlyConnect", "HAMAP","MetaNetX", "OMA", "OrthoDB", "Rhea", 
         "SwissLipids", "UniProt", "dbgi", "neXtProt", "WikiData"
       ],
       possibleSourcesURL: {
@@ -310,6 +315,10 @@ body {
   height: fit-content;
   width: 100%;
   font-family: "Oxanium", monospace;
+}
+#sample-queries {
+  align-items: right;
+  
 }
 .query-container ul {
   list-style-type: none;
