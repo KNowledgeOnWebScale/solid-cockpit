@@ -25,39 +25,47 @@
         <ul>
           <div class="top-container">
             <span>Input a New Query</span>
-            <!-- TODO: Make a dropdown of example queries here -->
-            <span id="sample-queries">sample queries</span>
-            <v-dropdown>
-
-            </v-dropdown>
+            <!-- TODO: Add more example queries here -->
+            <v-select
+              class="example-queries"
+              :item-props="itemPropsExampleQueries"
+              :items="exampleQueries"
+              v-model="currentQuery"
+              density="compact"
+              rounded
+              flat
+              label="Sample Queries"
+            ></v-select>
           </div>
           <!-- SPARQL Query input box -->
           <!-- Source Designation -->
-          <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) -->
+          <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) + integrate YASGUI -->
+          <div id="yasgui-container"></div>
+
           <div class="source-selection">
             <span>Datasources: </span>
-            <v-autocomplete
+            <v-combobox
               class="autocomplete"
-              v-model="sources"
+              v-model="currentQuery.sources"
               :items="possibleSources"
-              label="choose >=1 source(s)"
+              label="Source(s)"
               variant="plain"
               chips
-              closable-chips="true"
+              closable-chips
               hide-details
               hide-no-data
               hide-selected
               multiple
               single-line
-              clearable="true"
-            ></v-autocomplete>
+              clearable
+            ></v-combobox>
           </div>
 
           <!-- Actual query -->
           <li>
             <textarea
               ref="codeEditor"
-              v-model="queryInput"
+              v-model="currentQuery.query"
               placeholder="Enter your SPARQL query here..."
               class="input-box"
             ></textarea>
@@ -66,11 +74,11 @@
             <p
               class="valid-text"
               :class="
-                isValidSPARQL(queryInput) ? 'text-green-600' : 'text-red-600'
+                isValidSPARQL(currentQuery.query) ? 'text-green-600' : 'text-red-600'
               "
             >
               {{
-                isValidSPARQL(queryInput)
+                isValidSPARQL(currentQuery.query)
                   ? "Looks like a valid SPARQL query."
                   : "Invalid SPARQL query. Please check syntax."
               }}
@@ -90,10 +98,10 @@
             ></v-checkbox>
             <div class="save-info">
               <v-icon>mdi-information</v-icon>
-              <v-tooltip
-                activator="parent"
-                location="right"
-              >Check this box if you would like to save the query and any results to your pod</v-tooltip>
+              <v-tooltip activator="parent" location="right"
+                >Check this box if you would like to save the query and any
+                results to your pod</v-tooltip
+              >
             </div>
           </div>
           <!-- TODO: an alert or something here if there is a [syntax] error -->
@@ -126,36 +134,57 @@
 </template>
 
 <script>
+// import YASGUI from '@triply/yasgui/build/yasgui.min.js'
+
 export default {
   data() {
     return {
       currentPod: "",
       currentView: "newQuery", // Tracks the active view: 'newQuery' or 'previousQueries'
-      possibleSources: [
-        "This Solid Pod", "Bgee", "GlyConnect", "HAMAP","MetaNetX", "OMA", "OrthoDB", "Rhea", 
-        "SwissLipids", "UniProt", "dbgi", "neXtProt", "WikiData"
+      exampleQueries: [
+        {
+          name: 'Example 1',
+          sources: ['<https://sparql.omabrowser.org/sparql>'],
+          query: 'SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10',
+        }
       ],
-      possibleSourcesURL: {
-        Bgee: "<https://www.bgee.org/sparql/>",
-        GlyConnect: "<https://glyconnect.expasy.org/sparql>",
-        HAMAP: "<https://hamap.expasy.org/sparql/>",
-        MetaNetX: "<https://rdf.metanetx.org/sparql/>",
-        OMA: "<https://sparql.omabrowser.org/sparql>",
-        OrthoDB: "<https://sparql.orthodb.org/sparql/>",
-        Rhea: "<https://sparql.rhea-db.org/sparql>",
-        SwissLipids: "<https://sparql.swisslipids.org/sparql/>",
-        UniProt: "<https://sparql.uniprot.org/sparql/>",
-        dbgi: "<https://biosoda.unil.ch/emi/sparql/>",
-        neXtProt: "<https://sparql.nextprot.org/sparql>",
-        WikiData: "<https://query.wikidata.org/sparql>"
+      possibleSources: [
+        '<https://www.bgee.org/sparql/>',
+        '<https://glyconnect.expasy.org/sparql>',
+        '<https://hamap.expasy.org/sparql/>',
+        '<https://rdf.metanetx.org/sparql/>',
+        '<https://sparql.omabrowser.org/sparql>',
+        '<https://sparql.orthodb.org/sparql/>',
+        '<https://sparql.rhea-db.org/sparql>',
+        '<https://sparql.swisslipids.org/sparql/>',
+        '<https://biosoda.unil.ch/emi/sparql/>',
+        '<https://sparql.uniprot.org/sparql/>',
+        '<https://sparql.nextprot.org/sparql>',
+        '<https://query.wikidata.org/sparql>',
+      ],
+      currentQuery: {
+        name: '',
+        sources: [],
+        query: '', // The current SPARQL query input
       },
-      sources: [],
-      queryInput: "", // The current SPARQL query input
       saveQuery: false,
       previousQueries: [],
     };
   },
   methods: {
+    // for the sources autocomplete list
+    itemPropsSources (item) {
+      return {
+        title: item.url,
+      }
+    },
+
+    itemPropsExampleQueries (item2) {
+      return {
+        title: item2.name,
+      }
+    },
+
     isValidSPARQL(query) {
       // Check if the query starts with a valid SPARQL keyword
       const sparqlRegex = /^(SELECT|ASK|CONSTRUCT|DESCRIBE|PREFIX|BASE)\s+/i;
@@ -185,20 +214,31 @@ export default {
       return true;
     },
     clearQueryInput() {
-      this.queryInput = "";
+      this.currentQuery.query = "";
     },
     executeQuery() {
-      if (this.queryInput.trim() === "") {
+      if (this.currentQuery.query.trim() === "") {
         alert("Please enter a SPARQL query before executing.");
         return;
       }
-      alert(`Executing query: \n${this.queryInput}`);
+      alert(`Executing query: \n${this.currentQuery.query}`);
+      
+      // TODO: execute query using comunica here
+
+
+      if (this.saveQuery) {
+        //TODO: save executed query to Pod if 
+      }
+      
+      
       // Save the query to the list of previous queries
-      this.previousQueries.unshift(this.queryInput);
-      this.queryInput = "";
+      this.previousQueries.unshift(this.currentQuery.query);
+      
     },
+
+    // TODO: load past queries for display from connected Pod
     loadQuery(query) {
-      this.queryInput = query;
+      this.currentQuery.query = query;
       this.currentView = "newQuery";
     },
   },
@@ -225,11 +265,20 @@ export default {
       // Set the height to match the scrollHeight
       this.style.height = this.scrollHeight + "px";
     });
+
+    //TODO: integrate yasgui
+    // const container = document.getElementById('yasgui-container');
+    // const yasguiInstance = new YASGUI(container, {
+    //   requestConfig: { endpoint: "http://example.com/sparql" },
+    //   copyEndpointOnNewTab: false,
+    // });
+    // Optionally, you can store or configure `yasguiInstance` further here.
   },
 };
 </script>
 
 <style scoped>
+@import url("https://unpkg.com/@triply/yasgui/build/yasgui.min.css");
 body {
   line-height: 1.6;
   margin: 15px;
@@ -318,12 +367,18 @@ body {
 }
 #sample-queries {
   align-items: right;
-  
 }
 .query-container ul {
   list-style-type: none;
   height: 100%;
   overflow: auto;
+}
+.query-container .top-container {
+  display: flex;
+}
+.example-queries {
+  margin-left: auto;
+  max-width: 20dvw;
 }
 .query-container .top-container span {
   font-size: 18pt;
@@ -388,7 +443,6 @@ body {
   color: #a9aeb1;
 }
 
-
 /* Past Queries Display */
 
 .query-catalog {
@@ -397,6 +451,4 @@ body {
   margin-top: 10px;
   display: flex;
 }
-
-
 </style>
