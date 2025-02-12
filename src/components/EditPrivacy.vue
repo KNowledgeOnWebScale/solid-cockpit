@@ -91,26 +91,29 @@
     <div class="body-container">
       <div class="sideNav">
         <ul class="side-nav fixed floating #28353e z-depth-0">
-          <li class="active">
-            <a href="#"
-              ><i class="material-icons purple-text text-darken-1">dashboard</i
-              >My Pod</a
-            >
+          <li>
+            <button @click="toggleNavValue(0)">
+              <a><i class="material-icons purple-text text-darken-1">dashboard</i>My Pod</a>
+            </button>
           </li>
           <li><div class="divider"></div></li>
           <li>
-            <a href="#"><i class="material-icons">people</i>Shared with me</a>
+            <button @click="toggleNavValue(1)">
+              <a><i class="material-icons">people</i>Shared with me</a>
+            </button>
           </li>
           <li><div class="divider"></div></li>
           <li>
-            <a href="#"><i class="material-icons">star</i>Shared with others</a>
+            <button @click="toggleNavValue(2)">
+              <a><i class="material-icons">star</i>Shared with others</a>
+            </button>
           </li>
           <li><div class="divider"></div></li>
         </ul>
       </div>
 
-      <!-- Pod Containers display -->
-      <div class="podDirectories">
+      <!-- "My Pod" display -->
+      <div class="podDirectories" v-if="navValue===0">
         <div class="container-fluid">
           <ul>
             <!-- Iterates over list of containers in a pod -->
@@ -350,6 +353,18 @@
           </ul>
         </div>
       </div>
+
+      <!-- "Shared with me" display -->
+      <!-- TODO: Make a document that displays BOTH docs shared with others and docs shared with me -->
+      <div class="shared-with-me" v-if="navValue===1">
+
+
+      </div>
+
+      <!-- "Shared with others" display -->
+      <div class="shared-with-others" v-if="navValue===2">
+
+      </div>
     </div>
 
     <hr />
@@ -376,6 +391,7 @@ import {
   fetchData,
   fetchAclAgents,
 } from "./getData";
+import { uploadToPod } from "./fileUpload";
 
 export default {
   name: "PrivacyComponent",
@@ -395,6 +411,7 @@ export default {
         write: false,
         control: false,
       },
+      navValue: 0,
       permissionsString: "",
       webId: "",
       podList: [],
@@ -411,6 +428,7 @@ export default {
       newUrls: [],
       aclUrl: "",
       hasAccess: [],
+      uploadedSharingDoc: "",
     };
   },
   methods: {
@@ -519,6 +537,29 @@ export default {
         this.showFormIndex = null; // Hide the form if it's already shown
       } else {
         this.showFormIndex = index; // Show the form for the clicked item
+      }
+    },
+
+    /**
+     * Method for changing the view between "My Pod", "Shared with me", and "Shared with others"
+     * @param newValue integer that indicates the new display value
+     */
+    toggleNavValue(newValue) {
+      this.navValue = newValue;
+    },
+
+    /**
+     * checks if the share tracking document exists and creates it if not
+     * @param docExists boolean that initicates is the doc exists
+     * 
+     */
+    // TODO: write a new structured data creation algorithm to store the sharing status data
+    createSharingDoc(docExists) {
+      if (!docExists) {
+        console.log("make file");
+      }
+      else {
+        // await this.uploadedSharingDoc = uploadToPod();
       }
     },
 
