@@ -11,7 +11,10 @@ import {
   buildThing,
   setThing,
   Thing,
+  getThingAll,
+  getStringNoLocale,
   SolidDataset,
+  getFile,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 
@@ -239,3 +242,121 @@ export async function uploadSparqlJson(
   }
 }
 
+/**
+ * Determines if there is are cached queries in the pod.
+ *
+ * @param containerUrl - The container URL (should end with a slash).
+ * @returns boolean representing if a cache is present.
+ */
+export async function getQueriesTtl(
+  containerUrl: string,
+): Promise<boolean> {
+  try {
+    // Try to retrieve the dataset (container) and save updated dataset
+    await getSolidDataset(containerUrl + "queries.ttl", { fetch });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+export interface QueryEntry {
+  hash: string;
+  queryFile: string;
+  resultsFile: string;
+  source: string;
+  created: string;
+}
+
+/**
+ * Retrieves all query entries from a Queries.ttl file.
+ *
+ * It loads the dataset, iterates over all Things, and for each Thing with an RDF type "Query"
+ * (stored as a string literal on the predicate http://www.w3.org/1999/02/22-rdf-syntax-ns#type),
+ * it extracts:
+ *
+ * - The hash from the Thing’s URL fragment.
+ * - The query file name from http://example.com/ns#query.
+ * - The results file name from http://example.com/ns#results.
+ * - The source URL from http://example.com/ns#Source.
+ * - The created date from http://purl.org/dc/terms/created.
+ *
+ * @param ttlFileUrl - The URL of the Queries.ttl file.
+ * @returns An array of QueryEntry objects.
+ */
+export async function getCachedQueries(
+  ttlFileUrl: string
+): Promise<QueryEntry[]> {
+  // Load the dataset from the TTL file.
+  const dataset: SolidDataset = await getSolidDataset(ttlFileUrl, { fetch });
+  const things: Thing[] = getThingAll(dataset);
+  const queryEntries: QueryEntry[] = [];
+
+  things.forEach((thing) => {
+    // Check if the Thing has an RDF type of "Query".
+    const typeValue = getStringNoLocale(
+      thing,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    );
+    if (typeValue !== "Query") {
+      return;
+    }
+
+    // Extract the hash from the Thing’s URL fragment.
+    const thingUrl = thing.url;
+    const hash = thingUrl.includes("#") ? thingUrl.split("#")[1] : "";
+
+    // Extract additional properties using their full predicate IRIs.
+    const queryFile =
+      getStringNoLocale(thing, "http://example.com/ns#query") || "";
+    const resultsFile =
+      getStringNoLocale(thing, "http://example.com/ns#results") || "";
+    const source =
+      getStringNoLocale(thing, "http://example.com/ns#Source") || "";
+    const created =
+      getStringNoLocale(thing, "http://purl.org/dc/terms/created") || "";
+
+    queryEntries.push({
+      hash,
+      queryFile,
+      resultsFile,
+      source,
+      created,
+    });
+  });
+
+  return queryEntries;
+}
+
+/**
+ * Fetches a SPARQL query file (e.g. a "#hash.rq" file) from the given URL and returns its text content.
+ *
+ * @param fileUrl - The URL of the SPARQL query file.
+ * @returns A promise that resolves to the text content of the query file.
+ */
+export async function fetchQueryFileData(
+  fileUrl: string
+): Promise<string> {
+  const file = await getFile(fileUrl, { fetch });
+  const textContent = await file.text();
+  return textContent;
+}
+
+/**
+ * Fetches a SPARQL JSON results file (e.g. a "#hash.sparqljson" file) from the given URL and returns its parsed JSON.
+ *
+ * @param fileUrl - The URL of the SPARQL JSON results file.
+ * @returns A promise that resolves to the parsed JSON object.
+ */
+export async function fetchSparqlJsonFileData(
+  fileUrl: string
+): Promise<any> {
+  const file = await getFile(fileUrl, { fetch });
+  const textContent = await file.text();
+  try {
+    const jsonData = JSON.parse(textContent);
+    return jsonData;
+  } catch (error) {
+    throw new Error(`Error parsing JSON from file at ${fileUrl}: ${error}`);
+  }
+}
