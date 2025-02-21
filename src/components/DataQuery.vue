@@ -2,6 +2,9 @@
   <div class="title-container">
     <span>Data Query</span>
   </div>
+  <div class="pod-chooseContainer">
+    <PodRegistration @pod-selected="handlePodSelected" />
+  </div>
   <div class="general-container">
     <!-- Left Navigation Bar -->
     <div class="nav-container">
@@ -135,8 +138,14 @@
 
 <script>
 // import YASGUI from '@triply/yasgui/build/yasgui.min.js'
+import { currentWebId, getPodURLs } from "./login";
+import { ensureCacheContainer, createQueriesTTL, uploadQueryFile, uploadSparqlJson } from "./queryPod";
+import PodRegistration from "./PodRegistration.vue";
 
 export default {
+  components: {
+    PodRegistration,
+  },
   data() {
     return {
       currentPod: "",
@@ -169,6 +178,7 @@ export default {
       },
       saveQuery: false,
       previousQueries: [],
+      cachePath: "",
     };
   },
   methods: {
@@ -178,13 +188,11 @@ export default {
         title: item.url,
       }
     },
-
     itemPropsExampleQueries (item2) {
       return {
         title: item2.name,
       }
     },
-
     isValidSPARQL(query) {
       // Check if the query starts with a valid SPARQL keyword
       const sparqlRegex = /^(SELECT|ASK|CONSTRUCT|DESCRIBE|PREFIX|BASE)\s+/i;
@@ -210,24 +218,35 @@ export default {
       if (!angleBrackets) {
         return false;
       }
-
       return true;
     },
     clearQueryInput() {
       this.currentQuery.query = "";
     },
-    executeQuery() {
+
+    // method to obtain the current WebID and PodURL
+    async getPodURL() {
+      this.webId = currentWebId(); // fetches user webID from login.ts
+      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
+    },
+    /* Takes in the emitted value from PodRegistration.vue */
+    handlePodSelected(selectedPod) {
+      this.currentPod = selectedPod;
+    },
+
+    async executeQuery() {
       if (this.currentQuery.query.trim() === "") {
         alert("Please enter a SPARQL query before executing.");
         return;
       }
-      alert(`Executing query: \n${this.currentQuery.query}`);
+      // alert(`Executing query: \n${this.currentQuery.query}`);
       
       // TODO: execute query using comunica here
 
 
       if (this.saveQuery) {
-        //TODO: save executed query to Pod if 
+        this.cachePath = await ensureCacheContainer(this.pod);
+
       }
       
       
@@ -235,6 +254,8 @@ export default {
       this.previousQueries.unshift(this.currentQuery.query);
       
     },
+
+
 
     // TODO: load past queries for display from connected Pod
     loadQuery(query) {
@@ -265,6 +286,11 @@ export default {
       // Set the height to match the scrollHeight
       this.style.height = this.scrollHeight + "px";
     });
+
+    setTimeout(() => {
+      this.getPodURL();
+      // console.log(this.podURLs)
+    }, 200);
 
     //TODO: integrate yasgui
     // const container = document.getElementById('yasgui-container');
@@ -306,6 +332,12 @@ body {
   font-weight: 500;
   padding-left: 20px;
   padding-right: 20px;
+}
+
+/* Container pod-chooser bar */
+.pod-chooseContainer {
+  background: #445560;
+  border-radius: 8px;
 }
 
 /* Whole nav and query container */
