@@ -164,7 +164,7 @@ export default {
     selectPod() {
       const selectedPod = this.currentPod;
       this.$emit("pod-selected", selectedPod);
-      console.log("Selected pod: " + selectedPod);
+      // console.log("Selected pod: " + selectedPod);
       this.successfulSelection();
     },
   },

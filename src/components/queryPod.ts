@@ -71,7 +71,7 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
     return cacheUrl;
   } catch (error) {
     // If not found, create the container
-    // await createContainerAt(cacheUrl, { fetch });
+    await createContainerAt(cacheUrl, { fetch });
     console.log(`Query Cache container was created at ${cacheUrl}`);
     return cacheUrl;
   }
@@ -93,14 +93,12 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
  * @param containerUrl - The container URL (should end with a slash).
  * @param sources - An array of source URLs.
  * @param fileName - The file name to use (default: "queries.ttl").
- * @param fetch - The authenticated fetch function.
  * @returns The hash of the query added to queries.ttl.
  */
 export async function createQueriesTTL(
   containerUrl: string,
   sources: string[],
-  fileName = "queries.ttl",
-  fetch
+  fileName = "queries.ttl"
 ): Promise<string> {
   
   // Initiatize query cache variables
@@ -112,14 +110,14 @@ export async function createQueriesTTL(
   let querySources = '';
   sources.forEach((source, index) => {
     if (index < 1) {
-      querySources += `<${source}>`;
+      querySources += `${source}`;
     } else {
-      querySources += `, <${source}>`;
+      querySources += `, ${source}`;
     }
   });
 
   // Create a Thing for the new query cache
-  const subjectUri = `${containerUrl + fileName}#${hash}`;
+  const subjectUri = `${containerUrl + fileName}${hash}`;
   let newQueryThing: Thing = createThing({ url: subjectUri });
   newQueryThing = buildThing(newQueryThing)
     // Specify the query hash.
@@ -127,11 +125,11 @@ export async function createQueriesTTL(
     // Add date of query execution.
     .addStringNoLocale("http://purl.org/dc/terms/created", isoDate)
     // Add the query file name.
-    .addStringNoLocale("query", queryFile)
+    .addStringNoLocale("http://example.com/terms#query", queryFile)
     // Add the results file name.
-    .addStringNoLocale("results", queryResult)
+    .addStringNoLocale("http://example.com/terms#results", queryResult)
     // Add the source URLs.
-    .addStringNoLocale("Source", querySources)
+    .addStringNoLocale("http://example.com/terms#sources", querySources)
     .build();
 
   // Saves RDF data as queries.ttl
@@ -174,8 +172,7 @@ export async function createQueriesTTL(
 export async function uploadQueryFile(
   containerUrl: string,
   query: string,
-  hashName: string,
-  fetch: typeof window.fetch
+  hashName: string
 ): Promise<string> {
 
   const fileName = hashName + ".rq";
@@ -223,8 +220,7 @@ export async function uploadQueryFile(
 export async function uploadSparqlJson(
   containerUrl: string,
   jsonString: string,
-  hashName: string,
-  fetch: typeof window.fetch
+  hashName: string
 ): Promise<string> {
   const fileName = hashName + ".sparqljson"
   const blob = new Blob([jsonString], { type: "application/json" });

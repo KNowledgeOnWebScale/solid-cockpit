@@ -141,6 +141,7 @@
 import { currentWebId, getPodURLs } from "./login";
 import { ensureCacheContainer, createQueriesTTL, uploadQueryFile, uploadSparqlJson } from "./queryPod";
 import PodRegistration from "./PodRegistration.vue";
+import { ThingExpectedError } from "@inrupt/solid-client";
 
 export default {
   components: {
@@ -177,8 +178,10 @@ export default {
         query: '', // The current SPARQL query input
       },
       saveQuery: false,
-      previousQueries: [],
       cachePath: "",
+      currHash: "",
+      queryFile: "",
+      resultsFile: "",
     };
   },
   methods: {
@@ -244,14 +247,17 @@ export default {
       // TODO: execute query using comunica here
 
 
+      // Here, the app will save the query and results using a hash
       if (this.saveQuery) {
-        this.cachePath = await ensureCacheContainer(this.pod);
+        this.cachePath = await ensureCacheContainer(this.currentPod);
 
+        // adds query to queries.ttl
+        this.currHash = await createQueriesTTL(this.cachePath, this.currentQuery.sources);
+        // creates #hash.rq file containing the executed query
+        this.queryFile = await uploadQueryFile(this.cachePath, this.currentQuery.query, this.currHash);
+        // creates #hash.sparqljson file with query results
+        // TODO: this.resultsFile = await uploadSparqlJson(this.cachePath, ComunicaResult??, this.currHash);
       }
-      
-      
-      // Save the query to the list of previous queries
-      this.previousQueries.unshift(this.currentQuery.query);
       
     },
 
