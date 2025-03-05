@@ -91,7 +91,7 @@
           </li>
           <!-- execute query -->
           <div class="bottom-container">
-            <button class="execute-button" @click="executeQuery">
+            <button class="execute-button" @click="runExecuteQuery">
               Execute Query
             </button>
             <v-checkbox
@@ -145,6 +145,7 @@ import {
   fetchQueryFileData,
   fetchSparqlJsonFileData,
   getCachedQueries,
+  executeQuery,
 } from "./queryPod";
 import PodRegistration from "./PodRegistration.vue";
 import { ThingExpectedError } from "@inrupt/solid-client";
@@ -161,7 +162,7 @@ export default {
       exampleQueries: [
         {
           name: "Example 1",
-          sources: ["<https://sparql.omabrowser.org/sparql>"],
+          sources: ["<https://sparql.rhea-db.org/sparql/>"],
           query: "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10",
         },
       ],
@@ -172,17 +173,17 @@ export default {
         "<https://rdf.metanetx.org/sparql/>",
         "<https://sparql.omabrowser.org/sparql>",
         "<https://sparql.orthodb.org/sparql/>",
-        "<https://sparql.rhea-db.org/sparql>",
+        "<https://sparql.rhea-db.org/sparql/>",
         "<https://sparql.swisslipids.org/sparql/>",
         "<https://biosoda.unil.ch/emi/sparql/>",
         "<https://sparql.uniprot.org/sparql/>",
-        "<https://sparql.nextprot.org/sparql>",
         "<https://query.wikidata.org/sparql>",
       ],
       currentQuery: {
         name: "",
         sources: [],
         query: "", // The current SPARQL query input
+        results: "",
       },
       saveQuery: false,
       cachePath: "",
@@ -247,14 +248,11 @@ export default {
       this.currentPod = selectedPod;
     },
 
-    async executeQuery() {
+    async runExecuteQuery() {
       if (this.currentQuery.query.trim() === "") {
         alert("Please enter a SPARQL query before executing.");
         return;
       }
-      // alert(`Executing query: \n${this.currentQuery.query}`);
-
-      // TODO: execute query using comunica here
 
       // Here, the app will save the query and results using a hash
       if (this.saveQuery) {
@@ -271,8 +269,11 @@ export default {
           this.currentQuery.query,
           this.currHash
         );
-        // creates #hash.sparqljson file with query results
-        // TODO: this.resultsFile = await uploadSparqlJson(this.cachePath, ComunicaResult??, this.currHash);
+        // execute the query
+        this.currentQuery.results = await executeQuery(this.currentQuery.query, this.currentQuery.sources)
+        
+        // create #hash.sparqljson file with query results
+        this.resultsFile = await uploadSparqlJson(this.cachePath, this.currentQuery.results, this.currHash);
       }
     },
 

@@ -1,5 +1,6 @@
 import { Session } from "@inrupt/solid-client-authn-browser";
-import { QueryEngine } from '@comunica/query-sparql-link-traversal-solid';
+// import { QueryEngine } from '@comunica/query-sparql-link-traversal-solid';
+import { QueryEngine } from '@comunica/query-sparql';
 import { Bindings } from '@comunica/types';
 import {
   getSolidDataset,
@@ -15,10 +16,9 @@ import {
   getStringNoLocale,
   SolidDataset,
   getFile,
+  overwriteFile,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-
-const myEngine = new QueryEngine();
 
 /**
  * Fetches a logged-in user's Pod URLs using a webID.
@@ -26,17 +26,58 @@ const myEngine = new QueryEngine();
  * @param webid The webID URL of the current user.
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
 */
-export async function executeQuery(source: string, session: Session): Promise<Bindings[] | null> {
+export async function executeQuery(query: string, providedSources: string[]): Promise<string | null> {
+  // initialize comunica query engine
+  const myEngine = new QueryEngine();
+  
+  // remove "<>" from Endpoint IRIs
+  const cleanedSources = providedSources.map(url => url.slice(1, -1));
+  
+  // execute query
   try {
-    const bindingsStream = await myEngine.queryBindings(`
-      SELECT ?o WHERE {
-        ?s <http://www.w3.org/ns/ldp#contains> ?o .
-      }`, {
-      sources: [source],
-      '@comunica/actor-http-inrupt-solid-client-authn:session': session
-    });
-    
-    return await bindingsStream.toArray()
+    const bindingsStream = await myEngine.queryBindings(query, {sources: cleanedSources});
+
+    const bindingsArray: any[] = [];
+    let firstBinding: Bindings | undefined = undefined;
+
+    // Process each binding from the stream.
+    for await (const binding of bindingsStream) {
+      // Capture the variable names from the first binding.
+      if (!firstBinding) {
+        firstBinding = binding;
+      }
+      const bindingObj: Record<string, { type: string; value: string }> = {};
+      binding.forEach((term, variable) => {
+        let termType: string;
+        switch (term.termType) {
+          case "Literal":
+            termType = "literal";
+            break;
+          case "NamedNode":
+            termType = "uri";
+            break;
+          case "BlankNode":
+            termType = "bnode";
+            break;
+          default:
+            termType = term.termType.toLowerCase();
+        }
+        bindingObj[variable.value] = { type: termType, value: term.value };
+      });
+      bindingsArray.push(bindingObj);
+    }
+
+    // If there were no results, use an empty array of variables.
+    const vars = firstBinding 
+      ? Array.from(firstBinding.keys()).map(variable => variable.value)
+      : [];
+
+    const jsonOutput = {
+      head: { vars },
+      results: { bindings: bindingsArray },
+    };
+    return JSON.stringify(jsonOutput, null, 2);
+
   } catch (err) {
     return null;
   }
@@ -66,7 +107,6 @@ function generateHash(length = 6): string {
  */
 export async function ensureCacheContainer(podUrl: string): Promise<string> {
   const cacheUrl = podUrl + "querycache/";
-  console.log(`Query Cache container exists at ${cacheUrl}`);
   try {
     // Try to retrieve the dataset (container)
     await getSolidDataset(cacheUrl, { fetch });
@@ -82,12 +122,49 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
 
 
 /**
+ * Recursively builds an RDF list (using rdf:first / rdf:rest) from an array of IRI strings.
+ *
+ * @param sources - An array of IRI strings.
+ * @returns An object with:
+ *    - head: A Thing representing the head of the RDF list.
+ *    - nodes: An array of all list node Things (to be added to your dataset).
+ */
+function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
+  const RDF_FIRST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
+  const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
+  const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
+
+  if (sources.length === 0) {
+    // For an empty list, return rdf:nil.
+    return { head: createThing({ url: RDF_NIL }), nodes: [] };
+  }
+  
+  // Create a blank node for the current list element.
+  let listNode = createThing(); // creates a blank node automatically
+  listNode = buildThing(listNode)
+    .addIri(RDF_FIRST, sources[0])
+    .build();
+  
+  // Recursively build the rest of the list.
+  const restList = buildRdfList(sources.slice(1));
+  
+  // Link the current node to the head of the rest of the list.
+  listNode = buildThing(listNode)
+    .addIri(RDF_REST, restList.head.url)
+    .build();
+  
+  // Return the current node as the head and include all nodes.
+  return { head: listNode, nodes: [listNode, ...restList.nodes] };
+}
+
+
+/**
  * Creates and uploads a Turtle file (Queries.ttl) into the container.
  * The function takes an array of source URLs and formats them into Turtle statements.
  *
  * Each source is converted into an entry like:
  *
- *     <#hash1> a Query;
+ *     <hash1> a Query;
  *         date "date";
  *         query "hash1.rq";
  *         results "hash1.sparqljson";
@@ -107,32 +184,34 @@ export async function createQueriesTTL(
   // Initiatize query cache variables
   const currentDate: Date = new Date();
   const isoDate: string = currentDate.toISOString();
-  const hash = "#" + generateHash();
+  const hash = generateHash();
   const queryFile = `${hash}.rq`;
   const queryResult = `${hash}.sparqljson`;
-  let querySources = '';
-  sources.forEach((source, index) => {
-    if (index < 1) {
-      querySources += `${source}`;
-    } else {
-      querySources += `, ${source}`;
-    }
-  });
+
+  // prefixes
+  const TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+  const CREATED = "http://purl.org/dc/terms/created";
+  const QUERY = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query";
+  const RESULT = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
+  const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint"
+
+  const cleanedSources = sources.map(url => url.slice(1, -1));
 
   // Create a Thing for the new query cache
   const subjectUri = `${containerUrl + fileName}${hash}`;
+  // Create the RDF List of sources
+  const { head: sourceListHead, nodes: sourceListNodes } = buildRdfList(cleanedSources);
   let newQueryThing: Thing = createThing({ url: subjectUri });
   newQueryThing = buildThing(newQueryThing)
     // Specify the query hash.
-    .addStringNoLocale("http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "Query")
+    .addStringNoLocale(`${TYPE}`, "Query")
     // Add date of query execution.
-    .addStringNoLocale("http://purl.org/dc/terms/created", isoDate)
+    .addStringNoLocale(`${CREATED}`, isoDate)
     // Add the query file name.
-    .addStringNoLocale("http://example.com/terms#query", queryFile)
+    .addStringNoLocale(`${QUERY}`, queryFile)
     // Add the results file name.
-    .addStringNoLocale("http://example.com/terms#results", queryResult)
-    // Add the source URLs.
-    .addStringNoLocale("http://example.com/terms#sources", querySources)
+    .addStringNoLocale(`${RESULT}`, queryResult)
+    .addIri(`${SOURCE}`, sourceListHead.url)
     .build();
 
   // Saves RDF data as queries.ttl
@@ -146,8 +225,11 @@ export async function createQueriesTTL(
     message = `CREATED queries.ttl with first query: ${hash}`;
   }
 
-  const updatedDataset = setThing(dataset, newQueryThing);
-  await saveSolidDatasetAt(containerUrl + fileName, updatedDataset, { fetch });
+  dataset = setThing(dataset, newQueryThing);
+  sourceListNodes.forEach((node) => {
+    dataset = setThing(dataset, node);
+  });
+  await saveSolidDatasetAt(containerUrl + fileName, dataset, { fetch });
   console.log(message);
   return hash;
 }
@@ -168,7 +250,7 @@ export async function createQueriesTTL(
  *
  * @param containerUrl - The container URL (should end with a slash).
  * @param query - The SPARQL query as a string.
- * @param hashName - The hash name to use to name file (e.g., "#hash1").
+ * @param hashName - The hash name to use to name file (e.g., "hash1").
  * @param fetch - The authenticated fetch function.
  * @returns The URL of the uploaded file.
  */
@@ -216,7 +298,7 @@ export async function uploadQueryFile(
  *
  * @param containerUrl - The container URL (should end with a slash).
  * @param jsonString - The JSON string to upload.
- * @param hashName - The hash name to use to name file (e.g., "#hash1").
+ * @param hashName - The hash name to use to name file (e.g., "hash1").
  * @param fetch - The authenticated fetch function.
  * @returns The URL of the uploaded file.
  */
@@ -225,8 +307,8 @@ export async function uploadSparqlJson(
   jsonString: string,
   hashName: string
 ): Promise<string> {
-  const fileName = hashName + ".sparqljson"
-  const blob = new Blob([jsonString], { type: "application/json" });
+  const fileName = hashName + ".json"
+  const blob = new Blob([jsonString], { type: "application/sparql-results+json" });
 
   try {
     const savedFile = await saveFileInContainer(containerUrl, blob, {
@@ -268,6 +350,8 @@ export interface QueryEntry {
   created: string;
 }
 
+
+// TODO: Fix THIS
 /**
  * Retrieves all query entries from a Queries.ttl file.
  *
@@ -329,7 +413,7 @@ export async function getCachedQueries(
 }
 
 /**
- * Fetches a SPARQL query file (e.g. a "#hash.rq" file) from the given URL and returns its text content.
+ * Fetches a SPARQL query file (e.g. a "hash.rq" file) from the given URL and returns its text content.
  *
  * @param fileUrl - The URL of the SPARQL query file.
  * @returns A promise that resolves to the text content of the query file.
@@ -343,7 +427,7 @@ export async function fetchQueryFileData(
 }
 
 /**
- * Fetches a SPARQL JSON results file (e.g. a "#hash.sparqljson" file) from the given URL and returns its parsed JSON.
+ * Fetches a SPARQL JSON results file (e.g. a "hash.sparqljson" file) from the given URL and returns its parsed JSON.
  *
  * @param fileUrl - The URL of the SPARQL JSON results file.
  * @returns A promise that resolves to the parsed JSON object.
