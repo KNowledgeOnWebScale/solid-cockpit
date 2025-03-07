@@ -74,7 +74,7 @@
         </form>
 
         <!-- Alert for if session is timed out -->
-        <div v-if="this.pod === 'Error: probably not logged in'">
+        <div v-if="this.currentPod === 'Error: probably not logged in'">
           <v-alert
             class="mx-auto"
             title="There was an error with the file(s) upload!"
@@ -154,7 +154,6 @@ export default {
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
-      this.pod = this.selectedPod;
     },
 
     /*
@@ -173,7 +172,7 @@ export default {
     Results in update of the uploadSuccess variable if files do have names.
     */
     async submitUpload() {
-      this.filesUploaded = await handleFiles(this.files, this.pod);
+      this.filesUploaded = await handleFiles(this.files, this.currentPod);
       this.uploadDone = uploadSuccess(this.filesUploaded);
     },
 

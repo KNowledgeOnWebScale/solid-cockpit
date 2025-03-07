@@ -2,6 +2,9 @@
   <div class="title-container">
     <span>Data Query</span>
   </div>
+  <div class="pod-chooseContainer">
+    <PodRegistration @pod-selected="handlePodSelected" />
+  </div>
   <div class="general-container">
     <!-- Left Navigation Bar -->
     <div class="nav-container">
@@ -14,7 +17,7 @@
           </button>
         </li>
         <li>
-          <button @click="currentView = 'previousQueries'">Past Queries</button>
+          <button @click="currentView = 'previousQueries', loadCache">Past Queries</button>
         </li>
       </ul>
     </div>
@@ -74,7 +77,9 @@
             <p
               class="valid-text"
               :class="
-                isValidSPARQL(currentQuery.query) ? 'text-green-600' : 'text-red-600'
+                isValidSPARQL(currentQuery.query)
+                  ? 'text-green-600'
+                  : 'text-red-600'
               "
             >
               {{
@@ -86,7 +91,7 @@
           </li>
           <!-- execute query -->
           <div class="bottom-container">
-            <button class="execute-button" @click="executeQuery">
+            <button class="execute-button" @click="runExecuteQuery">
               Execute Query
             </button>
             <v-checkbox
@@ -112,21 +117,15 @@
         <ul>
           <div class="top-container">
             <span>Past Queries</span>
-            <!-- TODO: Display past queries here -->
+            <section>
+              <h2>Query File</h2>
+              <pre>{{ queries }}</pre>
+            </section>
+            <!-- <section>
+              <h2>SPARQL JSON Results</h2>
+              <pre>{{ formattedJsonResults }}</pre>
+            </section> -->
           </div>
-          <li
-            v-for="(query, index) in previousQueries"
-            :key="index"
-            class="mb-2 border-b pb-2"
-          >
-            <p>{{ query }}</p>
-            <button
-              class="py-1 px-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              @click="loadQuery(query)"
-            >
-              Load Query
-            </button>
-          </li>
         </ul>
       </div>
     </div>
@@ -135,56 +134,79 @@
 
 <script>
 // import YASGUI from '@triply/yasgui/build/yasgui.min.js'
+import { currentWebId, getPodURLs } from "./login";
+import {
+  ensureCacheContainer,
+  createQueriesTTL,
+  uploadQueryFile,
+  uploadSparqlJson,
+  getQueriesTtl,
+  QueryEntry,
+  fetchQueryFileData,
+  fetchSparqlJsonFileData,
+  getCachedQueries,
+  executeQuery,
+} from "./queryPod";
+import PodRegistration from "./PodRegistration.vue";
+import { ThingExpectedError } from "@inrupt/solid-client";
+import { ref, onMounted, computed } from "vue";
 
 export default {
+  components: {
+    PodRegistration,
+  },
   data() {
     return {
       currentPod: "",
       currentView: "newQuery", // Tracks the active view: 'newQuery' or 'previousQueries'
       exampleQueries: [
         {
-          name: 'Example 1',
-          sources: ['<https://sparql.omabrowser.org/sparql>'],
-          query: 'SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10',
-        }
+          name: "Example 1",
+          sources: ["<https://sparql.rhea-db.org/sparql/>"],
+          query: "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10",
+        },
       ],
       possibleSources: [
-        '<https://www.bgee.org/sparql/>',
-        '<https://glyconnect.expasy.org/sparql>',
-        '<https://hamap.expasy.org/sparql/>',
-        '<https://rdf.metanetx.org/sparql/>',
-        '<https://sparql.omabrowser.org/sparql>',
-        '<https://sparql.orthodb.org/sparql/>',
-        '<https://sparql.rhea-db.org/sparql>',
-        '<https://sparql.swisslipids.org/sparql/>',
-        '<https://biosoda.unil.ch/emi/sparql/>',
-        '<https://sparql.uniprot.org/sparql/>',
-        '<https://sparql.nextprot.org/sparql>',
-        '<https://query.wikidata.org/sparql>',
+        "<https://www.bgee.org/sparql/>",
+        "<https://glyconnect.expasy.org/sparql>",
+        "<https://hamap.expasy.org/sparql/>",
+        "<https://rdf.metanetx.org/sparql/>",
+        "<https://sparql.omabrowser.org/sparql>",
+        "<https://sparql.orthodb.org/sparql/>",
+        "<https://sparql.rhea-db.org/sparql/>",
+        "<https://sparql.swisslipids.org/sparql/>",
+        "<https://biosoda.unil.ch/emi/sparql/>",
+        "<https://sparql.uniprot.org/sparql/>",
+        "<https://query.wikidata.org/sparql>",
       ],
       currentQuery: {
-        name: '',
+        name: "",
         sources: [],
-        query: '', // The current SPARQL query input
+        query: "", // The current SPARQL query input
+        results: "",
       },
       saveQuery: false,
-      previousQueries: [],
+      cachePath: "",
+      currHash: "",
+      queryFile: "",
+      resultsFile: "",
+      queriesCacheExists: false,
+      cachedQueries: [],
+      queries: [],
     };
   },
   methods: {
     // for the sources autocomplete list
-    itemPropsSources (item) {
+    itemPropsSources(item) {
       return {
         title: item.url,
-      }
+      };
     },
-
-    itemPropsExampleQueries (item2) {
+    itemPropsExampleQueries(item2) {
       return {
         title: item2.name,
-      }
+      };
     },
-
     isValidSPARQL(query) {
       // Check if the query starts with a valid SPARQL keyword
       const sparqlRegex = /^(SELECT|ASK|CONSTRUCT|DESCRIBE|PREFIX|BASE)\s+/i;
@@ -210,36 +232,73 @@ export default {
       if (!angleBrackets) {
         return false;
       }
-
       return true;
     },
     clearQueryInput() {
       this.currentQuery.query = "";
     },
-    executeQuery() {
+
+    // method to obtain the current WebID and PodURL
+    async getPodURL() {
+      this.webId = currentWebId(); // fetches user webID from login.ts
+      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
+    },
+    /* Takes in the emitted value from PodRegistration.vue */
+    handlePodSelected(selectedPod) {
+      this.currentPod = selectedPod;
+    },
+
+    async runExecuteQuery() {
       if (this.currentQuery.query.trim() === "") {
         alert("Please enter a SPARQL query before executing.");
         return;
       }
-      alert(`Executing query: \n${this.currentQuery.query}`);
-      
-      // TODO: execute query using comunica here
 
-
+      // Here, the app will save the query and results using a hash
       if (this.saveQuery) {
-        //TODO: save executed query to Pod if 
+        this.cachePath = await ensureCacheContainer(this.currentPod);
+
+        // adds query to queries.ttl
+        this.currHash = await createQueriesTTL(
+          this.cachePath,
+          this.currentQuery.sources
+        );
+        // creates #hash.rq file containing the executed query
+        this.queryFile = await uploadQueryFile(
+          this.cachePath,
+          this.currentQuery.query,
+          this.currHash
+        );
+        // execute the query
+        this.currentQuery.results = await executeQuery(this.currentQuery.query, this.currentQuery.sources)
+        
+        // create #hash.sparqljson file with query results
+        this.resultsFile = await uploadSparqlJson(this.cachePath, this.currentQuery.results, this.currHash);
       }
-      
-      
-      // Save the query to the list of previous queries
-      this.previousQueries.unshift(this.currentQuery.query);
-      
     },
 
-    // TODO: load past queries for display from connected Pod
-    loadQuery(query) {
-      this.currentQuery.query = query;
-      this.currentView = "newQuery";
+    // TODO: load past queries for display from connected Pod -- broken currently but not far off
+    async loadCache() {
+      this.queriesCacheExists = await getQueriesTtl(
+        this.currentPod + "querycache/"
+      );
+      if (this.queriesCacheExists) {
+        this.cachedQueries = await getCachedQueries(
+          this.currentPod + "querycache/queries.ttl"
+        );
+
+        this.cachedQueries.forEach((query, index) => {
+          this.queries.push(fetchQueryFileData(this.currentPod + "querycache/" + query.queryFile));
+        });
+        console.log(this.queries);
+
+        // jsonResults.value = await fetchSparqlJsonFileData(resultsFileUrl);
+        // const formattedJsonResults = computed(() => {
+        //   return jsonResults.value
+        //     ? JSON.stringify(jsonResults.value, null, 2)
+        //     : "Loading...";
+        // });
+      }
     },
   },
   mounted() {
@@ -265,6 +324,11 @@ export default {
       // Set the height to match the scrollHeight
       this.style.height = this.scrollHeight + "px";
     });
+
+    setTimeout(() => {
+      this.getPodURL();
+      // console.log(this.podURLs)
+    }, 200);
 
     //TODO: integrate yasgui
     // const container = document.getElementById('yasgui-container');
@@ -306,6 +370,12 @@ body {
   font-weight: 500;
   padding-left: 20px;
   padding-right: 20px;
+}
+
+/* Container pod-chooser bar */
+.pod-chooseContainer {
+  background: #445560;
+  border-radius: 8px;
 }
 
 /* Whole nav and query container */
@@ -450,5 +520,18 @@ body {
   border-radius: 8px;
   margin-top: 10px;
   display: flex;
+}
+
+/* Past queries data */
+pre {
+  background-color: #f9f9f9;
+  padding: 1em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+section {
+  margin-bottom: 1.5em;
 }
 </style>
