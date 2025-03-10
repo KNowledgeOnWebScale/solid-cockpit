@@ -11,12 +11,14 @@ import { mimeTypes } from "./mime_types.js";
  * @param fileList The list of files to be uploaded to the Pod.
  * @param podURL The URL of the Pod files are to be uploaded to.
  */
-export async function handleFiles(fileList: FileList, podURL: string): Promise<string[]> {
+export async function handleFiles(fileList: FileList, uploadPath: string): Promise<string[]> {
   const outputList: string[] = [];
-  console.log(podURL);
-  // TODO: Make this actually work with the provided container location ... 
+  if (!uploadPath.endsWith('/')) {
+    uploadPath = uploadPath + '/';
+  }
+  console.log(uploadPath);
   for (let i = 0; i < fileList.length; i++) {
-    const upload: string = await uploadToPod(`${podURL}uploads/${fileList[i].name}`, fileList[i], fetch);
+    const upload: string = await uploadToPod(`${uploadPath}${fileList[i].name}`, fileList[i], fetch);
     outputList.push(upload);
   }
   // console.log(outputList)

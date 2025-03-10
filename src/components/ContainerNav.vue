@@ -15,7 +15,7 @@
             ></v-select>
             <v-btn
               :disabled="currentUrl === null"
-              @click="changeCurrentLocation(currentUrl)"
+              @click="changeCurrentLocation(currentUrl), selectPath"
               >Go</v-btn
             >
           </div>
@@ -144,6 +144,15 @@ export default {
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
       this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+    },
+
+
+    /**
+     * Emits the current URL path
+     */
+    selectPath() {
+      const selectedPath = this.currentLocation;
+      this.$emit("path-selected", selectedPath);
     },
   },
   mounted() {

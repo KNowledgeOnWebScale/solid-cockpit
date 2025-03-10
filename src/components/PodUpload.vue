@@ -12,18 +12,75 @@
 
   <!-- Container location bar -->
   <div class="container-location" v-if="currentPod !== ''">
-    <ul class="horizontal-list">
+    <!-- Left Navigation Bar -->
+    <div class="nav-container">
+      <ul>
+        <li><span>Location</span></li>
+        <li>
+          <button
+            id="top-button"
+            :class="{ highlight: inputType === 'existingPath' }"
+            @click="inputType = 'existingPath'"
+          >
+            Use Existing Path
+          </button>
+        </li>
+        <li>
+          <button
+            :class="{ highlight: inputType === 'newPath' }"
+            @click="inputType = 'newPath'"
+          >
+            User Input Path
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- User input path -->
+     <!-- TODO: create an alert if a directory must be created to conform with the specified file path -->
+    <ul class="user-list" v-if="inputType == 'newPath'">
       <li>
         <span><b>Data upload location:</b> </span>
       </li>
       <li>
-        <container-nav :currentPod="currentPod" />
+        <v-text-field
+          class="input-path"
+          v-model="uploadPath"
+          :rules="urlRules"
+          label="Pod Path"
+          outlined
+          clearable
+        />
+      </li>
+      <li>
+        <!-- TODO: Fix this because it doesn't work ... (maybe just use a button because it will be easier...) -->
+        <div class="sel-pod">
+          <v-icon class="check-mark" color="green" v-if="vaildURL">
+            mdi-check
+          </v-icon>
+          <!-- When the URL is invalid -->
+          <v-icon class="check-mark" color="red" v-if="!vaildURL">
+            mdi-close
+          </v-icon>
+        </div>
       </li>
     </ul>
-  </div>
 
-  <v-container>
-    <div v-if="currentPod !== ''">
+    <!-- Browse existing path -->
+     <!-- TODO: Fix this ... something wrong with $emit -->
+    <ul class="existing-list" v-if="inputType == 'existingPath'">
+      <li>
+        <span><b>Data upload location:</b> </span>
+      </li>
+      <li>
+        <container-nav :currentPod="currentPod" @path-selected="handleSelectedContainer" />
+      </li>
+      
+    </ul>
+  </div>
+  {{ uploadPath }}
+  <div class="upload-container">
+    <div v-if="currentPod !== '' && currentPod !== undefined">
       <!-- Card that contains the data upload field
        TODO: make this use the ContainerNav to designate where a file gets uploaded -->
       <v-card
@@ -107,19 +164,21 @@
         </div>
       </v-card>
     </div>
-  </v-container>
+  </div>
 
   <hr />
 
   <body class="use-guide">
     <h2 class="req">Data Upload Guide</h2>
     <ol>
-      <li>Select the pod and container you want to upload a file to (Not Fully Funtional)</li>
-      <li>Click the <b>"File Input"</b> bar above or drag and drop a file</li>
-      <li>Click the <b>"Upload"</b> button</li>
       <li>
-        Once the success label appears, your files should then be in your pod.
+        Select the pod you want to upload your file(s) to
       </li>
+      <li>
+        Select or input the directory you want to upload the file(s) to
+      </li>
+      <li>Click the <b>"File Input"</b> bar or drag and drop a file from your local machine</li>
+      <li>Click the <b>"Upload"</b> button</li>
     </ol>
   </body>
 </template>
@@ -140,13 +199,36 @@ export default {
       webId: "",
       podURLs: [],
       currentPod: "",
-      pod: "",
+      uploadPath: "",
       filesUploaded: [],
       files: FileList,
       uploadDone: false,
+      inputType: "existingPath",
+      urlRules: [
+        // Check that a value exists
+        (v) => !!v || "URL is required",
+        // Validate if the input is a proper URL using the URL constructor
+        (v) => {
+          try {
+            new URL(v);
+            return true;
+          } catch (e) {
+            return "Enter a valid URL";
+          }
+        },
+      ],
+      vaildURL: true,
     };
   },
   methods: {
+    isValidUrl() {
+      if (this.urlRules == true) {
+        this.vaildURL = true;
+      } else {
+        this.validURL = false;
+      }
+    },
+
     /*
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
@@ -154,6 +236,15 @@ export default {
     async getPodURL() {
       this.webId = currentWebId(); // fetches user webID from login.ts
       this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
+    },
+
+    /*
+    Selects the directory a file is to be uploaded to
+    */
+    selectPod() {
+      this.uploadPath =
+        // console.log("Selected pod: " + selectedPod);
+        this.successfulSelection();
     },
 
     /*
@@ -172,13 +263,18 @@ export default {
     Results in update of the uploadSuccess variable if files do have names.
     */
     async submitUpload() {
-      this.filesUploaded = await handleFiles(this.files, this.currentPod);
+      this.filesUploaded = await handleFiles(this.files, this.uploadPath);
       this.uploadDone = uploadSuccess(this.filesUploaded);
     },
 
     /* Takes in the emitted value from PodRegistration.vue */
     handlePodSelected(selectedPod) {
       this.currentPod = selectedPod;
+      this.uploadPath = this.currentPod;
+    },
+    /* Takes in the emitted value from ContainerNav.vue */
+    handleSelectedContainer(selectedContainer) {
+      this.uploadPath = selectedContainer;
     },
   },
   mounted() {
@@ -188,7 +284,6 @@ export default {
       // console.log(this.podURLs)
     }, 200);
   },
-  props: {},
 };
 </script>
 
@@ -202,7 +297,7 @@ body {
   margin: auto;
   margin-top: 20px;
   padding: 20px;
-  background: #445560;
+  background-color: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
@@ -211,8 +306,7 @@ body {
 .title-container {
   background-color: #445560;
   border-radius: 8px;
-  margin-top: 10px;
-  margin-bottom: 5px;
+  margin: 0.5rem 0.5rem;
 }
 .title-container span {
   font-size: 30pt;
@@ -224,30 +318,119 @@ body {
 .container-location {
   background-color: #445560;
   border-radius: 8px;
+  margin: 0rem 0.5rem;
 }
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
+  margin: 0rem 0.5rem;
 }
 
-/* Container location bar */
-.horizontal-list {
+/* Upload location nav container */
+.container-location {
+  display: flex;
+  background-color: #445560;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+.container-location .nav-container {
+  display: flex;
+  background-color: #28353e;
+  border-radius: 8px;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  min-width: fit-content;
+}
+.nav-container ul {
+  list-style-type: none;
+  padding: 10px;
+  height: 100%;
+  overflow: auto;
+}
+.nav-container li span {
+  font-size: 18pt;
+  font-weight: bold;
+  padding: 0px 8px 5px 8px;
+  text-decoration: none;
+  border-bottom: 1px solid #ccc;
+}
+#top-button {
+  margin-top: 10px;
+}
+.nav-container li button {
+  display: block;
+  color: #ede7f6;
+  border-radius: 4px;
+  padding: 10px 10px;
+  width: 100%;
+  text-decoration: none;
+}
+.nav-container .highlight {
+  background-color: #754ff6;
+  color: #ede7f6;
+}
+.nav-container li button:hover {
+  background-color: #555;
+  color: white;
+  width: 100%;
+}
+
+/* Existing path upload */
+.existing-list {
   display: flex;
   align-items: center;
   list-style-type: none;
   padding: 0;
   margin: 0;
 }
-.horizontal-list span {
+.existing-list span {
   font-size: 18pt;
   font-family: "Oxanium", monospace;
   font-weight: 400;
   margin-left: 15px;
 }
 
+/* User provided path */
+.user-list {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  align-items: center;
+  list-style-type: none;
+  margin: 0;
+  font-size: 18pt;
+}
+.user-list span {
+  font-size: 18pt;
+  font-family: "Oxanium", monospace;
+  font-weight: 400;
+  margin-left: 15px;
+}
+.user-list .input-path {
+  margin-left: 20px;
+  min-width: 40vw;
+  margin-bottom: -15px;
+}
+
+/* Select directory button */
+.sel-pod {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  gap: 20px;
+}
+.check-mark {
+  cursor: pointer;
+}
+.sel-pod .check-mark {
+  margin-bottom: 5px;
+}
+
 /* Data upload container */
+.upload-container {
+  margin: 1rem 0.5rem;
+}
 .container {
   font-family: "Oxanium", monospace;
   max-width: 95%;
@@ -259,25 +442,11 @@ body {
 }
 .upload-section {
   font-family: "Oxanium", monospace;
+  border-radius: 8px;
 }
 .v-btn {
   margin-left: 15px;
   margin-bottom: 15px;
-}
-ul,
-ol {
-  margin-left: 20px;
-  margin-bottom: 15px;
-  margin-top: 5px;
-}
-ol li {
-  margin-bottom: 10px;
-  margin-left: 20px;
-  list-style-type: upper-roman;
-  align-items: Left;
-}
-.guide {
-  text-align: Left;
 }
 
 /* User guide */
@@ -287,5 +456,21 @@ ol li {
 }
 .req {
   margin-top: 10px;
+}
+.use-guide ul,
+ol {
+  margin-left: 10px;
+  margin-bottom: 15px;
+  margin-top: 5px;
+  margin-right: 10px;
+}
+.use-guide ol li {
+  margin-bottom: 10px;
+  margin-left: 20px;
+  list-style-type: upper-roman;
+  align-items: Left;
+}
+.guide {
+  text-align: Left;
 }
 </style>

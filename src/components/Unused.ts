@@ -234,7 +234,6 @@ async function obtainACL(datasetWithAcl) {
 
   .container {
     font-family: "Courier New", monospace;
-    max-width: 900px;
     margin: auto;
     padding: 20px;
     background: #445560;

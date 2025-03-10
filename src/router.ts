@@ -79,6 +79,7 @@ setTimeout(() => {
     } else if (isLoggedin() && to.name === "Login Page") {
       return { name: "Home" };
     }
+
   });
 }, 100);
 

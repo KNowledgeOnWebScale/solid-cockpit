@@ -56,7 +56,7 @@
     <div class="select-pod" v-if="podAccess">
       <ul class="horizontal-list">
         <li>
-          <span>Selected Pod:</span>
+          <span>Select Pod:</span>
         </li>
         <li>
           <div class="sel-pod">
@@ -76,7 +76,7 @@
                 >Click to select this pod
               </v-tooltip>
             </v-btn>
-            <v-icon v-if="podSuccess" color="green">mdi-check</v-icon>
+            <v-icon class="check-mark" v-if="podSuccess" color="green">mdi-check</v-icon>
           </div>
         </li>
       </ul>
@@ -227,11 +227,14 @@ export default {
   gap: 20px;
 }
 .sel-pod .v-btn {
-  margin-bottom: 15px;
+  margin-bottom: 5px;
 }
 .sel-pod .v-select {
   min-width: 150px;
   margin-top: 15px;
   font-family: "Oxanium", monospace;
+}
+.sel-pod .check-mark {
+  margin-bottom: 5px;
 }
 </style>

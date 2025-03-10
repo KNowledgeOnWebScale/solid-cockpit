@@ -1,5 +1,5 @@
 <template>
-  <v-container>
+  <v-container class="content-container">
     <v-col cols="12">
       <div class="logo-container">
         <img
@@ -8,12 +8,6 @@
         />
       </div>
 
-      <div class="entry">
-        <h1>
-          The best way to pilot your
-          <a href="https://solidproject.org/">Solid Pod</a>
-        </h1>
-      </div>
     </v-col>
   </v-container>
 
@@ -27,23 +21,23 @@
 
   <body>
     <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="container">
-      <h1 class="guide">What can this application do?</h1>
+    <div class="container" >
+      <h2 class="guide">What can this application do?</h2>
 
       <hr />
 
-      <h2 class="req">1. Connect to your Pod</h2>
+      <h3 class="req">1. Connect to your <a href="https://solidproject.org/">Solid Pod</a></h3>
 
       <p>Login to your pod via your pod provider + personal credentials.</p>
 
       <hr />
 
-      <h2 class="req">2. Manage files in your pod</h2>
+      <h3 class="req">2. Manage files in your pod</h3>
       <p>Upload, delete, and move files in your Solid Pod.</p>
 
       <hr />
 
-      <h2 class="req">3. Query your pod (and SPARQL endpoints you specify)</h2>
+      <h3 class="req">3. Query your pod (and SPARQL endpoints you specify)</h3>
       <p>
         Execute SPARQL queries over your pod and other accessible Solid Pods or
         SPARQL Endpoints.
@@ -51,7 +45,7 @@
 
       <hr />
 
-      <h2 class="req">4. Edit the privacy of files in your pod</h2>
+      <h3 class="req">4. Edit the privacy of files in your pod</h3>
       <p>
         Modify access controls for files and containers in your pod + notify
         others of the changes.
@@ -59,10 +53,10 @@
 
       <hr />
 
-      <h2 class="req">
+      <h3 class="req">
         5. Coming soon: edit the profile information associated with your
         Pod/webId
-      </h2>
+      </h3>
       <p>
         Edit the personal data incorporated with your Solid Pod and/or your
         WebID.
@@ -112,7 +106,7 @@ export default {
   justify-content: center;
 }
 img {
-  max-width: 70%;
+  max-width: 80%;
   height: auto;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
@@ -196,10 +190,12 @@ a {
 a:hover {
   text-decoration: underline;
 }
-
+.content-container {
+  min-width: auto;
+}
 .container {
   font-family: "Oxanium", monospace;
-  max-width: 85%;
+  max-width: 84%;
   margin: auto;
   padding: 20px;
   background: #445560;

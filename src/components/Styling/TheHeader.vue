@@ -1,6 +1,6 @@
 <template>
   <v-card color="#AAA7AD">
-    <v-container>
+    <div class="header-container">
       <v-row align="center" justify="start">
         <!-- Logo and App Title -->
         <img
@@ -92,7 +92,7 @@
           </div>
         </div>
       </v-row>
-    </v-container>
+    </div>
   </v-card>
 </template>
 
@@ -149,6 +149,12 @@ export default {
 </script>
 
 <style scoped>
+.header-container {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
 h1 {
   color: rgb(0, 0, 0);
   font-family: "Orbitron";
@@ -159,6 +165,7 @@ h1 {
 img {
   width: 80px;
   height: auto;
+  margin-left: 25px;
 }
 
 .header-right {
@@ -171,5 +178,6 @@ img {
   display: flex;
   text-align: right;
   padding: 15px;
+  margin-right: 25px;
 }
 </style>

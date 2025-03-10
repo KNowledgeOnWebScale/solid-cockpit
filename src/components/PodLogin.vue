@@ -1,5 +1,5 @@
 <template>
-  <v-container>
+  <v-container class="login-container">
     <!-- The card that conatins the login fields -->
     <v-card
       id="card"
@@ -54,8 +54,9 @@
             ></v-alert>
           </div>
 
-          <!-- "Create new pod" button redirects to Pod Provider site -->
+          <!-- "Don't have a pod" button redirects to Pod Provider site -->
               <v-btn
+                id = "new-pod"
                 color="#EDE7F6"
                 text="Don't have a pod?"
                 variant="flat"
@@ -157,12 +158,12 @@ export default {
 #card {
   font-family: "Oxanium", monospace;
   font-size: larger;
-  width: 80%;
+  border-radius: 6px;
 }
 
 h2 {
-  margin-left: 10px;
-  margin-top: 10px;
+  margin-left: 1.5rem;
+  margin-top: 15px;
 }
 #errorIndicator {
   padding: 2px 2px;
@@ -181,10 +182,17 @@ h2 {
   font-style: italic;
   background-color: #9fe8b7; /* Highlighted background color */
 }
+.login-container {
+  min-width: auto;
+  max-width: 85%;
+}
+#new-pod {
+  margin-left: 2rem;
+  margin-bottom: 10px;
+}
 button:hover {
   background-color: #bda6fd;
 }
-
 button:active {
   background-color: #9b77ff;
 }
