@@ -37,12 +37,11 @@
     </div>
 
     <!-- User input path -->
-     <!-- TODO: create an alert if a directory must be created to conform with the specified file path -->
-    <ul class="user-list" v-if="inputType == 'newPath'">
+    <ul class="path-selection">
       <li>
-        <span><b>Data upload location:</b> </span>
+        <span><b>Upload location:</b> </span>
       </li>
-      <li>
+      <li class="user-list" v-if="inputType == 'newPath'">
         <v-text-field
           class="input-path"
           v-model="uploadPath"
@@ -52,33 +51,52 @@
           clearable
         />
       </li>
-      <li>
-        <!-- TODO: Fix this because it doesn't work ... (maybe just use a button because it will be easier...) -->
+
+      <!-- Browse existing path -->
+      <li class="existing-list" v-if="inputType == 'existingPath'">
+        <container-nav
+          :currentPod="currentPod"
+          @path-selected="handleSelectedContainer"
+        />
+      </li>
+
+      <!-- Select the path and make sure it is a valid URL -->
+      <li v-if="inputType == 'newPath'">
+        <v-btn
+          class="path-registerButton"
+          variant="tonal"
+          rounded="xs"
+          @click="validPathCheck"
+        >
+          Check Path
+          <v-tooltip activator="parent" location="top"
+            >Click to check if this path is a valid URL
+          </v-tooltip>
+        </v-btn>
+      </li>
+      <li v-if="inputType == 'newPath'">
         <div class="sel-pod">
           <v-icon class="check-mark" color="green" v-if="vaildURL">
             mdi-check
           </v-icon>
           <!-- When the URL is invalid -->
-          <v-icon class="check-mark" color="red" v-if="!vaildURL">
+          <v-icon class="check-mark" color="red" v-if="vaildURL == false">
             mdi-close
           </v-icon>
         </div>
       </li>
     </ul>
-
-    <!-- Browse existing path -->
-     <!-- TODO: Fix this ... something wrong with $emit -->
-    <ul class="existing-list" v-if="inputType == 'existingPath'">
+  </div>
+  <div class="displayPath-container" v-if="currentPod !== ''">
+    <ul>
       <li>
-        <span><b>Data upload location:</b> </span>
+        <span>Current upload path:</span>
       </li>
       <li>
-        <container-nav :currentPod="currentPod" @path-selected="handleSelectedContainer" />
+        <i>{{ uploadPath }}</i>
       </li>
-      
     </ul>
   </div>
-  {{ uploadPath }}
   <div class="upload-container">
     <div v-if="currentPod !== '' && currentPod !== undefined">
       <!-- Card that contains the data upload field
@@ -131,7 +149,7 @@
         </form>
 
         <!-- Alert for if session is timed out -->
-        <div v-if="this.currentPod === 'Error: probably not logged in'">
+        <div v-if="currentPod === 'Error: probably not logged in'">
           <v-alert
             class="mx-auto"
             title="There was an error with the file(s) upload!"
@@ -145,22 +163,45 @@
           >
         </div>
 
-        <!-- Alert forsuccessful file upload -->
+        <!-- Alert for file upload (without an error) -->
         <div v-else-if="uploadDone">
-          <v-alert
-            class="mx-auto"
-            title="File(s) successfully uploaded!"
-            type="success"
-            icon="$success"
-            >(Your file(s)
-            <i>{{
-              this.filesUploaded[0].split("/")[
-                this.filesUploaded[0].split("/").length - 1
-              ]
-            }}</i>
-            can be found in your pod at <b>{{ this.filesUploaded[0] }}</b
-            >)</v-alert
+          <!-- Iterates over list of uploaded files -->
+          <li
+            class="check-exists"
+            v-for="(f, index) in filesUploaded"
+            :key="index"
           >
+            <template>
+              {{ checkExists(f) }}
+            </template>
+            <!-- if a file attempting to be uploaded is alreay present -->
+            <div v-if="alreadyPresent">
+              <v-alert
+                class="mx-auto"
+                title="There was an error with the file(s) upload!"
+                type="error"
+                icon="$error"
+                >The file
+                <i>
+                  {{ files[index].name }}
+                </i>
+                already exists in the container <b>{{ uploadPath }}</b>
+              </v-alert>
+            </div>
+            <!-- if files were uploaded successfully -->
+            <div v-else>
+              <v-alert
+                class="mx-auto"
+                title="File(s) successfully uploaded!"
+                type="success"
+                icon="$success"
+                >(Your file(s)
+                <i>{{ f }}</i>
+                can be found in your pod at <b>{{ uploadPath }}</b
+                >)</v-alert
+              >
+            </div>
+          </li>
         </div>
       </v-card>
     </div>
@@ -168,23 +209,23 @@
 
   <hr />
 
+  <!-- Guide for file uploading -->
   <body class="use-guide">
     <h2 class="req">Data Upload Guide</h2>
     <ol>
+      <li>Select the pod you want to upload your file(s) to</li>
+      <li>Select or input the directory you want to upload the file(s) to</li>
       <li>
-        Select the pod you want to upload your file(s) to
+        Click the <b>"File Input"</b> bar or drag and drop a file from your
+        local machine
       </li>
-      <li>
-        Select or input the directory you want to upload the file(s) to
-      </li>
-      <li>Click the <b>"File Input"</b> bar or drag and drop a file from your local machine</li>
       <li>Click the <b>"Upload"</b> button</li>
     </ol>
   </body>
 </template>
 
 <script lang="ts">
-import { handleFiles, uploadSuccess } from "./fileUpload";
+import { handleFiles, uploadSuccess, alreadyExistsCheck } from "./fileUpload";
 import { currentWebId, getPodURLs } from "./login";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
@@ -203,32 +244,24 @@ export default {
       filesUploaded: [],
       files: FileList,
       uploadDone: false,
+      alreadyPresent: false,
       inputType: "existingPath",
       urlRules: [
         // Check that a value exists
         (v) => !!v || "URL is required",
         // Validate if the input is a proper URL using the URL constructor
         (v) => {
-          try {
-            new URL(v);
+          if (this.validUrlCheck(v)) {
             return true;
-          } catch (e) {
-            return "Enter a valid URL";
+          } else {
+            return "Invalid URL Path";
           }
         },
       ],
-      vaildURL: true,
+      vaildURL: null,
     };
   },
   methods: {
-    isValidUrl() {
-      if (this.urlRules == true) {
-        this.vaildURL = true;
-      } else {
-        this.validURL = false;
-      }
-    },
-
     /*
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
@@ -243,10 +276,33 @@ export default {
     */
     selectPod() {
       this.uploadPath =
-        // console.log("Selected pod: " + selectedPod);
         this.successfulSelection();
     },
 
+    /*
+    checks if the value 'already exists' is present in this.fileUploaded
+    */
+    checkExists(inString) {
+      this.alreadyPresent = alreadyExistsCheck(inString);
+    },
+
+    /*
+    checks to see if an input URL is valid
+    */
+    validUrlCheck(u) {
+      try {
+        new URL(u);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+    /*
+    calls the validUrlCheck function and assigns output to the value this.validURL
+    */
+    validPathCheck() {
+      this.vaildURL = this.validUrlCheck(this.uploadPath);
+    },
     /*
     Calls uploadFile() from fileUpload.ts to upload a file to the user's pod.
     obtains 'files' variable (a FileList that contains references to all files selected using the upload UI).
@@ -263,7 +319,14 @@ export default {
     Results in update of the uploadSuccess variable if files do have names.
     */
     async submitUpload() {
-      this.filesUploaded = await handleFiles(this.files, this.uploadPath);
+      if (!this.uploadPath.endsWith("/")) {
+        this.uploadPath = this.uploadPath + "/";
+      }
+      this.filesUploaded = await handleFiles(
+        this.files,
+        this.uploadPath,
+        this.currentPod
+      );
       this.uploadDone = uploadSuccess(this.filesUploaded);
     },
 
@@ -281,7 +344,6 @@ export default {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.getPodURL();
-      // console.log(this.podURLs)
     }, 200);
   },
 };
@@ -377,15 +439,15 @@ body {
   width: 100%;
 }
 
-/* Existing path upload */
-.existing-list {
+/* upload path input/selection */
+.path-selection {
   display: flex;
   align-items: center;
   list-style-type: none;
   padding: 0;
   margin: 0;
 }
-.existing-list span {
+.path-selection span {
   font-size: 18pt;
   font-family: "Oxanium", monospace;
   font-weight: 400;
@@ -394,23 +456,16 @@ body {
 
 /* User provided path */
 .user-list {
-  display: flex;
   font-family: "Oxanium", monospace;
-  align-items: center;
-  list-style-type: none;
-  margin: 0;
-  font-size: 18pt;
-}
-.user-list span {
-  font-size: 18pt;
-  font-family: "Oxanium", monospace;
-  font-weight: 400;
-  margin-left: 15px;
 }
 .user-list .input-path {
   margin-left: 20px;
   min-width: 40vw;
   margin-bottom: -15px;
+}
+.path-registerButton {
+  margin-top: 10px;
+  font-family: "Oxanium", monospace;
 }
 
 /* Select directory button */
@@ -425,6 +480,31 @@ body {
 }
 .sel-pod .check-mark {
   margin-bottom: 5px;
+}
+
+/* container that displays current upload path */
+.displayPath-container {
+  font-family: "Oxanium", monospace;
+  margin: 0 0.5rem 0.5rem 0.5rem;
+  padding: 20px;
+  background: #445560;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.displayPath-container ul {
+  display: flex;
+  align-items: center;
+  list-style-type: none;
+}
+.displayPath-container span {
+  font-size: 16pt;
+  font-weight: 600;
+  margin: 0 10px 0 0;
+}
+.displayPath-container i {
+  font-size: 14pt;
+  font-weight: 400;
+  margin-left: 20px;
 }
 
 /* Data upload container */
@@ -447,6 +527,10 @@ body {
 .v-btn {
   margin-left: 15px;
   margin-bottom: 15px;
+}
+/* for showing the outcome of file upload */
+.check-exists {
+  list-style-type: none;
 }
 
 /* User guide */

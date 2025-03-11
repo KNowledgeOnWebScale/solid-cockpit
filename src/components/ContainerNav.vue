@@ -14,8 +14,9 @@
               :items="childContainers(currentLocation, containerUrls)"
             ></v-select>
             <v-btn
+              class="navigate-btn"
               :disabled="currentUrl === null"
-              @click="changeCurrentLocation(currentUrl), selectPath"
+              @click="changeCurrentLocation(currentUrl)"
               >Go</v-btn
             >
           </div>
@@ -88,6 +89,8 @@ export default {
         this.currentLocation = newUrl;
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
+        this.selectPath();
+
       }
       // for moving 'down' the container levels (away from the root)
       else {
@@ -96,6 +99,7 @@ export default {
         this.currentLocation = newUrl;
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
+        this.selectPath();
       }
     },
     /**
@@ -206,5 +210,9 @@ export default {
   min-width: 150px;
   margin-top: 15px;
   font-family: "Oxanium", monospace;
+}
+.navigate-btn {
+  font-family: "Oxanium", monospace;
+  margin-top: 10px;
 }
 </style>
