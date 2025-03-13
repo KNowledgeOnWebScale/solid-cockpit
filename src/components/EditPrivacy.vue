@@ -1,111 +1,72 @@
 <template>
   <!-- Materialize CSS -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    rel="stylesheet"
+  />
 
   <!-- Title bar -->
-  <body class="content-body">
+  <div class="content-container">
     <div class="title-container">
       <nav class="title-nav">
         <!-- Title bar and icons -->
-        <div class="nav-wrapper #445560">
+        <div class="nav-wrapper">
           <ul>
             <span>Privacy Editing</span>
             <div class="right">
               <li>
-                <a href="#!"
-                  ><i class="material-icons grey-text text-darken-1">info</i></a
-                >
+                <!-- Make clicking this icon hide/show the Guide below -->
+                <a href="#!"><i class="material-icons">info</i></a>
               </li>
               <li>
-                <a href="#!"
-                  ><i class="material-icons grey-text text-darken-1"
-                    >notifications</i
-                  ></a
-                >
+                <a href="#!"><i class="material-icons">notifications</i></a>
               </li>
             </div>
           </ul>
         </div>
       </nav>
+    </div>
 
-      <!-- Directory bar and navigation -->
-      <nav class="dir-nav">
-        <div class="directory-nav">
-          <ul>
-            <li>
-              <span class="current-location">{{ currentLocation }}</span>
-            </li>
-            <li>
-              <div class="select-dir">
-                <v-select
-                  clearable
-                  variant="outlined"
-                  v-model="currentUrl"
-                  :items="childContainers(currentLocation, containerUrls)"
-                ></v-select>
-                <v-btn
-                  :disabled="currentUrl === null"
-                  @click="changeCurrentLocation(currentUrl)"
-                  >Go</v-btn
-                >
-              </div>
-            </li>
-
-            <!-- TODO: filter functionality -- doesn't work and im sick of trying to figure it out -->
-            <li class="right">
-              <div class="the-filter">
-                <v-menu v-model="filterMenuOpen">
-                  <template v-slot:activator="{ props }">
-                    <v-btn
-                      icon="mdi-filter"
-                      variant="solo"
-                      color="#EDE7F6"
-                      rounded
-                      v-bind="props"
-                    >
-                    </v-btn>
-                  </template>
-                  <v-list>
-                    <v-list-item
-                      v-for="(item, index) in filters"
-                      :key="index"
-                      :value="index"
-                    >
-                        <v-switch
-                          v-model="filterValues[index]"
-                          color="primary"
-                          :label="`${filters[index]}`"
-                          hide-details
-                        ></v-switch>
-                    </v-list-item>
-                  </v-list>
-                </v-menu>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </nav>
+    <!-- Choose Pod -->
+    <div class="pod-chooseContainer">
+      <PodRegistration @pod-selected="handlePodSelected" />
     </div>
 
     <!-- the side nav -->
-    <div class="body-container">
-      <div class="sideNav">
+    <div class="body-container" v-if="currentPod !== ''">
+      <div>
         <ul class="side-nav fixed floating #28353e z-depth-0">
           <li>
-            <button @click="toggleNavValue(0)">
-              <a><i class="material-icons purple-text text-darken-1">dashboard</i>My Pod</a>
+            <button
+              :class="{ highlight: navValue === 0 }"
+              @click="toggleNavValue(0)"
+            >
+              <a class="nav-text"
+                ><i class="material-icons">dashboard</i>My Pod</a
+              >
             </button>
           </li>
           <li><div class="divider"></div></li>
           <li>
-            <button @click="toggleNavValue(1)">
-              <a><i class="material-icons">people</i>Shared with me</a>
+            <button
+              :class="{ highlight: navValue === 1 }"
+              @click="toggleNavValue(1)"
+            >
+              <a class="nav-text"
+                ><i class="material-icons">people</i>Shared with me</a
+              >
             </button>
           </li>
           <li><div class="divider"></div></li>
           <li>
-            <button @click="toggleNavValue(2)">
-              <a><i class="material-icons">star</i>Shared with others</a>
+            <button
+              :class="{ highlight: navValue === 2 }"
+              @click="toggleNavValue(2)"
+              class="nav-button"
+            >
+              <a class="nav-text"
+                ><i class="material-icons">star</i>Shared with others</a
+              >
             </button>
           </li>
           <li><div class="divider"></div></li>
@@ -113,13 +74,29 @@
       </div>
 
       <!-- "My Pod" display -->
-      <div class="podDirectories" v-if="navValue===0">
+      <div class="pod-directories" v-if="navValue === 0">
         <div class="container-fluid">
+          <div class="nav-container">
+            <div class="path-selection">
+              <ul>
+                <li>
+                  <span><b>Current location:</b> </span>
+                </li>
+                <!-- Browse existing path -->
+                <li class="container-choose">
+                  <container-nav
+                    :currentPod="currentPod"
+                    @path-selected="handleSelectedContainer"
+                  />
+                </li>
+              </ul>
+            </div>
+          </div>
           <ul>
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
-                <i class="material-icons left">{{
+                <i class="material-icons not-colored left">{{
                   containerCheck(url) ? "folder" : "description"
                 }}</i>
                 {{ url }}
@@ -127,7 +104,7 @@
                   @click="toggleShared(index), getSpecificAclData(url)"
                   class="icon-button right"
                 >
-                  <i class="material-icons right">
+                  <i class="material-icons not-colored right">
                     {{
                       showSharedIndex === null
                         ? "chevron_right lock"
@@ -151,7 +128,9 @@
                           @click="getSpecificAclData(url)"
                           class="icon-button right"
                         >
-                          <i class="material-icons right">refresh</i>
+                          <i class="material-icons not-colored right"
+                            >refresh</i
+                          >
                           <v-tooltip activator="parent" location="end"
                             >Refresh access rights
                           </v-tooltip>
@@ -165,16 +144,20 @@
                         :key="inde"
                       >
                         <div class="user-id">
-                          <span class="user-tag">User:<br /></span>
-                          <span class="the-user"
-                            ><i>{{ inde }}</i>
-                            <button
-                              @click="copyText(inde)"
-                              class="icon-button right"
+                          <div class="left-content">
+                            <span class="user-tag">User:<br /></span>
+                            <span class="the-user"
+                              ><i>{{ inde }}</i>
+                            </span>
+                          </div>
+                          <button
+                            @click="copyText(inde)"
+                            class="icon-button right"
+                          >
+                            <i class="material-icons not-colored right"
+                              >content_copy</i
                             >
-                              <i class="material-icons right">content_copy</i>
-                            </button>
-                          </span>
+                          </button>
                         </div>
                         <span class="permissions-tag">Permissions:<br /></span>
                         <ul
@@ -207,12 +190,12 @@
                         <span>Add access rights </span>
                         <i
                           v-if="showFormIndex === null"
-                          class="material-icons right"
+                          class="material-icons not-colored right"
                           >add</i
                         >
                         <i
                           v-if="showFormIndex === index"
-                          class="material-icons right"
+                          class="material-icons not-colored right"
                         >
                           remove
                         </i>
@@ -232,7 +215,7 @@
                       class="form-container"
                     >
                       <form @submit.prevent="submitForm(url)">
-                        <div id="checkBoxes">
+                        <div class="check-boxes" id="checkBoxes">
                           <!-- Designate access to give -->
                           <span id="permissionsInstructions"
                             >Select the access level:</span
@@ -326,7 +309,10 @@
                   </div>
 
                   <!-- For the case that a container/resource does not have an existing .acl -->
-                  <div id="noAclExists" v-if="(hasAcl === null) && (!cannotMakeAcl)">
+                  <div
+                    id="noAclExists"
+                    v-if="hasAcl === null && !cannotMakeAcl"
+                  >
                     <v-alert
                       type="warning"
                       title="There is no .acl (permissions file) for this resource"
@@ -337,14 +323,15 @@
                       <span>Generate .acl</span>
                     </button>
                   </div>
-                  
+
                   <!-- For the case that a an .acl connot be initialized (e.g. for a file) -->
-                  <div id="noAclMade" v-if="(hasAcl === null) && (cannotMakeAcl)">
+                  <div id="noAclMade" v-if="hasAcl === null && cannotMakeAcl">
                     <v-alert
                       type="error"
                       title="Cannot initialize an .acl for this item"
                       closable
-                      >The .acl of the container this file is located within will be used for access controls.</v-alert
+                      >The .acl of the container this file is located within
+                      will be used for access controls.</v-alert
                     >
                   </div>
                 </div>
@@ -356,47 +343,65 @@
 
       <!-- "Shared with me" display -->
       <!-- TODO: Make a document that displays BOTH docs shared with others and docs shared with me -->
-      <div class="shared-with-me" v-if="navValue===1">
-
-
+      <div class="shared-with-me" v-if="navValue === 1">
+        <div v-if="selectedPod"></div>
       </div>
 
       <!-- "Shared with others" display -->
-      <div class="shared-with-others" v-if="navValue===2">
-
-      </div>
+      <div class="shared-with-others" v-if="navValue === 2"></div>
     </div>
+  </div>
 
-    <hr />
-    <div class="req">
-      <h2>Privacy Editing Guide</h2>
-      <ol>
-        <li>Click the <b>Lock icon</b> next to a container or resource to see current access rights</li>
-        <li>Select the <b>"Add access rights +"</b> section to adjust access for a provided WebID</li>
-        <li>Use the nav bar above the container/resource list to navigate between containers</li>
-        <li><b>Note:</b> The left nav bar, the filter, and the info/notifications icons are not currently functional</li>
+  <!-- Use guide -->
+  <div class="use-guide">
+    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
+    <div class="guide-container">
+      <h2 class="guide">Privacy Editing Guide</h2>
+
+      <hr class="line" />
+      <ol class="list-container">
+        <li class="req">Select the Pod you want to Browse.</li>
+
+        <li class="req">
+          Use the nav bar above the container/resource list to navigate between
+          containers
+        </li>
+
+        <li class="req">
+          Click the <i class="material-icons">lock</i> next to a container or
+          resource to see current access rights
+        </li>
+        <li class="req">
+          Select the <b>"Add access rights +"</b> section to adjust access for a
+          provided WebID
+        </li>
+        <li class="req">
+          Future work: The left nav bar pages, add filter functionality, and
+          functionality to the info/notifications icons
+        </li>
       </ol>
     </div>
-  </body>
+  </div>
 </template>
 
 <script>
-import {
-  getContainedResourceUrlAll,
-} from "@inrupt/solid-client";
+import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import { changeAcl, checkUrl, generateAcl, WorkingData } from "./privacyEdit";
 import { currentWebId, getPodURLs } from "./login";
-import {
-  fetchPermissionsData,
-  fetchData,
-  fetchAclAgents,
-} from "./getData";
+import { fetchPermissionsData, fetchData, fetchAclAgents } from "./getData";
+import PodRegistration from "./PodRegistration.vue";
+import ContainerNav from "./ContainerNav.vue";
 import { uploadToPod } from "./fileUpload";
 
 export default {
+  components: {
+    PodRegistration,
+    ContainerNav,
+  },
   name: "PrivacyComponent",
   data() {
     return {
+      currentPod: "",
       filters: ["containers", "resources"],
       filterValues: [true, true],
       filterMenuOpen: false,
@@ -461,7 +466,7 @@ export default {
           return segments[segments.length - 1] + "/";
         });
       // for navigating up a directory path (not possible when in root directory)
-      if (currentDir !== this.podList[0]) {
+      if (currentDir !== this.currentPod) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
@@ -514,10 +519,10 @@ export default {
       }
     },
     /**
-       * method for copying text to the user's clipboard
-       *
-       * @param text the text to be coppied
-       */
+     * method for copying text to the user's clipboard
+     *
+     * @param text the text to be coppied
+     */
     copyText(text) {
       navigator.clipboard.writeText(text);
     },
@@ -551,14 +556,13 @@ export default {
     /**
      * checks if the share tracking document exists and creates it if not
      * @param docExists boolean that initicates is the doc exists
-     * 
+     *
      */
     // TODO: write a new structured data creation algorithm to store the sharing status data
     createSharingDoc(docExists) {
       if (!docExists) {
         console.log("make file");
-      }
-      else {
+      } else {
         // await this.uploadedSharingDoc = uploadToPod();
       }
     },
@@ -636,11 +640,11 @@ export default {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.podList[0] &&
-        !this.urls.includes(this.podList[0])
+        this.currentLocation === this.currentPod &&
+        !this.urls.includes(this.currentPod)
       ) {
-        this.urls.push(this.podList[0]);
-        this.containerUrls.push(this.podList[0]);
+        this.urls.push(this.currentPod);
+        this.containerUrls.push(this.currentPod);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
@@ -663,7 +667,7 @@ export default {
      * then sorts the array to reflect heirarchy
      */
     async getGeneralData() {
-      this.dirContents = await fetchData(this.podList[0]);
+      this.dirContents = await fetchData(this.currentPod);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
@@ -707,43 +711,157 @@ export default {
         this.cannotMakeAcl = true;
       }
     },
+    /* Takes in the emitted value from PodRegistration.vue */
+    handlePodSelected(selectedPod) {
+      this.currentPod = selectedPod;
+      this.currentLocation = this.currentPod;
+      this.getGeneralData(this.currentLocation);
+    },
+    /* Takes in the emitted value from ContainerNav.vue */
+    handleSelectedContainer(selectedContainer) {
+      this.currentLocation = selectedContainer;
+      this.getSpecificData(this.currentLocation);
+    },
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     this.podURL();
-    setTimeout(() => {
-      this.getGeneralData();
-    }, 500);
   },
 };
 </script>
 
 <style scoped>
 /* @import url('https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css'); */
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
 
-body {
-  background-color: #445560;
-  font-size: 13px;
-}
-.content-body {
+/* general formatting */
+.content-container {
   display: flex;
   flex-direction: column;
+  margin: auto;
+  border-radius: 6px;
 }
-.title-nav {
+.body-container {
+  display: flex;
+  flex: 1 1 auto;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
   background-color: #445560;
+  margin: 0.5rem;
+}
+.side-nav {
+  flex: 1 1 auto;
+}
+.pod-directories {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  max-height: 40em;
+}
+.dir-nav {
+  background-color: #445560;
+  border-radius: 6px;
+}
+
+/* title bar */
+.title-nav {
+  background-color: transparent;
+  box-shadow: none;
+  margin: 0.5rem 0.5rem 0.5rem 0rem;
+  border-radius: 6px;
 }
 .title-container {
   flex: 1;
+  background-color: transparent;
+  margin: 0;
 }
 .title-container span {
   font-size: 30pt;
   font-family: "Oxanium", monospace;
   font-weight: 500;
-  color: #EDE7F6;
+  color: #ede7f6;
 }
-.directory-nav {
+.dir-nav nav {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+}
+.nav-wrapper {
   background-color: #445560;
+  border-radius: 6px;
+  padding: 0 1rem;
+  margin: 0 0.5rem 0 0.5rem;
+}
+
+/* Container pod-chooser bar */
+.pod-chooseContainer {
+  background: #445560;
+  border-radius: 8px;
+  margin: 0rem 0.5rem;
+  font-family: "Oxanium", monospace;
+}
+.v-messages {
+  display: none;
+  margin:0;
+}
+
+/* Choose location in MyPod */
+.nav-container {
+  display: flex;
+  border-radius: 8px;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  min-width: fit-content;
+}
+.nav-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.nav-container ul {
+  list-style-type: none;
+  padding: 10px;
+  height: 100%;
+  overflow: auto;
+}
+.path-selection {
+  display: flex;
+  align-items: center;
+  list-style-type: none;
+  width: 100%;
+}
+.path-selection ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0.3rem 0;
+  width: 100%;
+  align-items: center;
+}
+.path-selection li {
+  margin: 0 0 0 1rem;
+  white-space: nowrap;
+  align-items: center;
+}
+.path-selection span {
+  font-size: 18pt;
+  font-family: "Oxanium", monospace;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+.container-choose {
+  margin-left: auto; /* Push the container selector to the right */
+  box-shadow: none;
+}
+.dir-nav {
+  background-color: #445560;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  box-shadow: none;
+}
+
+.directory-nav {
+  margin: 10px 0 0 0;
+  border-radius: 6px;
 }
 .directory-nav span {
   font-size: 14pt;
@@ -752,35 +870,15 @@ body {
   margin-left: 25px;
 }
 
-/* general layout */
-.body-container {
-  display: flex;
-  flex: 1 1 auto;
-}
-.side-nav {
-  flex: 1 1 auto;
-}
-.podDirectories {
-  flex: 1 1 auto;
-}
-.dir-nav {
-  background-color: #445560;
-}
-/* title bar */
-nav {
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
-}
-.nav-wrapper {
-  padding-left: 20px;
-  padding-right: 20px;
-}
 .select-dir {
+  font-family: "Oxanium", monospace;
   display: flex;
   align-items: center;
   margin-left: 15px;
   gap: 20px;
 }
 .select-dir .v-btn {
+  font-family: "Oxanium", monospace;
   margin-bottom: 15px;
 }
 .select-dir .v-select {
@@ -791,6 +889,7 @@ nav {
 
 /* sidenav */
 .side-nav.floating {
+  margin-top: 0;
   padding-top: 2px;
   border-radius: 2px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
@@ -798,41 +897,60 @@ nav {
 .side-nav .divider {
   margin: 2px 0;
 }
-.side-nav .active {
-  background-color: rgba(41, 35, 35, 0.05);
-}
-.side-nav .active a {
-  color: #212121;
-  font-weight: 500;
-}
-.side-nav li a,
 .side-nav li a i.material-icons {
-  height: 40px;
-  line-height: 40px;
-  margin-right: 24px;
+  height: 1.5rem;
+  line-height: 2rem;
+  margin: 0 1.5rem 0.5rem 0;
 }
-
+.side-nav .nav-button {
+  display: flex;
+  align-items: center;
+}
+.side-nav .nav-text {
+  display: flex;
+  align-items: center;
+  font-size: 14pt;
+  font-weight: 700;
+  align-items: center;
+  padding: 10px 20px 10px 5px;
+}
+.side-nav li button {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  align-content: center;
+  padding: 5px;
+  width: 100%;
+  text-decoration: none;
+}
+.side-nav .highlight {
+  background-color: #754ff6;
+  color: #ede7f6;
+  border-radius: 6px;
+}
+.side-nav li button:hover {
+  background-color: #555;
+  color: white;
+  width: 100%;
+}
 .side-nav li a {
-  padding: 10px 20px;
-  font-size: 15px;
-  color: #EDE7F6;
-}
-.side-nav li a:hover {
-  border-radius: 2px;
+  all: unset;
 }
 
 /* folders */
-
 .folder {
-  margin: 3px 0px 0px 0;
-  font-weight: 800;
+  margin: 0;
+  font-weight: 600;
   font-size: large;
   font-family: "Oxanium", monospace;
   background-color: #28353e;
+  border-radius: 4px;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);
   margin-top: -2px;
+}
+.card-panel .not-colored {
+  color: #ede7f6;
 }
 
 /* Share Drop Downs */
@@ -842,6 +960,7 @@ nav {
   cursor: pointer;
 }
 #addAccess button {
+  font-family: "Oxanium", monospace;
   margin-top: 20px;
   margin-bottom: 10px;
 }
@@ -854,6 +973,7 @@ nav {
   font-weight: bold;
 }
 .access-item {
+  color: #ede7f6;
   border-top: 1px dashed #000;
   padding-top: 10px;
   margin-top: 10px;
@@ -868,7 +988,18 @@ nav {
   margin-left: 10px;
 }
 .user-id {
-  color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.left-content {
+  display: flex;
+  align-items: center;
+  gap: 5rem;
+}
+.user-tag {
+  color: #ede7f6;
 }
 .user-id button {
   padding: 3px;
@@ -883,7 +1014,7 @@ nav {
 }
 .the-user i {
   font-size: medium;
-  color: #EDE7F6;
+  color: #ede7f6;
 }
 .permissions-tag {
   font-size: large;
@@ -899,16 +1030,16 @@ nav {
   justify-content: flex-end;
 }
 .true-color {
-  color: green;
+  color: #77dd76;
 }
 .true-color i {
-  color: green;
+  color: #77dd76;
 }
 .false-color {
-  color: red;
+  color: #ff6962;
 }
 .false-color i {
-  color: red;
+  color: #ff6962;
 }
 
 #sharebox {
@@ -916,34 +1047,69 @@ nav {
 }
 label {
   margin-left: 20px;
+  font-family: "Oxanium", monospace;
 }
 #checkBoxes {
   margin-bottom: 10px;
 }
+input[type="checkbox"] {
+  appearance: none; /* Hide default checkbox */
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ede7f6; /* Default border */
+  border-radius: 3px;
+  background-color: transparent;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+input[type="checkbox"]:checked {
+  background-color: #77dd76; /* Green color when checked */
+  border-color: #77dd76; /* Match the border */
+}
+input[type="checkbox"]:checked::before {
+  content: "✔";
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
 form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
-  border: 1px solid #ccc;
+  border: 1px solid #ede7f6;
   font-family: "Courier New", Courier, monospace;
   font-size: large;
-  max-width: 90%;
+  max-width: 100%;
+  color: #ede7f6;
+}
+form input::placeholder {
+  color: rgba(255, 255, 255, 0.7); /* Slight transparency */
 }
 form button {
-  padding: 15px;
+  padding: 10px;
   margin-top: 5px;
-  background-color: #EDE7F6;
+  background-color: #ede7f6;
   color: #445560;
   border: none;
   cursor: pointer;
-  font-family: "Oxanium" monospace;
   font-size: large;
+}
+#submitButton button {
+  font-family: "Oxanium", monospace;
+  font-weight: 600;
+  border-radius: 6px;
 }
 form button:hover {
   background-color: #a9a7ad;
 }
 label span {
-  font-size: 16px;
-  color: #EDE7F6;
+  font-family: "Oxanium", monospace;
+  font-size: 14px;
+  color: #ede7f6;
 }
 #errorIndicator {
   margin-top: 10px;
@@ -961,32 +1127,50 @@ label span {
   font-size: small;
 }
 .new-acl {
-  padding: 15px;
+  padding: 10px;
   margin-top: 5px;
-  background-color: #EDE7F6;
+  background-color: #ede7f6;
   color: #445560;
   border: none;
   cursor: pointer;
   font-family: "Oxanium", monospace;
   font-size: large;
+  border-radius: 6px;
 }
 .new-acl:hover {
   background-color: #a9a7ad;
 }
-.req {
+
+/* The how to use guide */
+.use-guide {
+  margin: 0.5rem;
+}
+.guide-container {
   font-family: "Oxanium", monospace;
-  padding: 20px;
+  font-size: 16pt;
+  width: 100%;
+  margin: auto;
+  padding: 0.5rem 0rem 0.5rem 0.5rem;
   background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-.req h2 {
-  font-size: 30pt;
-  margin-top: 5px
-  ;
+.guide {
+  text-align: Left;
+  font-size: 18pt;
+  margin: 0.5rem;
+  font-weight: 600;
 }
-.req ol {
-  font-size: 16pt;
-  margin-left: 40px;
+.line {
+  margin-right: 0.5rem;
+}
+.list-container {
+  margin: 0 1.5rem;
+}
+.req {
+  margin: 1rem 0.5rem;
+  font-size: 14pt;
+  list-style-type: upper-roman;
+  align-items: Left;
 }
 </style>

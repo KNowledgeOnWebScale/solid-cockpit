@@ -14,6 +14,7 @@
               :items="childContainers(currentLocation, containerUrls)"
             ></v-select>
             <v-btn
+              class="navigate-btn"
               :disabled="currentUrl === null"
               @click="changeCurrentLocation(currentUrl)"
               >Go</v-btn
@@ -88,6 +89,8 @@ export default {
         this.currentLocation = newUrl;
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
+        this.selectPath();
+
       }
       // for moving 'down' the container levels (away from the root)
       else {
@@ -96,6 +99,7 @@ export default {
         this.currentLocation = newUrl;
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
+        this.selectPath();
       }
     },
     /**
@@ -117,7 +121,6 @@ export default {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
-      this.hasAccess = await fetchAclAgents(path);
     },
 
     /**
@@ -144,6 +147,15 @@ export default {
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
       this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+    },
+
+
+    /**
+     * Emits the current URL path
+     */
+    selectPath() {
+      const selectedPath = this.currentLocation;
+      this.$emit("path-selected", selectedPath);
     },
   },
   mounted() {
@@ -197,5 +209,9 @@ export default {
   min-width: 150px;
   margin-top: 15px;
   font-family: "Oxanium", monospace;
+}
+.navigate-btn {
+  font-family: "Oxanium", monospace;
+  margin-top: 10px;
 }
 </style>

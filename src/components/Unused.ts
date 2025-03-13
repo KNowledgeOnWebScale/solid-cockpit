@@ -234,7 +234,6 @@ async function obtainACL(datasetWithAcl) {
 
   .container {
     font-family: "Courier New", monospace;
-    max-width: 900px;
     margin: auto;
     padding: 20px;
     background: #445560;
@@ -242,3 +241,81 @@ async function obtainACL(datasetWithAcl) {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   }
  */
+
+
+
+
+  // HTML from old Pod Browser data display (using a vuetify table)
+  // <v-container>
+  //   <v-col cols="12">
+  //     <!-- Displays contents if the query returns results without an error -->
+  //     <v-card
+  //       title="Pod Contents"
+  //       variant="tonal"
+  //       justify="center"
+  //       class="mx-auto"
+  //       color="indigo-darken-3"
+  //       v-if="queryItems !== null"
+  //     >
+  //       <v-infinite-scroll>
+  //         <template v-for="(item, index) in queryItems" :key="index">
+  //           <!-- need a clever way to filter and display results here -->
+  //           <div :class="['pa-2', index % 1 === 0 ? 'bg-grey-lighten-2' : '']">
+  //             {{ item }}
+  //           </div>
+  //         </template>
+  //         <template v-slot:loading> </template>
+  //       </v-infinite-scroll>
+  //     </v-card>
+
+  //     <!-- Displays warning if query encounters an error -->
+  //     <v-card
+  //       variant="tonal"
+  //       justify="center"
+  //       class="mx-auto"
+  //       color="indigo-darken-3"
+  //       v-if="queryItems === null"
+  //     >
+  //       <v-alert
+  //         type="error"
+  //         title="Error occurred when querying Pod with Comunica"
+  //         >Apologies, but currently unable to display pod contents at the
+  //         moment. Functionality will hopefully be fixed soon :/</v-alert
+  //       >
+  //     </v-card>
+  //   </v-col>
+  // </v-container>
+
+
+
+  // TODO: filter functionality -- doesn't work and im sick of trying to figure it out -->
+          // <!-- <li class="right">
+          //     <div class="the-filter">
+          //       <v-menu v-model="filterMenuOpen">
+          //         <template v-slot:activator="{ props }">
+          //           <v-btn
+          //             icon="mdi-filter"
+          //             variant="solo"
+          //             color="#EDE7F6"
+          //             rounded
+          //             v-bind="props"
+          //           >
+          //           </v-btn>
+          //         </template>
+          //         <v-list>
+          //           <v-list-item
+          //             v-for="(item, index) in filters"
+          //             :key="index"
+          //             :value="index"
+          //           >
+          //               <v-switch
+          //                 v-model="filterValues[index]"
+          //                 color="primary"
+          //                 :label="`${filters[index]}`"
+          //                 hide-details
+          //               ></v-switch>
+          //           </v-list-item>
+          //         </v-list>
+          //       </v-menu>
+          //     </div>
+          //   </li>
