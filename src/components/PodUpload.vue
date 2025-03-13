@@ -11,7 +11,7 @@
   </div>
 
   <!-- Container location bar -->
-  <div class="container-location" v-if="currentPod !== ''">
+  <div class="container-location" v-show="currentPod !== ''">
     <!-- Left Navigation Bar -->
     <div class="nav-container">
       <ul>
@@ -41,6 +41,8 @@
       <li>
         <span><b>Upload location:</b> </span>
       </li>
+
+      <!-- User typed input -->
       <li class="user-list" v-if="inputType == 'newPath'">
         <v-text-field
           class="input-path"
@@ -100,7 +102,7 @@
   <div class="upload-container">
     <div v-if="currentPod !== '' && currentPod !== undefined">
       <!-- Card that contains the data upload field
-       TODO: make this use the ContainerNav to designate where a file gets uploaded -->
+       TODO: clear files from upload box once uploaded -->
       <v-card
         class="mx-auto upload-section"
         title="Add Files to Pod"
@@ -207,21 +209,26 @@
     </div>
   </div>
 
-  <hr />
-
   <!-- Guide for file uploading -->
-  <body class="use-guide">
-    <h2 class="req">Data Upload Guide</h2>
-    <ol>
-      <li>Select the pod you want to upload your file(s) to</li>
-      <li>Select or input the directory you want to upload the file(s) to</li>
-      <li>
-        Click the <b>"File Input"</b> bar or drag and drop a file from your
-        local machine
-      </li>
-      <li>Click the <b>"Upload"</b> button</li>
-    </ol>
-  </body>
+  <div class="use-guide">
+    <div class="guide-container">
+      <h2 class="guide">Data Upload Guide</h2>
+
+      <hr class="line" />
+      
+      <ol class="list-container">
+        <li class="req">Select the pod you want to upload your file(s) to</li>
+        <li class="req">
+          Select or input the directory you want to upload the file(s) to
+        </li>
+        <li class="req">
+          Click the <b>"File Input"</b> bar or drag and drop a file from your
+          local machine
+        </li>
+        <li class="req">Click the <b>"Upload"</b> button</li>
+      </ol>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
@@ -275,8 +282,7 @@ export default {
     Selects the directory a file is to be uploaded to
     */
     selectPod() {
-      this.uploadPath =
-        this.successfulSelection();
+      this.uploadPath = this.successfulSelection();
     },
 
     /*
@@ -377,11 +383,6 @@ body {
   padding-left: 20px;
   padding-right: 20px;
 }
-.container-location {
-  background-color: #445560;
-  border-radius: 8px;
-  margin: 0rem 0.5rem;
-}
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
@@ -395,7 +396,7 @@ body {
   display: flex;
   background-color: #445560;
   border-radius: 8px;
-  margin-top: 10px;
+  margin: 0rem 0.5rem;
 }
 .container-location .nav-container {
   display: flex;
@@ -403,7 +404,9 @@ body {
   border-radius: 8px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
+  justify-content: left;
   min-width: fit-content;
+  
 }
 .nav-container ul {
   list-style-type: none;
@@ -432,11 +435,6 @@ body {
 .nav-container .highlight {
   background-color: #754ff6;
   color: #ede7f6;
-}
-.nav-container li button:hover {
-  background-color: #555;
-  color: white;
-  width: 100%;
 }
 
 /* upload path input/selection */
@@ -533,28 +531,34 @@ body {
   list-style-type: none;
 }
 
-/* User guide */
+/* The how to use guide */
 .use-guide {
-  font-size: 16px;
-  max-width: 95%;
+  margin: 0;
 }
-.req {
-  margin-top: 10px;
-}
-.use-guide ul,
-ol {
-  margin-left: 10px;
-  margin-bottom: 15px;
-  margin-top: 5px;
-  margin-right: 10px;
-}
-.use-guide ol li {
-  margin-bottom: 10px;
-  margin-left: 20px;
-  list-style-type: upper-roman;
-  align-items: Left;
+.guide-container {
+  font-family: "Oxanium", monospace;
+  font-size: 16pt;
+  margin: 0 0.5rem;
+  padding: 0.5rem 0rem 0.5rem 0.5rem;
+  background: #445560;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .guide {
   text-align: Left;
+  font-size: 18pt;
+  margin: 0.5rem;
+}
+.line {
+  margin-right: 0.5rem;
+}
+.list-container {
+  margin: 0 1.5rem;
+}
+.req {
+  margin: 1rem 0.5rem;
+  font-size: 14pt;
+  list-style-type: upper-roman;
+  align-items: Left;
 }
 </style>

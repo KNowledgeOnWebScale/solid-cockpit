@@ -204,9 +204,7 @@ export default {
 
 /* For pod selection 
    TODO: Fix the alignment of this :( */
-.select-pod {
-  margin-top: 10px;
-}
+
 .horizontal-list {
   display: flex;
   justify-content: flex-start;
@@ -219,6 +217,12 @@ export default {
   margin-bottom: 20px;
   font-size: 24px;
   font-weight: 700;
+}
+.pod-selectButton {
+  font-family: "Oxanium", monospace;
+}
+button:focus {
+  background-color: transparent;
 }
 .sel-pod {
   display: flex;

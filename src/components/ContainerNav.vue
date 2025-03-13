@@ -121,7 +121,6 @@ export default {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
-      this.hasAccess = await fetchAclAgents(path);
     },
 
     /**

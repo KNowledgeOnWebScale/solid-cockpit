@@ -11,7 +11,7 @@
     </v-col>
   </v-container>
 
-  <div>
+  <div class="login-container">
     <pod-login />
   </div>
 
@@ -107,15 +107,19 @@ export default {
 }
 img {
   max-width: 80%;
+  margin-top: 1rem;
   height: auto;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-
+.login-container {
+  max-width: 100%;
+  margin: 0;
+}
 .pod-reg {
   background-color: #445560;
   border-radius: 8px;
-  max-width: 80%;
-  margin: auto;
+  max-width: 100%;
+  margin: 0 1rem;
 }
 
 .entry {
@@ -195,9 +199,9 @@ a:hover {
 }
 .container {
   font-family: "Oxanium", monospace;
-  max-width: 84%;
-  margin: auto;
-  padding: 20px;
+  max-width: 100%;
+  margin: 0 1rem;
+  padding: 2rem;
   background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);

@@ -27,7 +27,6 @@ export type FileData = WithServerResourceInfo & {
 };
 export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
 
-// TODO: Fix this stupid pod registration thing (it should be working, not sure why it isn't ...)
 /**
  * Method to Fetch WebId data from the Solid Pod API.
  * 
@@ -107,6 +106,7 @@ export async function fetchData(url: UrlString): Promise<WorkingData> {
   const dataset = await responseToSolidDataset(response);
   return dataset;
 }
+
 
 /**
  * Determine whether a given URL (container or resource) has an attached .acl file

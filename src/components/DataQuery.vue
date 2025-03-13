@@ -12,12 +12,12 @@
         <li><span>Query Views</span></li>
 
         <li>
-          <button id="top-button" @click="currentView = 'newQuery'">
+          <button id="top-button" :class="{ highlight: currentView === 'newQuery' }" @click="currentView = 'newQuery'">
             New Query
           </button>
         </li>
         <li>
-          <button @click="currentView = 'previousQueries', loadCache">Past Queries</button>
+          <button :class="{ highlight: currentView === 'previousQueries' }" @click="currentView = 'previousQueries', loadCache">Past Queries</button>
         </li>
       </ul>
     </div>
@@ -27,7 +27,7 @@
       <div v-if="currentView === 'newQuery'">
         <ul>
           <div class="top-container">
-            <span>Input a New Query</span>
+            <span class="top-label">Input a New Query</span>
             <!-- TODO: Add more example queries here -->
             <v-select
               class="example-queries"
@@ -94,19 +94,21 @@
             <button class="execute-button" @click="runExecuteQuery">
               Execute Query
             </button>
-            <v-checkbox
-              class="save-checkbox"
-              v-model="saveQuery"
-              color="#EDE7F6"
-              label="Save Query?"
-              hide-details
-            ></v-checkbox>
-            <div class="save-info">
-              <v-icon>mdi-information</v-icon>
-              <v-tooltip activator="parent" location="right"
-                >Check this box if you would like to save the query and any
-                results to your pod</v-tooltip
-              >
+            <div class="save-query" v-if="currentPod !== ''">
+              <v-checkbox
+                class="save-checkbox"
+                v-model="saveQuery"
+                color="#EDE7F6"
+                label="Save Query?"
+                hide-details
+              ></v-checkbox>
+              <div class="save-info">
+                <v-icon>mdi-information</v-icon>
+                <v-tooltip activator="parent" location="right"
+                  >Check this box if you would like to save the query and any
+                  results to your pod</v-tooltip
+                >
+              </div>
             </div>
           </div>
           <!-- TODO: an alert or something here if there is a [syntax] error -->
@@ -128,6 +130,28 @@
           </div>
         </ul>
       </div>
+    </div>
+  </div>
+
+  <!-- Guide for file uploading -->
+  <div class="use-guide">
+    <div class="guide-container">
+      <h2 class="guide">Data Query Guide</h2>
+
+      <hr class="line" />
+      
+      <ol class="list-container">
+        <li class="req"><b>OPTIONAL:</b> Select a pod (if you want to save/share queries and results)</li>
+        <li class="req">
+          Select or input the URL(s) of the SPARQL Endpoint(s) and/or Solid Pod(s) to query in <b>"Datasources"</b> (Solid pod querying not available yet)
+        </li>
+        <li class="req">
+          Enter a SPARQL query in the input box
+        </li>
+        <li class="req">Click the <b>"Save Query"</b> button if you wish to save the query and results</li>
+        <li class="req">Click the <b>"Execute Query"</b> button to execute the query</li>
+        <li class="req">Results will be displayed below once the query has finished</li>
+      </ol>
     </div>
   </div>
 </template>
@@ -191,6 +215,7 @@ export default {
       queryFile: "",
       resultsFile: "",
       queriesCacheExists: false,
+      inputType: "",
       cachedQueries: [],
       queries: [],
     };
@@ -250,7 +275,7 @@ export default {
 
     async runExecuteQuery() {
       if (this.currentQuery.query.trim() === "") {
-        alert("Please enter a SPARQL query before executing.");
+        alert("Please enter a valid SPARQL query before executing.");
         return;
       }
 
@@ -361,8 +386,7 @@ body {
 .title-container {
   background-color: #445560;
   border-radius: 8px;
-  margin-top: 10px;
-  margin-bottom: 5px;
+  margin: 0.5rem;
 }
 .title-container span {
   font-size: 30pt;
@@ -376,13 +400,14 @@ body {
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
+  margin: 0.5rem;
 }
 
 /* Whole nav and query container */
 .general-container {
   background-color: #445560;
   border-radius: 8px;
-  margin-top: 10px;
+  margin: 0.5rem;
   display: flex;
 }
 
@@ -414,8 +439,9 @@ body {
 .nav-container li button {
   display: block;
   color: #ede7f6;
+  width: 100%;
   border-radius: 4px;
-  padding: 14px 16px;
+  padding: 0.8rem 1.2rem;
   text-decoration: none;
 }
 .nav-container li button.active {
@@ -426,6 +452,10 @@ body {
   background-color: #555;
   color: white;
   width: 100%;
+}
+.nav-container .highlight {
+  background-color: #754ff6;
+  color: #ede7f6;
 }
 
 /* Query elements */
@@ -450,19 +480,30 @@ body {
   margin-left: auto;
   max-width: 20dvw;
 }
+.top-container {
+  display: flex;
+  align-items: center;
+}
+.top-container .top-label span {
+  padding: 0;
+}
 .query-container .top-container span {
   font-size: 18pt;
   font-weight: bold;
-  padding: 0px 8px 12px 4px;
+  padding: 0px 0.5rem 1rem 0.5rem;
   text-decoration: none;
 }
 /* source designation */
 .source-selection {
   display: flex;
   align-items: center;
+  border-radius: 4px;
+  margin: 0.2rem 0.2rem 0.4rem 0.2rem;
+  outline: #28353e 3px solid;
 }
 .source-selection span {
   font-size: 16pt;
+  font-weight: 600;
   padding: 10px 8px 8px 4px;
 }
 .source-selection .autocomplete {
@@ -505,6 +546,12 @@ body {
 .query-container .execute-button:hover {
   background-color: #754ff6;
 }
+.save-query {
+  display: flex;
+  align-items: center;
+  margin-left: 1rem;
+  gap: 1rem;
+}
 .save-checkbox {
   padding: 0px 0px 0px 20px;
 }
@@ -533,5 +580,36 @@ pre {
 }
 section {
   margin-bottom: 1.5em;
+}
+
+/* The how to use guide */
+.use-guide {
+  margin: 0;
+}
+.guide-container {
+  font-family: "Oxanium", monospace;
+  font-size: 16pt;
+  margin: 0 0.5rem;
+  padding: 0.5rem 0rem 0.5rem 0.5rem;
+  background: #445560;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.guide {
+  text-align: Left;
+  font-size: 18pt;
+  margin: 0.5rem;
+}
+.line {
+  margin-right: 0.5rem;
+}
+.list-container {
+  margin: 0 1.5rem;
+}
+.req {
+  margin: 1rem 0.5rem;
+  font-size: 14pt;
+  list-style-type: upper-roman;
+  align-items: Left;
 }
 </style>

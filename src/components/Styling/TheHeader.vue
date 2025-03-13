@@ -1,5 +1,5 @@
 <template>
-  <v-card color="#AAA7AD">
+  <div class="header-card">
     <div class="header-container">
       <v-row align="center" justify="start">
         <!-- Logo and App Title -->
@@ -93,7 +93,7 @@
         </div>
       </v-row>
     </div>
-  </v-card>
+  </div>
 </template>
 
 <script lang="ts">
@@ -149,32 +149,33 @@ export default {
 </script>
 
 <style scoped>
-.header-container {
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  margin-left: 1rem;
-  margin-right: 1rem;
+.header-card {
+  margin: 0;
 }
-h1 {
+.header-container {
+  margin: 20px;
+}
+.header-container h1 {
   color: rgb(0, 0, 0);
   font-family: "Orbitron";
-  font-size: 3rem;
-  margin-left: 10px;
+  font-size: 40pt;
+  font-weight: 700;
+  margin: 0 0 0 10px;
   text-align: Left;
 }
-img {
+.header-container img {
   width: 80px;
   height: auto;
   margin-left: 25px;
 }
 
-.header-right {
+.header-container .header-right {
   display: flex;
   align-items: center;
   margin-left: auto;
 }
 
-.account {
+.header-container .account {
   display: flex;
   text-align: right;
   padding: 15px;
