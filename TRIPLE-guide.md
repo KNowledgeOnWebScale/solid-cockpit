@@ -60,12 +60,12 @@ The Solid Cockpit app provides several functionalities for managing and interact
    - View, modify, move, and delete the contents of your Pod.
    - Explore and edit the container structure of your Pod.
 
-3. 🔍 **Data Query** (under construction)
+3. 🔍 **Data Query**
    - An editor to write SPARQL queries to interact with data in your Pod, the Pods of others, and SPARQL Endpoints.
    - A user input to designate the sources for the queries.
    - Options that impact the the output formats, query execution, and other relevant parameters.
    
-4. 🔒 **Data Privacy Management** (under construction)
+4. 🔒 **Data Privacy Management**
    - View the current privacy settings for your data (Read, Write, and Append).
    - Add or change privacy settings to containers and resources in your Pod.
    - Give and receive notifications related to new access rights to the data of others.

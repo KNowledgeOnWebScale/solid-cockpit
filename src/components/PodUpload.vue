@@ -19,18 +19,18 @@
         <li>
           <button
             id="top-button"
-            :class="{ highlight: inputType === 'existingPath' }"
-            @click="inputType = 'existingPath'"
+            :class="{ highlight: inputType === 'newPath' }"
+            @click="inputType = 'newPath'"
           >
-            Use Existing Path
+            New Input Path
           </button>
         </li>
         <li>
           <button
-            :class="{ highlight: inputType === 'newPath' }"
-            @click="inputType = 'newPath'"
+            :class="{ highlight: inputType === 'existingPath' }"
+            @click="inputType = 'existingPath'"
           >
-            User Input Path
+            Use Existing Path
           </button>
         </li>
       </ul>
@@ -184,9 +184,9 @@
                 type="error"
                 icon="$error"
                 >The file
-                <i>
+                <i><b>
                   {{ files[index].name }}
-                </i>
+                </b></i>
                 already exists in the container <b>{{ uploadPath }}</b>
               </v-alert>
             </div>
@@ -198,7 +198,7 @@
                 type="success"
                 icon="$success"
                 >(Your file(s)
-                <i>{{ f }}</i>
+                <i><b>{{ files[index].name }}</b></i>
                 can be found in your pod at <b>{{ uploadPath }}</b
                 >)</v-alert
               >
@@ -252,7 +252,7 @@ export default {
       files: FileList,
       uploadDone: false,
       alreadyPresent: false,
-      inputType: "existingPath",
+      inputType: "newPath",
       urlRules: [
         // Check that a value exists
         (v) => !!v || "URL is required",
