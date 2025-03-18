@@ -26,7 +26,7 @@ export async function handleFiles(
   podURL: string
 ): Promise<string[]> {
   const outputList: string[] = [];
-  ensureDirectoriesExist(podURL, uploadPath, fetch);
+  await ensureDirectoriesExist(podURL, uploadPath, fetch);
   for (let i = 0; i < fileList.length; i++) {
     if (await alreadyExists(fileList[i], uploadPath)) {
       outputList.push(`already exists`);
@@ -175,12 +175,14 @@ async function ensureDirectoriesExist(
  * @return A boolean representing whether the file to be uploaded alreay exists in the current directory
  */
 export async function alreadyExists(file: File, uploadUrl: string): Promise<boolean> {
-  const containerContents = await getSolidDataset(uploadUrl, {fetch});
   // const containerContents = await fetchData(uploadUrl);
   try {
-    getThing(containerContents, `${uploadUrl}${file.name}`)
+    const containerContents = await getSolidDataset(uploadUrl, {fetch});
+    const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`)
+    console.log(`The file ${allegedFile.url} already exists...`)
     return true;
   } catch (e) {
+    console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
     return false;
   }
 }
