@@ -145,7 +145,7 @@
                       >
                         <div class="user-id">
                           <div class="left-content">
-                            <span class="user-tag">User:<br /></span>
+                            <span class="user-tag">Agent:<br /></span>
                             <span class="the-user"
                               ><i>{{ inde }}</i>
                             </span>
@@ -218,11 +218,14 @@
                         <div class="check-boxes" id="checkBoxes">
                           <!-- Designate access to give -->
                           <span id="permissionsInstructions"
-                            >Select the access level:</span
+                            >Select access rights:</span
                           >
                           <label>
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
+                            <v-tooltip activator="parent" location="top"
+                              >Observe existing content
+                            </v-tooltip>
                           </label>
                           <label>
                             <input
@@ -230,6 +233,9 @@
                               v-model="permissions.append"
                             />
                             <span>Append</span>
+                            <v-tooltip activator="parent" location="top"
+                              >Add to to existing content
+                            </v-tooltip>
                           </label>
                           <label>
                             <input
@@ -237,14 +243,61 @@
                               v-model="permissions.write"
                             />
                             <span>Write</span>
+                            <v-tooltip activator="parent" location="top"
+                              >Change existing content + create new content
+                            </v-tooltip>
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              v-model="permissions.control"
+                            />
+                            <span>Control</span>
+                            <v-tooltip activator="parent" location="top"
+                              >Change .acl permissions for the resource
+                            </v-tooltip>
                           </label>
                         </div>
+
+                        <div class="access-who">
+                          <div class="access-choose">
+                            <button
+                              id="agent"
+                              type="button"
+                              @click="changeAccess('Agent')"
+                              class="agent-button"
+                              :class="{ highlight: accessType === 'Agent' }"
+                            >
+                              Agent
+                              <v-tooltip activator="parent" location="top"
+                                >Change access for a specific WebId
+                              </v-tooltip>
+                            </button>
+                            <button
+                              id="public"
+                              type="button"
+                              @click="changeAccess('Public')"
+                              class="public-button"
+                              :class="{ highlight: accessType === 'Public' }"
+                            >
+                              Public
+                              <v-tooltip activator="parent" location="top"
+                                >Change access for anyone
+                              </v-tooltip>
+                            </button>
+                          </div>
+
+                          <!-- Provide added user's WebID -->
+                          <div v-if="accessType === 'Agent'" class="mt-2">
+                            <input
+                              type="text"
+                              v-model="userUrl"
+                              placeholder="Enter user's WebID:"
+                              class="border p-2 w-full"
+                            />
+                          </div>
+                        </div>
                         <!-- Provide added user's WebID -->
-                        <input
-                          type="text"
-                          v-model="userUrl"
-                          placeholder="Enter user's WebID:"
-                        />
                         <div id="submitButton">
                           <button @click="clearPermissionString" type="submit">
                             Submit
@@ -254,7 +307,11 @@
                         <!-- If provided WebID is not a valid URL -->
                         <div
                           id="errorIndicator"
-                          v-if="userUrlInvalid && webId !== userUrl"
+                          v-if="
+                            userUrlInvalid &&
+                            webId === userUrl &&
+                            accessType === 'Agent'
+                          "
                         >
                           <v-alert
                             v-model="userUrlInvalid"
@@ -271,7 +328,11 @@
                         <!-- If provided WebID is the Pod Owner's WebId -->
                         <div
                           id="errorIndicator"
-                          v-if="userUrlInvalid && webId === userUrl"
+                          v-if="
+                            userUrlInvalid &&
+                            webId === userUrl &&
+                            accessType === 'Agent'
+                          "
                         >
                           <v-alert
                             v-model="userUrlInvalid"
@@ -287,12 +348,28 @@
                         <!-- If added permissions are successful -->
                         <div id="successIndicator" v-if="submissionDone">
                           <v-alert
+                            v-if="accessType === 'Agent'"
                             closable
                             title="Success"
                             type="success"
                             icon="$success"
                           >
                             WebId: <i>{{ userUrl }}</i
+                            ><br />
+                            Was given:
+                            <i>{{ permissionsString }}</i> rights<br />
+                            To resources in the container: <i>{{ url }}</i><br />
+                            {{ recorded }}
+                          </v-alert>
+
+                          <v-alert
+                            v-if="accessType === 'Public'"
+                            closable
+                            title="Success"
+                            type="success"
+                            icon="$success"
+                          >
+                            <i>{{ accessType }}</i
                             ><br />
                             Was given:
                             <i>{{ permissionsString }}</i> rights<br />
@@ -386,9 +463,23 @@
 
 <script>
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
-import { changeAcl, checkUrl, generateAcl, WorkingData } from "./privacyEdit";
-import { currentWebId, getPodURLs } from "./login";
-import { fetchPermissionsData, fetchData, fetchAclAgents } from "./getData";
+import {
+  changeAclAgent,
+  changeAclPublic,
+  checkUrl,
+  generateAcl,
+  WorkingData,
+  createInboxWithACL,
+  createSharedWithMe,
+  updateSharedWithOthers,
+} from "./privacyEdit";
+import { currentWebId } from "./login";
+import {
+  fetchPermissionsData,
+  fetchData,
+  fetchAclAgents,
+  fetchPublicAccess,
+} from "./getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import { uploadToPod } from "./fileUpload";
@@ -410,6 +501,7 @@ export default {
       userUrl: "",
       userUrlInvalid: false,
       submissionDone: false,
+      recorded: "",
       permissions: {
         read: false,
         append: false,
@@ -419,11 +511,11 @@ export default {
       navValue: 0,
       permissionsString: "",
       webId: "",
-      podList: [],
       dirContents: WorkingData,
       containerContents: WorkingData,
       hasAcl: null,
       cannotMakeAcl: false,
+      accessType: "Agent",
       currentLocation: "",
       currentUrl: null,
       urls: [],
@@ -433,6 +525,7 @@ export default {
       newUrls: [],
       aclUrl: "",
       hasAccess: [],
+      publicAccess: [],
       uploadedSharingDoc: "",
     };
   },
@@ -448,6 +541,10 @@ export default {
     */
     containerCheck(itemUrl) {
       return itemUrl.endsWith("/");
+    },
+    // Changes the mode of sharing data
+    changeAccess(mode) {
+      this.accessType = mode;
     },
 
     /**
@@ -544,7 +641,6 @@ export default {
         this.showFormIndex = index; // Show the form for the clicked item
       }
     },
-
     /**
      * Method for changing the view between "My Pod", "Shared with me", and "Shared with others"
      * @param newValue integer that indicates the new display value
@@ -553,6 +649,12 @@ export default {
       this.navValue = newValue;
     },
 
+    /**
+     * Method for creating an inbox/ container in a Pod if it does not already exist
+     */
+    createInbox() {
+      createInboxWithACL(this.currentPod, this.webId);
+    },
     /**
      * checks if the share tracking document exists and creates it if not
      * @param docExists boolean that initicates is the doc exists
@@ -573,10 +675,7 @@ export default {
      * @param url the URL of the container that .acl changes are being made to
      */
     async submitForm(url) {
-      // Check if entered user WebId is a valid URL
-      this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
-
-      // Handle permissions permutation logic
+      // Handle permissions specified
       if (this.permissions.read) {
         this.permissionsString += "Read / ";
       }
@@ -587,31 +686,47 @@ export default {
       if (this.permissions.append && !this.permissions.write) {
         this.permissionsString += "Append / ";
       }
-      if (this.permissions.read && this.permissions.write) {
+      if (this.permissions.control) {
         this.permissions.control = true;
-        this.permissionsString = "Control (Read & Write) / ";
+        this.permissionsString = "Control / ";
       }
       if (this.permissionsString === "") {
         this.permissionsString = "No / ";
       }
 
-      // Call function to do the .acl changing (only if the added webID URL is valid)
-      if (!this.userUrlInvalid) {
-        // actual .acl changing
-        await changeAcl(url, this.userUrl, this.permissions);
-
-        // Message that tells the changes that have been made
-        const ex = [
-          this.permissionsString.length - 3,
-          this.permissionsString.length - 2,
-          this.permissionsString.length - 1,
-        ];
-        this.permissionsString = this.permissionsString
-          .split("")
-          .filter((char, index) => !ex.includes(index))
-          .join("");
-        this.submissionDone = true;
+      // for Agent ACL changes
+      if (this.accessType === "Agent") {
+        this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
+        if (!this.userUrlInvalid) {
+          // add condition for different agents here ...
+          // actual .acl changing
+          await changeAclAgent(url, this.userUrl, this.permissions);
+        }
       }
+
+      // for Public ACL changes
+      if (this.accessType === "Public") {
+        await changeAclPublic(url, this.permissions);
+      }
+
+      this.recorded = await updateSharedWithOthers(
+        this.currentPod,
+        url,
+        this.userUrl,
+        this.permissions
+      );
+
+      // Message that tells the changes that have been made
+      const ex = [
+        this.permissionsString.length - 3,
+        this.permissionsString.length - 2,
+        this.permissionsString.length - 1,
+      ];
+      this.permissionsString = this.permissionsString
+        .split("")
+        .filter((char, index) => !ex.includes(index))
+        .join("");
+      this.submissionDone = true;
     },
 
     /**
@@ -657,8 +772,6 @@ export default {
      */
     async podURL() {
       this.webId = currentWebId();
-      this.podList = await getPodURLs();
-      this.currentLocation = this.podList[0]; // assuming that the user only has one pod at the moment...
     },
 
     /**
@@ -671,7 +784,6 @@ export default {
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
-
     /**
      * Obtains a list containers and/or resources located in the provided container
      *
@@ -682,8 +794,12 @@ export default {
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
       this.hasAccess = await fetchAclAgents(path);
+      this.publicAccess = await fetchPublicAccess(path);
+      this.hasAccess = {
+          "Public": this.publicAccess,
+          ...this.hasAccess,
+        };
     },
-
     /**
      * Obtains a list of agents that have access to the designated resource or container
      *
@@ -693,6 +809,11 @@ export default {
       this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(path);
+        this.publicAccess = await fetchPublicAccess(path);
+        this.hasAccess = {
+          "Public": this.publicAccess,
+          ...this.hasAccess,
+        };
         this.cannotMakeAcl = false;
       }
     },
@@ -716,6 +837,12 @@ export default {
       this.currentPod = selectedPod;
       this.currentLocation = this.currentPod;
       this.getGeneralData(this.currentLocation);
+      this.createStuff()
+    },
+    /* creates files and directories if not already present */
+    async createStuff() {
+      await createInboxWithACL(this.currentPod, this.webId);
+      await createSharedWithMe(this.currentPod);
     },
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer) {
@@ -800,7 +927,7 @@ export default {
 }
 .v-messages {
   display: none;
-  margin:0;
+  margin: 0;
 }
 
 /* Choose location in MyPod */
@@ -810,17 +937,27 @@ export default {
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   min-width: fit-content;
+  background-color: #445560;
+  border: 2px solid #ede7f6;
 }
 .nav-container {
   display: flex;
   align-items: center;
   width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .nav-container ul {
   list-style-type: none;
   padding: 10px;
   height: 100%;
   overflow: auto;
+}
+.container-fluid {
+  max-height: 500px; /* Set a maximum height */
+  overflow-y: auto;  /* Enable vertical scrolling when content overflows */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 .path-selection {
   display: flex;
@@ -830,6 +967,7 @@ export default {
 }
 .path-selection ul {
   display: flex;
+  flex-wrap: wrap;
   list-style: none;
   padding: 0;
   margin: 0.5rem 0 0.3rem 0;
@@ -922,7 +1060,7 @@ export default {
   width: 100%;
   text-decoration: none;
 }
-.side-nav .highlight {
+.highlight {
   background-color: #754ff6;
   color: #ede7f6;
   border-radius: 6px;
@@ -944,6 +1082,7 @@ export default {
   font-family: "Oxanium", monospace;
   background-color: #28353e;
   border-radius: 4px;
+  border: 0.5px solid #ede7f6;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);
@@ -1013,7 +1152,7 @@ export default {
   font-size: large;
 }
 .the-user i {
-  font-size: medium;
+  font-size: large;
   color: #ede7f6;
 }
 .permissions-tag {
@@ -1077,10 +1216,21 @@ input[type="checkbox"]:checked::before {
   top: 50%;
   transform: translate(-50%, -50%);
 }
+/* Access rights Agent + Public buttons */
+.access-choose {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin: 1rem 0;
+}
+.access-choose button {
+  width: 100%;
+  border-radius: 5px;
+}
 form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
-  border: 1px solid #ede7f6;
+  border: 1px solid #ede7f6 !important;
   font-family: "Courier New", Courier, monospace;
   font-size: large;
   max-width: 100%;

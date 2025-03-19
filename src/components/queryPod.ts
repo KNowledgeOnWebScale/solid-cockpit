@@ -247,7 +247,7 @@ async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<
  * @param length - Optional length for the hash (default is 6)
  * @returns A string representing the hash.
  */
-function generateHash(length = 6): string {
+export function generateHash(length: number): string {
   const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let hash = "";
   for (let i = 0; i < length; i++) {
@@ -341,8 +341,7 @@ export async function createQueriesTTL(
 ): Promise<string> {
   
   // Initiatize query cache variables
-  const currentDate: Date = new Date();
-  const hash = generateHash();
+  const hash = generateHash(6);
   const queryFile = `${hash}.rq`;
   const queryResult = `${hash}.json`;
 
