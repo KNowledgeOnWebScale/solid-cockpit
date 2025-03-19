@@ -3,6 +3,7 @@ import {
   SolidDataset,
   WithServerResourceInfo,
   AgentAccess,
+  Access,
   UrlString,
   responseToResourceInfo,
   isRawData,
@@ -16,6 +17,7 @@ import {
   addUrl,
   setThing,
   saveSolidDatasetAt,
+  getPublicResourceAccess,
   addStringNoLocale,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
@@ -54,7 +56,6 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | string
       /* saves the updated card to the User's Pod (with their pod is registered) */
       const newCard = setThing(profData, updatedThing);
       const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
-      console.log(updatedCard);
     } 
 
   /* if the user DID specify their Pod's URL */
@@ -67,10 +68,7 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | string
     /* saves the updated card to the User's Pod (with their pod is registered) */
     const newCard = setThing(profData, updatedThing);
     const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
-    console.log(updatedCard);
   }
-  
-  
 }
 
 
@@ -132,7 +130,26 @@ export async function fetchPermissionsData(url: UrlString): Promise<AclDataset |
  * @retuns an AgentAccess object with information about users and their access rights
  */
 export async function fetchAclAgents(url: UrlString): Promise<AgentAccess | null> {
-  return getAgentAccessAll(await getSolidDatasetWithAcl(url, { fetch: fetch }));
+  try {
+    return getAgentAccessAll(await getSolidDatasetWithAcl(url, { fetch: fetch }));
+  } catch(err) {
+    console.error("Seems to be a minor issue fetching ACL data... ");
+  }
 }
 
+/**
+ * Determines the list access rights for public access (i.e. foaf:Agent)
+ * 
+ * @param url a URL to a pod container/resource from which we can get access information
+ * 
+ * @retuns an AgentAccess object with information about users and their access rights
+ */
+export async function fetchPublicAccess(url: UrlString): Promise<Access | null> {
+  try {
+    const acl = await fetchPermissionsData(url);
+    return getPublicResourceAccess(acl);
+  } catch(err) {
+    console.error("Seems to be a minor issue fetching ACL data... ");
+  }
+}
 
