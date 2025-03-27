@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - EDC-active
   pull_request: {}
 permissions:
   contents: write

@@ -3,7 +3,7 @@
     <v-col cols="12">
       <div class="logo-container">
         <img
-          :src="require('../assets/full-sc-logo-nb.png')"
+          :src="visualUrl"
           alt="Full Solid Cockpit logo"
         />
       </div>
@@ -65,7 +65,7 @@
   </body>
 </template>
 
-<script>
+<script lang="ts">
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
@@ -79,16 +79,17 @@ export default {
     currPod: String,
   },
   data: () => ({
-    login_status: true,
+    login_status: true as boolean,
+    visualUrl: new URL('../assets/full-sc-logo-nb.png', import.meta.url).href as string,
   }),
   methods: {
-    async credentials() {
+    async credentials(): Promise<void> {
       handleRedirectAfterPageLoad();
     },
-    loggedIn() {
+    loggedIn(): boolean {
       return isLoggedin();
     },
-    mounted() {
+    mounted(): void {
       this.credentials();
       // Delays the execution of these functions on page reload (to avoid async-related errors)
       setTimeout(() => {

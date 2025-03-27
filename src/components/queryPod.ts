@@ -1,6 +1,6 @@
-import { QueryEngine as QueryEngineSparql } from '@comunica/query-sparql';
-import { QueryEngine as QueryEngineSolid } from '@comunica/query-sparql-solid';
-import { Bindings } from '@comunica/types';
+import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
+import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
+import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
   saveSolidDatasetAt,
@@ -20,6 +20,7 @@ import {
   getDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
+import { Parser as SparqlParser } from "sparqljs";
 
 interface queryResultJson {
   head: { vars: string[] };
@@ -27,93 +28,103 @@ interface queryResultJson {
 }
 
 /**
+ * Cleans an array of source URLs by removing angle brackets ("<" and ">") 
+ * from URLs that are enclosed in them.
+ *
+ * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
+ * @returns A new array of cleaned source URLs without angle brackets.
+ */
+export function cleanSourcesUrls(dirtySources: string[]): string[] {
+  const betterSources: string[] = [];
+  dirtySources.forEach((url) => {
+    if (url.startsWith("<") && url.endsWith(">")) {
+      betterSources.push(url.slice(1, -1));
+    } else {
+      betterSources.push(url);
+    }
+  });
+  return betterSources;
+}
+
+/**
  * Executes a SPARQL query over one or many SPARQL endpoints and/or Solid Pods.
- * 
+ *
  * @param query The string representation of a SPARQL query to be executed.
  * @param providedSources a string[] that provides the sources for executing the specified query
  * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
-*/
-export async function executeQuery(query: string, providedSources: string[]): Promise<queryResultJson | null> {
+ */
+export async function executeQuery(
+  query: string,
+  providedSources: string[]
+): Promise<queryResultJson | null> {
   // remove "<>" from Endpoint IRIs
-  const cleanedSources = providedSources.map(url => url.slice(1, -1));
+  const cleanedSources = cleanSourcesUrls(providedSources);
   const sparqlSources: string[] = [];
   const solidSources: string[] = [];
   let queryType = 0;
 
   for (const sourceUrl of cleanedSources) {
-    if (sourceUrl.includes('sparql')) {
+    if (sourceUrl.includes("sparql")) {
       sparqlSources.push(sourceUrl);
     } else {
       solidSources.push(sourceUrl);
     }
   }
-  console.log('SPARQL Sources: ', sparqlSources);
-  console.log('Solid Sources: ', solidSources);
-  
-  let sparqlResults = null;
-  let solidResults = null;
+  console.log("SPARQL Sources: ", sparqlSources);
+  console.log("Solid Sources: ", solidSources);
 
-  if (sparqlSources.length > 0) {
-    sparqlResults = await sparqlEndpointQuery(query, sparqlSources);
+  let results = null;
+
+  if (solidSources.length < 1) {
+    results = await sparqlEndpointQuery(query, sparqlSources);
     queryType += 1;
   }
-  if (solidSources.length > 0) {
-    solidResults = await solidPodQuery(query, solidSources);
+  if (solidSources.length > 0 && sparqlSources.length < 1) {
+    results = await mixedQuery(query, cleanedSources);
     queryType += 10;
+  }
+  if (solidSources.length > 0 && sparqlSources.length > 0) {
+    results = await mixedQuery(query, cleanedSources);
+    queryType += 11;
   }
 
   // for just SPARQL sources
   // TODO: Make this BOTH sources type work with data display (probably two different tables??)
   if (queryType == 1) {
-    console.log('Results displayed are from ONLY SPARQL sources.');
-    return sparqlResults;
+    console.log("Results displayed are from ONLY SPARQL sources.");
+    return results;
   } else {
     // for just Solid sources
     if (queryType == 10) {
-      console.log('Results displayed are from ONLY SOLID Pod sources.');
-      return solidResults;
+      console.log("Results displayed are from ONLY SOLID Pod sources.");
+      return results;
     } else {
       // for combination of Solid and SPARQL sources
-      if (queryType == 11) {
-        console.log('Results displayed are from BOTH SPARQL and SOLID sources.');
-
-        // Ensure both have `head.vars` and `results.bindings`
-        const sparqlVars = sparqlResults ? sparqlResults.head.vars : [];
-        const solidVars = solidResults ? solidResults.head.vars : [];
-        
-        // Merge unique variables
-        const mergedVars = [...new Set([...sparqlVars, ...solidVars])];
-
-        // Merge bindings while labeling sources
-        const sparqlBindings = sparqlResults ? sparqlResults.results.bindings.map(binding => ({ ...binding, source: "SPARQL" })) : [];
-        const solidBindings = solidResults ? solidResults.results.bindings.map(binding => ({ ...binding, source: "SOLID" })) : [];
-
-        // Final merged JSON structure
-        return {
-          head: { vars: mergedVars },
-          results: { bindings: [...sparqlBindings, ...solidBindings] }
-        };
-      } else {
-        // for no valid sources
-        console.log('No valid sources detected...');
-        return null;
-      }
+      console.log(
+        "Results displayed are from BOTH SPARQL and SOLID sources."
+      );
+      return results;
     }
   }
 }
 
 /**
  * Executes a SPARQL query over one or many SPARQL endpoints.
- * 
+ *
  * @param inputQuery The string representation of a SPARQL query to be executed.
  * @param sparqlSources a string[] that provides the sources for executing the specified query
  * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
-*/
-async function sparqlEndpointQuery(inputQuery: string, sparqlSources: string[]): Promise<queryResultJson | null> {
-    // execute query over SPARQL endpoint(s)
+ */
+async function sparqlEndpointQuery(
+  inputQuery: string,
+  sparqlSources: string[]
+): Promise<queryResultJson | null> {
+  // execute query over SPARQL endpoint(s)
   const mySparqlEngine = new QueryEngineSparql();
   try {
-    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {sources: sparqlSources});
+    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
+      sources: sparqlSources,
+    });
 
     const bindingsArray: any[] = [];
     let firstBinding: Bindings | undefined = undefined;
@@ -146,8 +157,8 @@ async function sparqlEndpointQuery(inputQuery: string, sparqlSources: string[]):
     }
 
     // If there were no results, use an empty array of variables.
-    const vars = firstBinding 
-      ? Array.from(firstBinding.keys()).map(variable => variable.value)
+    const vars = firstBinding
+      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
       : [];
 
     return {
@@ -161,38 +172,44 @@ async function sparqlEndpointQuery(inputQuery: string, sparqlSources: string[]):
 
 /**
  * Executes a SPARQL query over a list of provided Solid Pod URLs.
- * 
+ *
  * @param inputQuery The string representation of a SPARQL query to be executed.
  * @param podSources a string[] that provides the Solid Pod sources for executing the specified query
  * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
-*/
-async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<queryResultJson | null> {
+ */
+async function mixedQuery(
+  inputQuery: string,
+  mixedSources: string[]
+): Promise<queryResultJson | null> {
   const mySolidEngine = new QueryEngineSolid();
-  const allSources: string[] = [];
+  // const allSources: string[] = [];
 
-  // Discover all sources the current user has access to
-  for (const podUrl of podSources) {
-    try {
-      const dataset = await getSolidDataset(podUrl, { fetch });
-      const podResources = getContainedResourceUrlAll(dataset);
-      allSources.push(...podResources);
-    } catch (error) {
-      console.error(`Failed to access pod: ${podUrl}`, error);
-    }
-  }
+  // // Discover all sources the current user has access to
+  // for (const podUrl of mixedSources) {
+  //   try {
+  //     const dataset = await getSolidDataset(podUrl, { fetch });
+  //     const podResources = getContainedResourceUrlAll(dataset);
+  //     allSources.push(...podResources);
+  //   } catch (error) {
+  //     console.error(`Failed to access pod: ${podUrl}`, error);
+  //   }
+  // }
 
   // Log discovered sources
-  if (allSources.length === 0) {
-    console.log("No accessible RDF sources found in the provided Pods.");
-    return;
-  } else {
-    console.log(`Found access to ${allSources.length} resources.\nQuerying the sources:`, allSources);
-  }
+  // if (allSources.length === 0) {
+  //   console.log("No accessible RDF sources found in the provided Pods.");
+  //   return null;
+  // } else {
+  //   console.log(
+  //     `Found access to ${allSources.length} resources.\nQuerying the sources:`,
+  //     allSources
+  //   );
+  // }
 
   // Execute query over discovered sources
   try {
     const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
-      sources: allSources,
+      sources: mixedSources,
       fetch: fetch,
     });
 
@@ -227,8 +244,8 @@ async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<
     }
 
     // If there were no results, use an empty array of variables.
-    const vars = firstBinding 
-      ? Array.from(firstBinding.keys()).map(variable => variable.value)
+    const vars = firstBinding
+      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
       : [];
 
     return {
@@ -236,11 +253,10 @@ async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<
       results: { bindings: bindingsArray },
     };
   } catch (err) {
-    console.error("Error querying multiple pods:", err);
+    console.error("Error querying specified sources:", err);
     return null;
   }
 }
-
 
 /**
  * Generates a unique 6-character hash using alphanumeric characters.
@@ -248,7 +264,8 @@ async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<
  * @returns A string representing the hash.
  */
 export function generateHash(length: number): string {
-  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const charset =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let hash = "";
   for (let i = 0; i < length; i++) {
     const randomIndex = Math.floor(Math.random() * charset.length);
@@ -279,7 +296,6 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
   }
 }
 
-
 /**
  * Recursively builds an RDF list (using rdf:first / rdf:rest) from an array of IRI strings.
  *
@@ -297,25 +313,20 @@ function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
     // For an empty list, return rdf:nil.
     return { head: createThing({ url: RDF_NIL }), nodes: [] };
   }
-  
+
   // Create a blank node for the current list element.
   let listNode = createThing(); // creates a blank node automatically
-  listNode = buildThing(listNode)
-    .addIri(RDF_FIRST, sources[0])
-    .build();
-  
+  listNode = buildThing(listNode).addIri(RDF_FIRST, sources[0]).build();
+
   // Recursively build the rest of the list.
   const restList = buildRdfList(sources.slice(1));
-  
+
   // Link the current node to the head of the rest of the list.
-  listNode = buildThing(listNode)
-    .addIri(RDF_REST, restList.head.url)
-    .build();
-  
+  listNode = buildThing(listNode).addIri(RDF_REST, restList.head.url).build();
+
   // Return the current node as the head and include all nodes.
   return { head: listNode, nodes: [listNode, ...restList.nodes] };
 }
-
 
 /**
  * Creates and uploads a Turtle file (Queries.ttl) into the container.
@@ -324,10 +335,11 @@ function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
  * Each source is converted into an entry like:
  *
  *     <hash1> a Query;
- *         date "date";
- *         query "hash1.rq";
- *         results "hash1.sparqljson";
- *         Source "<url>".
+ *         queryFile "hash1.rq";
+ *         queryText """ ... """;
+ *         resultsFile "hash1.sparqljson";
+ *         Sources "<url>";
+ *         date "date"^^xsdDate.
  *
  * @param containerUrl - The container URL (should end with a slash).
  * @param sources - An array of source URLs.
@@ -336,10 +348,10 @@ function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
  */
 export async function createQueriesTTL(
   containerUrl: string,
+  query: string,
   sources: string[],
   fileName = "queries.ttl"
 ): Promise<string> {
-  
   // Initiatize query cache variables
   const hash = generateHash(6);
   const queryFile = `${hash}.rq`;
@@ -348,35 +360,30 @@ export async function createQueriesTTL(
   // prefixes
   const TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
   const CREATED = "http://purl.org/dc/terms/created";
-  const QUERYprop = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query";
-  const QUERYsuperclass = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryForm";
-  const QUERYSELsubclass = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QuerySelect";
+  const QUERYprop =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query";
+  const sh = "http://www.w3.org/ns/shacl#";
+  const QUERYsuperclass =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryForm";
+  const QUERYSELsubclass =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QuerySelect";
   // TODO: create conditional to allow for labelling of non-select queries...
-  const QUERYCONsubclass = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryConstruct";
-  const QUERYDESCsubclass = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryDescribe";
-  const QUERYASKsubclass = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryAsk ";
-  const RESULT = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
-  const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint"
+  const QUERYCONsubclass =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryConstruct";
+  const QUERYDESCsubclass =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryDescribe";
+  const QUERYASKsubclass =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryAsk ";
+  const RESULT =
+    "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
+  const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint";
+  const OWL = "http://www.w3.org/2002/07/owl#";
+  const SCHEMA = 'https://schema.org/';
+  const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
 
-  const cleanedSources = sources.map(url => url.slice(1, -1));
-
-  // Create a Thing for the new query cache
-  const subjectUri = `${containerUrl + fileName}#${hash}`;
-  // Create the RDF List of sources
-  const { head: sourceListHead, nodes: sourceListNodes } = buildRdfList(cleanedSources);
-  let newQueryThing: Thing = createThing({ url: subjectUri });
-  newQueryThing = buildThing(newQueryThing)
-    // Specify the query hash.
-    .addUrl(`${TYPE}`, `${QUERYsuperclass}`)
-    .addUrl(`${TYPE}`, `${QUERYSELsubclass}`)
-    // Add date of query execution.
-    .addDatetime(`${CREATED}`, new Date())
-    // Add the query file name.
-    .addUrl(`${QUERYprop}`, `${containerUrl}${queryFile}`)
-    // Add the results file name.
-    .addUrl(`${RESULT}`, `${containerUrl}${queryResult}`)
-    .addIri(`${SOURCE}`, sourceListHead.url)
-    .build();
+  let cleanedSources: string[] = cleanSourcesUrls(sources);
+  // parse input query string using SPARQLjs
+  const serviceSources = parseSparqlQuery(query);
 
   // Saves RDF data as queries.ttl
   let dataset: SolidDataset, message: string;
@@ -389,6 +396,63 @@ export async function createQueriesTTL(
     message = `CREATED queries.ttl with first query: ${hash}`;
   }
 
+  // Tried to get fancy with shacl prefixes here but not necessary :(
+  // const prefixes: string[] = Object.entries(parsedQuery.prefixes).map(
+  //   ([prefix, namespace]) => {
+  //     // Add prefixes using SHACL's `sh:declare`
+  //     let prefixDeclaration: Thing = createThing({ url: `_:${hash}_prefixes` });
+  //     prefixDeclaration = buildThing(prefixDeclaration)
+  //       .addIri(`${sh}declare`, `_:prefix_${prefix}`)
+  //       .build();
+  //     // Add actual prefix urls SHACL's `sh:prefix` and `sh:namespace`
+  //     let prefixContent = createThing({ url: `_:${hash}_prefixes` });
+  //     prefixContent = buildThing(prefixContent)
+  //       .addStringNoLocale(`${sh}prefix`, prefix)
+  //       .addUrl(`${sh}namespace`, namespace)
+  //       .build();
+
+  //     dataset = setThing(dataset, prefixDeclaration);
+  //     dataset = setThing(dataset, prefixContent);
+  //     return `_:${hash}_prefixes`;
+  //   }
+  // );
+
+  // Create the RDF List of sources
+  const { head: sourceListHead, nodes: sourceListNodes } =
+    buildRdfList(cleanedSources);
+
+  // Create a Thing for the new query cache
+  const subjectUri = `${containerUrl + fileName}#${hash}`;
+  let newQueryThing: Thing = createThing({ url: subjectUri });
+  newQueryThing = buildThing(newQueryThing)
+    // Specify the query hash.
+    .addUrl(`${TYPE}`, `${QUERYsuperclass}`)
+    .addUrl(`${TYPE}`, `${QUERYSELsubclass}`)
+    .addIri(`${TYPE}`, `${sh}SPARQLExecutable`)
+    // Add the query file
+    .addUrl(`${QUERYprop}`, `${containerUrl}${queryFile}`)
+    // add sh:prefixes
+    // .addIri(`${sh}prefixes}`, prefixes[0])
+    // add query body
+    // TODO: fix this so the query is enclosed in """ """ not " " ...
+    .addStringNoLocale(`${sh}select`, query)
+    // Add the results file name
+    .addUrl(`${RESULT}`, `${containerUrl}${queryResult}`)
+    // Add sources as an RDF list
+    .addIri(`${SOURCE}`, sourceListHead.url)
+
+    // Add date of query execution.
+    .addDatetime(`${CREATED}`, new Date())
+    .build();
+  
+  // Adds any SERVICE description sources to query entry
+  if (serviceSources.length > 0) {
+    serviceSources.forEach((source) => {
+      newQueryThing = buildThing(newQueryThing).addUrl(`${SPEX}federatesWith`, source).build();
+    });
+  }
+
+  // Adds query sources to query entry
   dataset = setThing(dataset, newQueryThing);
   sourceListNodes.forEach((node) => {
     dataset = setThing(dataset, node);
@@ -423,7 +487,6 @@ export async function uploadQueryFile(
   query: string,
   hashName: string
 ): Promise<string> {
-
   const fileName = hashName + ".rq";
   const blob = new Blob([query], { type: "application/sparql-query" });
 
@@ -433,7 +496,9 @@ export async function uploadQueryFile(
       contentType: "application/sparql-query",
       fetch,
     });
-    console.log(`Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`);
+    console.log(
+      `Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`
+    );
     return savedFile.internal_resourceInfo.sourceIri;
   } catch (error) {
     console.error(`Error uploading ${fileName}:`, error);
@@ -441,6 +506,47 @@ export async function uploadQueryFile(
   }
 }
 
+/**
+ * Parses a SPARQL query file for SERVICE clauses and returns any federation source URLs.
+ *
+ * @param queryString The SPARQL query as a string.
+ * @returns An object containing the prefixes and the query body.
+ */
+export function parseSparqlQuery(queryString: string): string[] {
+  const parser = new SparqlParser();
+
+  try {
+    // Parse the SPARQL query string into a structured object
+    const parsedQuery = parser.parse(queryString);
+
+    // Initialize an array to store service sources
+    const serviceSources: string[] = [];
+
+    // Helper function to recursively search for SERVICE clauses
+    function findServiceClauses(pattern: any) {
+      if (pattern.type === "service" || pattern.type === "SERVICE") {
+        // Add the service source (URL) to the array
+        serviceSources.push(pattern.name.value);
+      } else if (pattern.type === "group" || pattern.type === "union") {
+        // Recursively check patterns in groups or unions
+        pattern.patterns.forEach(findServiceClauses);
+      } else if (pattern.type === "optional") {
+        // Recursively check optional patterns
+        findServiceClauses(pattern.pattern);
+      }
+    }
+
+    // Start searching for SERVICE clauses in the query's WHERE clause
+    if (parsedQuery.type === "query" && parsedQuery.where) {
+      parsedQuery.where.forEach(findServiceClauses);
+    }
+
+    return serviceSources;
+  } catch (error) {
+    console.error("Error parsing SPARQL query for SERVICE clauses:", error);
+    return [];
+  }
+}
 
 /**
  * Creates and uploads a JSON file (e.g., hash1.sparqljson) into the container.
@@ -466,13 +572,15 @@ export async function uploadQueryFile(
  * @param fetch - The authenticated fetch function.
  * @returns The URL of the uploaded file.
  */
-export async function uploadSparqlJson(
+export async function uploadResults(
   containerUrl: string,
   jsonString: string,
   hashName: string
 ): Promise<string> {
-  const fileName = hashName + ".json"
-  const blob = new Blob([jsonString], { type: "application/sparql-results+json" });
+  const fileName = hashName + ".json";
+  const blob = new Blob([jsonString], {
+    type: "application/sparql-results+json",
+  });
 
   try {
     const savedFile = await saveFileInContainer(containerUrl, blob, {
@@ -480,7 +588,9 @@ export async function uploadSparqlJson(
       contentType: "application/json",
       fetch,
     });
-    console.log(`Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`);
+    console.log(
+      `Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`
+    );
     return savedFile.internal_resourceInfo.sourceIri;
   } catch (error) {
     console.error(`Error uploading ${fileName}:`, error);
@@ -494,9 +604,7 @@ export async function uploadSparqlJson(
  * @param containerUrl - The container URL (should end with a slash).
  * @returns boolean representing if a cache is present.
  */
-export async function getQueriesTtl(
-  containerUrl: string,
-): Promise<boolean> {
+export async function getQueriesTtl(containerUrl: string): Promise<boolean> {
   try {
     // Try to retrieve the dataset (container) and save updated dataset
     await getSolidDataset(containerUrl + "queries.ttl", { fetch });
@@ -513,7 +621,6 @@ export interface QueryEntry {
   sourceUrls: string[];
   created: string;
 }
-
 
 // TODO: Fix THIS
 /**
@@ -548,16 +655,28 @@ export async function getCachedQueries(
     const hash = thingUrl.includes("#") ? thingUrl.split("#")[1] : "";
     if (hash.length < 7) {
       const created =
-        getDatetime(thing, "http://purl.org/dc/terms/created")?.toISOString() || "N/A";
+        getDatetime(thing, "http://purl.org/dc/terms/created")?.toISOString() ||
+        "N/A";
       const queryFile =
-        getUrl(thing, "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query") || "N/A";
+        getUrl(
+          thing,
+          "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query"
+        ) || "N/A";
       const resultsFile =
-        getUrl(thing, "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result") || "N/A";
+        getUrl(
+          thing,
+          "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result"
+        ) || "N/A";
       // For dereferencing RDF source list
-      const sourceListUrl = getUrl(thing, "http://www.w3.org/ns/sparql-service-description#endpoint");
+      const sourceListUrl = getUrl(
+        thing,
+        "http://www.w3.org/ns/sparql-service-description#endpoint"
+      );
       let sourceUrls: string[] = [];
       if (sourceListUrl) {
-        const sourceListHash = sourceListUrl.includes("#") ? sourceListUrl.split("#")[1] : "";
+        const sourceListHash = sourceListUrl.includes("#")
+          ? sourceListUrl.split("#")[1]
+          : "";
         sourceUrls = rdfListSources(sourceListHash, things, i);
       }
       queryEntries.push({
@@ -579,7 +698,11 @@ export async function getCachedQueries(
  * @param dataset The SolidDataset containing the RDF list.
  * @returns An array of extracted source URLs.
  */
-function rdfListSources(rdfHash: string, things: Thing[], index: number): string[] {
+function rdfListSources(
+  rdfHash: string,
+  things: Thing[],
+  index: number
+): string[] {
   const RDF_FIRST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
   const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
   const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
@@ -608,9 +731,7 @@ function rdfListSources(rdfHash: string, things: Thing[], index: number): string
  * @param fileUrl - The URL of the SPARQL query file.
  * @returns A promise that resolves to the text content of the query file.
  */
-export async function fetchQueryFileData(
-  fileUrl: string
-): Promise<string> {
+export async function fetchQueryFileData(fileUrl: string): Promise<string> {
   const file = await getFile(fileUrl, { fetch });
   const textContent = await file.text();
   return textContent;
@@ -631,7 +752,7 @@ export async function fetchSparqlJsonFileData(
     const jsonData = JSON.parse(textContent);
     return {
       head: { vars: jsonData.head?.vars || [] },
-      results: { bindings: jsonData.results?.bindings || [] }
+      results: { bindings: jsonData.results?.bindings || [] },
     };
   } catch (error) {
     console.error(`Error parsing JSON from file at ${fileUrl}: ${error}`);

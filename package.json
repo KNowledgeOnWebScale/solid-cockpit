@@ -8,10 +8,10 @@
   "author": "Elias Crum",
   "license": "MIT",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview",
     "github-post-build": "node github-post-build-script.mjs",
-    "lint": "vue-cli-service lint",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
@@ -20,20 +20,18 @@
     "@inrupt/solid-client": "^2.0.1",
     "@inrupt/solid-client-authn-browser": "^2.1.0",
     "@triply/yasgui": "^4.2.28",
-    "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
-    "@vue/cli-plugin-typescript": "~5.0.0",
-    "@vue/cli-service": "^5.0.8",
+    "@vitejs/plugin-vue": "^5.2.3",
     "@vue/eslint-config-typescript": "^9.1.0",
     "core-js": "^3.8.3",
     "fs": "^0.0.1-security",
     "pinia": "^2.2.6",
+    "sparqljs": "^3.7.3",
+    "vite": "^6.2.3",
     "vue": "^3.2.13",
     "vue-router": "^4.0.13",
     "vuetify": "^3.5.14"
   },
   "devDependencies": {
-    "@babel/plugin-transform-private-methods": "^7.24.1",
     "@tsconfig/node20": "^20.1.4",
     "@typescript-eslint/eslint-plugin": "^5.4.0",
     "@typescript-eslint/parser": "^5.4.0",

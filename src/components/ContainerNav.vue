@@ -26,63 +26,55 @@
   </nav>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent } from "vue";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
-import { WorkingData } from "./privacyEdit";
 import { currentWebId } from "./login";
-import { fetchData, fetchAclAgents } from "./getData";
+import { fetchData, WorkingData } from "./getData";
 
-export default {
-  name: 'ContainerNav',
+interface ContainerNavProps {
+  currentPod: string;
+}
+
+export default defineComponent({
+  name: "ContainerNav",
   props: {
-    currentPod: String
+    currentPod: String,
   },
   data() {
     return {
-      webId: "",
-      dirContents: WorkingData,
-      currentLocation: "",
-      currentUrl: null,
-      urls: [],
-      containerUrls: [],
-      resourceUrls: [],
-      hasAccess: [],
+      webId: "" as string,
+      dirContents: null as WorkingData | null,
+      currentLocation: "" as string,
+      currentUrl: '' as string | null,
+      urls: [] as string[],
+      containerUrls: [] as string[],
+      resourceUrls: [] as string[],
     };
   },
   methods: {
     /**
-     * method that returns a list of child container URLs from within a specified parent container
-     *
-     * @param currentDir the current container from which child containers should be identified
-     * @param contUrlList the list of containers in the current directory
+     * Returns a list of child container URLs from within a specified parent container.
      */
-    childContainers(currentDir, contUrlList) {
+    childContainers(currentDir: string, contUrlList: string[]): string[] {
       const newUrlLst = contUrlList
-        .filter((url) => url !== currentDir) // Remove the current parent container
+        .filter((url) => url !== currentDir)
         .map((url) => {
-          const segments = url
-            .split("/")
-            .filter((segment) => segment.length > 0);
+          const segments = url.split("/").filter((segment) => segment.length > 0);
           return segments[segments.length - 1] + "/";
         });
-      // for navigating up a directory path (not possible when in root directory)
       if (currentDir !== this.currentPod) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
     },
     /**
-     * method that allows for the traversal of the container structure in a User's Pod
-     *
-     * @param aNewLocation the container name that a user will be traversing to
+     * Allows traversal of the container structure in a user's Pod.
      */
-    async changeCurrentLocation(aNewLocation) {
+    async changeCurrentLocation(aNewLocation: string): Promise<void> {
       const dismembered = this.currentLocation.split("//");
-      const segments = dismembered[1]
-        .split("/")
-        .filter((segment) => segment.length > 0);
+      const segments = dismembered[1].split("/").filter((segment) => segment.length > 0);
 
-      // for moving 'up' the container levels (toward the root)
       if (aNewLocation === "/..") {
         segments.pop();
         const newUrl = dismembered[0] + "//" + segments.join("/") + "/";
@@ -90,12 +82,8 @@ export default {
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
         this.selectPath();
-
-      }
-      // for moving 'down' the container levels (away from the root)
-      else {
-        const newUrl =
-          dismembered[0] + "//" + segments.join("/") + "/" + aNewLocation;
+      } else {
+        const newUrl = dismembered[0] + "//" + segments.join("/") + "/" + aNewLocation;
         this.currentLocation = newUrl;
         await this.getSpecificData(newUrl);
         this.currentUrl = null;
@@ -103,73 +91,65 @@ export default {
       }
     },
     /**
-     * Obtains the containers within the root directory of a user's pod,
-     * puts the URLs for these containers into an array,
-     * then sorts the array to reflect heirarchy
+     * Obtains the containers within the root directory of a user's pod.
      */
-    async getGeneralData() {
-      this.dirContents = await fetchData(this.currentPod);
-      this.urls = getContainedResourceUrlAll(this.dirContents);
-      this.separateUrls();
+    async getGeneralData(): Promise<void> {
+      try {
+        this.dirContents = await fetchData(this.currentPod);
+        this.urls = getContainedResourceUrlAll(this.dirContents);
+        this.separateUrls();
+      } catch (err) {
+        console.log(err);
+      }
     },
     /**
-     * Obtains a list containers and/or resources located in the provided container
-     *
-     * @param path the URL of the container for which access rights are being displayed
+     * Obtains a list of containers and/or resources located in the provided container.
      */
-    async getSpecificData(path) {
+    async getSpecificData(path: string): Promise<void> {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
-
     /**
-     * Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-     * Obtains 'pod' variable (URL path to user's Pod).
+     * Calls getPodURLs() to obtain a list of pods from the logged-in user's webID.
      */
-    async podURL() {
+    async podURL(): Promise<void> {
       this.webId = currentWebId();
-      this.currentLocation = this.currentPod; 
+      this.currentLocation = this.currentPod;
     },
     /**
-     * Sorts container URLs and resource URLs into different lists
+     * Sorts container URLs and resource URLs into different lists.
      */
-    separateUrls() {
+    separateUrls(): void {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
-      if (
-        this.currentLocation === this.currentPod &&
-        !this.urls.includes(this.currentPod)
-      ) {
+      if (this.currentLocation === this.currentPod && !this.urls.includes(this.currentPod)) {
         this.urls.push(this.currentPod);
         this.containerUrls.push(this.currentPod);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
-      this.container = this.urls.sort((a, b) => a.length - b.length);
-      this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+      this.containerUrls = this.containerUrls.sort((a, b) => a.length - b.length);
+      this.resourceUrls = this.resourceUrls.sort((a, b) => a.length - b.length);
     },
-
-
     /**
-     * Emits the current URL path
+     * Emits the current URL path.
      */
-    selectPath() {
+    selectPath(): void {
       const selectedPath = this.currentLocation;
       this.$emit("path-selected", selectedPath);
     },
   },
   mounted() {
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
     this.podURL();
     setTimeout(() => {
       try {
         this.getGeneralData();
-      } catch(err) {
+      } catch (err) {
         console.log(err);
       }
     }, 500);
   },
-};
+});
 </script>
 
 <style scoped>

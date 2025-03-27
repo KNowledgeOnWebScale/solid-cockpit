@@ -16,10 +16,10 @@
   </v-card>
 </template>
 
-<script>
+<script lang="ts">
 export default {
   data: () => ({
-    tab: null,
+    tab: null as string | null,
     items: ["Home", "Data Upload", "Pod Browser", "Query", "Data Privacy"],
   }),  
 };

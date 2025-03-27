@@ -6,6 +6,8 @@ import {
   getSolidDataset,
   getResourceInfo,
   getThing,
+  deleteFile,
+  deleteSolidDataset
 } from "@inrupt/solid-client";
 import { fetchData } from "./getData"; 
 import { fetch } from "@inrupt/solid-client-authn-browser";
@@ -85,6 +87,43 @@ async function overwriteToPod(
     return "error";
   }
 }
+
+/**
+ * Deletes a file from a Solid Pod using the @inrupt/solid-client method deleteFile().
+ *
+ * @param fileUrl The URL of the file to be deleted.
+ * @param fetch A window.fetch that includes the current User's credentials (to allow for Write/Delete access).
+ * @returns A Promise that resolves to a boolean indicating whether the deletion was successful.
+ */
+export async function deleteFromPod(fileUrl: string): Promise<boolean> {
+  try {
+    await deleteFile(fileUrl, { fetch });
+    console.log(`${fileUrl} deleted successfully`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting ${fileUrl}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Deletes a file from a Solid Pod using the @inrupt/solid-client method deleteFile().
+ *
+ * @param fileUrl The URL of the file to be deleted.
+ * @param fetch A window.fetch that includes the current User's credentials (to allow for Write/Delete access).
+ * @returns A Promise that resolves to a boolean indicating whether the deletion was successful.
+ */
+export async function deleteContainer(containerUrl: string): Promise<boolean> {
+  try {
+    await deleteSolidDataset(containerUrl, { fetch });
+    console.log(`${containerUrl} deleted successfully`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting ${containerUrl}:`, error);
+    return false;
+  }
+}
+
 
 /**
  * Takes in a File and uploads it to a Solid Pod using the @inrupt/solid-client method saveFileInContainer().

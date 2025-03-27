@@ -27,6 +27,7 @@ export type FileData = WithServerResourceInfo & {
   blob: Blob;
   etag: string | null;
 };
+
 export type WorkingData = (SolidDataset & WithServerResourceInfo) | FileData;
 
 /**
@@ -134,6 +135,7 @@ export async function fetchAclAgents(url: UrlString): Promise<AgentAccess | null
     return getAgentAccessAll(await getSolidDatasetWithAcl(url, { fetch: fetch }));
   } catch(err) {
     console.error("Seems to be a minor issue fetching ACL data... ");
+    return null;
   }
 }
 
@@ -150,6 +152,7 @@ export async function fetchPublicAccess(url: UrlString): Promise<Access | null> 
     return getPublicResourceAccess(acl);
   } catch(err) {
     console.error("Seems to be a minor issue fetching ACL data... ");
+    return null;
   }
 }
 
