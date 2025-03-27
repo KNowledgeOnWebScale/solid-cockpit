@@ -30,6 +30,17 @@
                 @path-selected="handleSelectedContainer"
               />
             </li>
+            <li>
+              <button
+                @click="getItems(displayPath)"
+                class="icon-button right"
+              >
+                <i class="material-icons not-colored right">refresh</i>
+                <v-tooltip activator="parent" location="end"
+                  >Refresh directory contents
+                </v-tooltip>
+              </button>
+            </li>
           </ul>
         </div>
       </div>
@@ -72,10 +83,14 @@
                     </li>
                   </div>
                   <div class="edit-delete">
-                    <button @click="toggleForm(index)" class="delete-button">
-                      Delete ...
+                    <button
+                      @click="confirmAndDelete(info.sourceIri)"
+                      class="delete-button"
+                      :disabled="deletionSuccess"
+                    >
+                      Delete
                     </button>
-                    <button @click="toggleForm(index)" class="delete-button">
+                    <button @click="toggleForm(index)" class="edit-button">
                       Edit ...
                     </button>
                   </div>
@@ -116,11 +131,20 @@
 
 <script lang="ts">
 import { currentWebId } from "./login";
-import { fetchData } from "./getData";
-import { WorkingData } from "./getData";
+import { fetchData, WorkingData } from "./getData";
+import { deleteFromPod, deleteContainer } from "./fileUpload";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
+
+interface info {
+  sourceIri: string;
+  linkedResources: {
+    type: string;
+    describedby: string;
+  };
+}
+
 export default {
   components: {
     ContainerNav,
@@ -133,13 +157,18 @@ export default {
       currentPod: "",
       displayPath: "",
       currentLocation: "",
-      showInfoIndex: null,
-      showEditIndex: null,
+      showInfoIndex: null as number | null,
+      showEditIndex: null as number | null,
       podData: null,
-      urls: [],
-      dirContents: WorkingData,
-      containerContents: WorkingData,
-      info: null,
+      urls: [] as string[],
+      dirContents: null as WorkingData | null,
+      containerContents: null as WorkingData | null,
+      info: null as info | null,
+      containerUrls: [] as string[],
+      resourceUrls: [] as string[],
+      container: [] as string[],
+      queryItems: null as WorkingData | null,
+      deletionSuccess: false as boolean,
     };
   },
   methods: {
@@ -167,7 +196,57 @@ export default {
       // not sure
     },
 
-    async getItems(path) {
+    /**
+     * Displays a confirmation pop-up before deleting a resource.
+     * If the user confirms, calls deleteResource.
+     * If the user cancels, does nothing.
+     *
+     * @param fileUrl The URL of the resource to delete.
+     */
+    confirmAndDelete(fileUrl: string) {
+      const userConfirmed = window.confirm(
+        "Are you sure you want to delete this resource? This action cannot be undone."
+      );
+
+      if (userConfirmed) {
+        this.deleteResource(fileUrl);
+      } else {
+        console.log("Deletion canceled by the user.");
+      }
+    },
+
+    /*
+    Deleted the resource at the given URL.
+    TODO: Add protections/recursion for deleting containers ...
+    */
+    async deleteResource(fileUrl: string) {
+      this.deletionSuccess = true;
+      try {
+        // for container deletion
+        if (fileUrl.endsWith("/")) {
+          this.deletionSuccess = await deleteContainer(fileUrl);
+          this.urls = this.urls.filter((url) => url !== fileUrl);
+          await this.getItems(this.displayPath);
+        } else {
+          this.deletionSuccess = await deleteFromPod(fileUrl);
+        }
+
+        if (this.deletionSuccess) {
+          this.urls = this.urls.filter((url) => url !== fileUrl);
+          await this.getItems(this.displayPath);
+        } else {
+          this.deletionSuccess = false;
+          console.error(`Failed to delete resource: ${fileUrl}`);
+        }
+      } catch (error) {
+        this.deletionSuccess = false;
+        console.error(`Error deleting resource: ${fileUrl}`, error);
+      } finally {
+        this.deletionSuccess = false;
+      }
+    },
+
+    async getItems(path: string) {
       try {
         this.dirContents = await fetchData(path); // value is SolidDataset
         this.urls = getContainedResourceUrlAll(this.dirContents);
@@ -177,7 +256,7 @@ export default {
       }
     },
 
-    async getItemInfo(path) {
+    async getItemInfo(path: string) {
       this.dirContents = await fetchData(path);
       this.info = this.dirContents.internal_resourceInfo;
     },
@@ -185,38 +264,42 @@ export default {
     /*
     Checks if the input item url is a container
     */
-    containerCheck(itemUrl) {
+    containerCheck(itemUrl: string) {
       return itemUrl.endsWith("/");
     },
     /**
      * Sorts container URLs and resource URLs into different lists
      */
     separateUrls() {
-      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
-      this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
+      this.containerUrls = this.urls.filter((url: string) => url.endsWith("/"));
+      this.resourceUrls = this.urls.filter((url: string) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.podList[0] &&
-        !this.urls.includes(this.podList[0])
+        this.currentLocation === this.currentPod &&
+        !this.urls.includes(this.currentPod)
       ) {
-        this.urls.push(this.podList[0]);
-        this.containerUrls.push(this.podList[0]);
+        this.urls.push(this.currentPod);
+        this.containerUrls.push(this.currentPod);
       }
-      this.urls = this.urls.sort((a, b) => a.length - b.length);
-      this.container = this.urls.sort((a, b) => a.length - b.length);
-      this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+      this.urls = this.urls.sort((a: string, b: string) => a.length - b.length);
+      this.container = this.urls.sort(
+        (a: string, b: string) => a.length - b.length
+      );
+      this.resourceUrls = this.urls.sort(
+        (a: string, b: string) => a.length - b.length
+      );
     },
 
     /*
     Two methods for controlling the UI
     */
-    toggleForm(index) {
+    toggleForm(index: number) {
       if (this.showEditIndex === index) {
         this.showEditIndex = null; // Hide the form if it's already shown
       } else {
         this.showEditIndex = index; // Show the form for the clicked item
       }
     },
-    toggleInfo(index) {
+    toggleInfo(index: number) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
       } else {
@@ -224,13 +307,13 @@ export default {
       }
     },
     /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
+    handlePodSelected(selectedPod: string) {
       this.currentPod = selectedPod;
       this.displayPath = this.currentPod;
       this.getItems(this.displayPath);
     },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer) {
+    handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
       this.getItems(this.displayPath);
     },
@@ -368,6 +451,10 @@ body {
 .card-panel:hover {
   outline: 0.1px solid #754ff6;
 }
+.delete-button:hover {
+  background-color: #555;
+  color: white;
+}
 .card-panel button:focus {
   background-color: transparent;
 }
@@ -376,6 +463,16 @@ body {
 }
 .card-panel .not-colored {
   color: #ede7f6;
+}
+
+/* Delete button */
+.delete-button {
+  font-family: "Oxanium", monospace;
+  padding: 0.75rem;
+  margin: 0.5rem 0.5rem 0 0.5rem;
+  color: #28353e;
+  background-color: #ede7f6;
+  border-radius: 5px;
 }
 
 /* The how to use guide */

@@ -461,14 +461,13 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import {
   changeAclAgent,
   changeAclPublic,
   checkUrl,
   generateAcl,
-  WorkingData,
   createInboxWithACL,
   createSharedWithMe,
   updateSharedWithOthers,
@@ -479,10 +478,21 @@ import {
   fetchData,
   fetchAclAgents,
   fetchPublicAccess,
+  WorkingData,
 } from "./getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
-import { uploadToPod } from "./fileUpload";
+
+interface Permissions {
+  read: boolean;
+  append: boolean;
+  write: boolean;
+  control: boolean;
+}
+
+interface AccessData {
+  [agent: string]: { [permission: string]: boolean };
+}
 
 export default {
   components: {
@@ -490,7 +500,39 @@ export default {
     ContainerNav,
   },
   name: "PrivacyComponent",
-  data() {
+  data(): {
+    currentPod: string;
+    filters: string[];
+    filterValues: boolean[];
+    filterMenuOpen: boolean;
+    showSharedIndex: number | null;
+    showFormIndex: number | null;
+    userUrl: string;
+    userUrlInvalid: boolean;
+    submissionDone: boolean;
+    recorded: string;
+    permissions: Permissions;
+    navValue: number;
+    permissionsString: string;
+    webId: string;
+    dirContents: WorkingData | null;
+    containerContents: WorkingData | null;
+    hasAcl: any; // Replace with a more specific type if available
+    cannotMakeAcl: boolean;
+    accessType: string;
+    currentLocation: string;
+    currentUrl: string | null;
+    urls: string[];
+    containerUrls: string[];
+    resourceUrls: string[];
+    inContainer: WorkingData | null;
+    newUrls: string[];
+    aclUrl: string;
+    hasAccess: AccessData;
+    publicAccess: { [permission: string]: boolean };
+    uploadedSharingDoc: string;
+    container: string[];
+  } {
     return {
       currentPod: "",
       filters: ["containers", "resources"],
@@ -511,8 +553,8 @@ export default {
       navValue: 0,
       permissionsString: "",
       webId: "",
-      dirContents: WorkingData,
-      containerContents: WorkingData,
+      dirContents: null,
+      containerContents: null,
       hasAcl: null,
       cannotMakeAcl: false,
       accessType: "Agent",
@@ -521,29 +563,24 @@ export default {
       urls: [],
       containerUrls: [],
       resourceUrls: [],
-      inContainer: WorkingData,
+      inContainer: null,
       newUrls: [],
       aclUrl: "",
-      hasAccess: [],
-      publicAccess: [],
+      hasAccess: {},
+      publicAccess: {},
       uploadedSharingDoc: "",
+      container: [],
     };
   },
   methods: {
     /*
-    Keeps the filter menu open while toggling the viewing options
-    */
-    keepMenuOpen() {
-      this.filterMenuClosed = false; // Keep the menu open after clicking an item
-    },
-    /*
     Checks if the input item url is a container
     */
-    containerCheck(itemUrl) {
+    containerCheck(itemUrl: string) {
       return itemUrl.endsWith("/");
     },
     // Changes the mode of sharing data
-    changeAccess(mode) {
+    changeAccess(mode: string) {
       this.accessType = mode;
     },
 
@@ -553,7 +590,7 @@ export default {
      * @param currentDir the current container from which child containers should be identified
      * @param contUrlList the list of containers in the current directory
      */
-    childContainers(currentDir, contUrlList) {
+    childContainers(currentDir: string, contUrlList: string[]): string[] {
       const newUrlLst = contUrlList
         .filter((url) => url !== currentDir) // Remove the current parent container
         .map((url) => {
@@ -575,7 +612,7 @@ export default {
      * @param currentDir the current container from which child resources should be identified
      * @param rescUrlList the current container from which child resources should be identified
      */
-    childResources(currentDir, rescUrlList) {
+    childResources(currentDir: string, rescUrlList: string[]): string[] {
       const newUrlLst = rescUrlList
         .filter((url) => url !== currentDir) // Remove the current parent container
         .map((url) => {
@@ -592,7 +629,7 @@ export default {
      *
      * @param aNewLocation the container name that a user will be traversing to
      */
-    async changeCurrentLocation(aNewLocation) {
+    async changeCurrentLocation(aNewLocation: string) {
       const dismembered = this.currentLocation.split("//");
       const segments = dismembered[1]
         .split("/")
@@ -620,21 +657,21 @@ export default {
      *
      * @param text the text to be coppied
      */
-    copyText(text) {
+    copyText(text: string) {
       navigator.clipboard.writeText(text);
     },
 
     /*
     Two methods for controlling the UI
     */
-    toggleShared(index) {
+    toggleShared(index: number) {
       if (this.showSharedIndex === index) {
         this.showSharedIndex = null; // Hide the form if it's already shown
       } else {
         this.showSharedIndex = index; // Show the form for the clicked item
       }
     },
-    toggleForm(index) {
+    toggleForm(index: number) {
       if (this.showFormIndex === index) {
         this.showFormIndex = null; // Hide the form if it's already shown
       } else {
@@ -645,7 +682,7 @@ export default {
      * Method for changing the view between "My Pod", "Shared with me", and "Shared with others"
      * @param newValue integer that indicates the new display value
      */
-    toggleNavValue(newValue) {
+    toggleNavValue(newValue: number) {
       this.navValue = newValue;
     },
 
@@ -661,7 +698,7 @@ export default {
      *
      */
     // TODO: write a new structured data creation algorithm to store the sharing status data
-    createSharingDoc(docExists) {
+    createSharingDoc(docExists: boolean) {
       if (!docExists) {
         console.log("make file");
       } else {
@@ -674,7 +711,7 @@ export default {
      *
      * @param url the URL of the container that .acl changes are being made to
      */
-    async submitForm(url) {
+    async submitForm(url: string) {
       // Handle permissions specified
       if (this.permissions.read) {
         this.permissionsString += "Read / ";
@@ -789,7 +826,7 @@ export default {
      *
      * @param path the URL of the container for which access rights are being displayed
      */
-    async getSpecificData(path) {
+    async getSpecificData(path: string) {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
@@ -805,7 +842,7 @@ export default {
      *
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
-    async getSpecificAclData(path) {
+    async getSpecificAclData(path: string) {
       this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(path);
@@ -823,7 +860,7 @@ export default {
      *
      * @param path the URL of the resource or container for which an .acl is to be made
      */
-    async makeNewAcl(path) {
+    async makeNewAcl(path: string) {
       try {
         await generateAcl(path, this.webId);
         await this.getSpecificAclData(path);
@@ -833,10 +870,10 @@ export default {
       }
     },
     /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
+    handlePodSelected(selectedPod: string) {
       this.currentPod = selectedPod;
       this.currentLocation = this.currentPod;
-      this.getGeneralData(this.currentLocation);
+      this.getGeneralData();
       this.createStuff()
     },
     /* creates files and directories if not already present */
@@ -845,7 +882,7 @@ export default {
       await createSharedWithMe(this.currentPod);
     },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer) {
+    handleSelectedContainer(selectedContainer: string) {
       this.currentLocation = selectedContainer;
       this.getSpecificData(this.currentLocation);
     },

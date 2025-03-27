@@ -368,7 +368,7 @@ import {
   ensureCacheContainer,
   createQueriesTTL,
   uploadQueryFile,
-  uploadSparqlJson,
+  uploadResults,
   getQueriesTtl,
   fetchQueryFileData,
   getCachedQueries,
@@ -393,6 +393,12 @@ export default {
           sources: ["<https://sparql.rhea-db.org/sparql/>"],
           query: "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10",
         },
+        {
+          name: "Rhea 13",
+          sources: ["<https://sparql.rhea-db.org/sparql/>"],
+          query: "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}",
+        },
+
       ],
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
@@ -401,10 +407,10 @@ export default {
         "<https://rdf.metanetx.org/sparql/>",
         "<https://sparql.omabrowser.org/sparql>",
         "<https://sparql.orthodb.org/sparql/>",
-        "<https://sparql.rhea-db.org/sparql/>",
+        "<https://sparql.rhea-db.org/sparql>",
         "<https://sparql.swisslipids.org/sparql/>",
         "<https://biosoda.unil.ch/emi/sparql/>",
-        "<https://sparql.uniprot.org/sparql/>",
+        "<https://sparql.uniprot.org/sparql>",
         "<https://query.wikidata.org/sparql>",
       ],
       currentQuery: {
@@ -504,6 +510,7 @@ export default {
         // adds query to queries.ttl
         this.currHash = await createQueriesTTL(
           this.cachePath,
+          this.currentQuery.query,
           this.currentQuery.sources
         );
         // creates #hash.rq file containing the executed query
@@ -517,8 +524,17 @@ export default {
           this.currentQuery.query,
           this.currentQuery.sources
         );
+
+        // Handle empty results
+        if (!this.currentQuery.results || !this.currentQuery.results.results) {
+          this.currentQuery.results = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
         // create #hash.sparqljson file with query results
-        this.resultsFile = await uploadSparqlJson(
+        this.resultsFile = await uploadResults(
           this.cachePath,
           JSON.stringify(this.currentQuery.results, null, 2),
           this.currHash
@@ -528,7 +544,16 @@ export default {
           this.currentQuery.query,
           this.currentQuery.sources
         );
-        this.resolvedQueryResults = await toRaw(this.currentQuery.results);
+
+        // Handle empty results
+        if (!this.currentQuery.results || !this.currentQuery.results.results) {
+          this.currentQuery.results = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
+        this.resolvedQueryResults = toRaw(this.currentQuery.results);
         // this.initializeYasr();
         // this.yasr.setResponse({ data: this.resolvedQueryResults, contentType: "application/sparql-results+json" });
       }

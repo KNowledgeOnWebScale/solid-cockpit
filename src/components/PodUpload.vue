@@ -107,8 +107,8 @@
         class="mx-auto upload-section"
         title="Add Files to Pod"
         variant="tonal"
+        background="#28353e"
         justify="center"
-        color="#445560"
       >
         <!-- The file input section -->
         <form id="writeForm">
@@ -233,7 +233,7 @@
 
 <script lang="ts">
 import { handleFiles, uploadSuccess, alreadyExistsCheck } from "./fileUpload";
-import { currentWebId, getPodURLs } from "./login";
+import { currentWebId } from "./login";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 
@@ -244,10 +244,9 @@ export default {
   },
   data() {
     return {
-      webId: "",
-      podURLs: [],
-      currentPod: "",
-      uploadPath: "",
+      webId: "" as string,
+      currentPod: "" as string,
+      uploadPath: "" as string,
       filesUploaded: [],
       files: FileList,
       uploadDone: false,
@@ -255,9 +254,9 @@ export default {
       inputType: "newPath",
       urlRules: [
         // Check that a value exists
-        (v) => !!v || "URL is required",
+        (v: string) => !!v || "URL is required",
         // Validate if the input is a proper URL using the URL constructor
-        (v) => {
+        (v: string) => {
           if (this.validUrlCheck(v)) {
             return true;
           } else {
@@ -265,7 +264,7 @@ export default {
           }
         },
       ],
-      vaildURL: null,
+      vaildURL: null as boolean | null,
     };
   },
   methods: {
@@ -273,29 +272,21 @@ export default {
     Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
     Obtains 'pod' variable (URL path to user's Pod).
     */
-    async getPodURL() {
+    async getWebId() {
       this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
-    },
-
-    /*
-    Selects the directory a file is to be uploaded to
-    */
-    selectPod() {
-      this.uploadPath = this.successfulSelection();
     },
 
     /*
     checks if the value 'already exists' is present in this.fileUploaded
     */
-    checkExists(inString) {
+    checkExists(inString: string) {
       this.alreadyPresent = alreadyExistsCheck(inString);
     },
 
     /*
     checks to see if an input URL is valid
     */
-    validUrlCheck(u) {
+    validUrlCheck(u: string) {
       try {
         new URL(u);
         return true;
@@ -337,19 +328,19 @@ export default {
     },
 
     /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
+    handlePodSelected(selectedPod: string) {
       this.currentPod = selectedPod;
       this.uploadPath = this.currentPod;
     },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer) {
+    handleSelectedContainer(selectedContainer: string) {
       this.uploadPath = selectedContainer;
     },
   },
   mounted() {
     // Delays the execution of these functions on page reload (to avoid async-related errors)
     setTimeout(() => {
-      this.getPodURL();
+      this.getWebId();
     }, 200);
   },
 };
@@ -483,7 +474,7 @@ body {
 /* container that displays current upload path */
 .displayPath-container {
   font-family: "Oxanium", monospace;
-  margin: 0 0.5rem 0.5rem 0.5rem;
+  margin: 0.5rem;
   padding: 20px;
   background: #445560;
   border-radius: 10px;
@@ -508,13 +499,14 @@ body {
 /* Data upload container */
 .upload-container {
   margin: 1rem 0.5rem;
+  background-color: #445560;
+  border-radius: 6px;;
 }
 .container {
   font-family: "Oxanium", monospace;
   max-width: 95%;
   margin: auto;
   padding: 20px;
-  background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
@@ -525,6 +517,9 @@ body {
 .v-btn {
   margin-left: 15px;
   margin-bottom: 15px;
+}
+#writeForm {
+  color: #ede7f6;
 }
 /* for showing the outcome of file upload */
 .check-exists {
