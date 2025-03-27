@@ -98,7 +98,7 @@ async function overwriteToPod(
  * @param fetch A window.fetch that includes the current User's credentials (to allow for Write access).
  * @returns A Promise that resolves to a File & WithResourceInfo of the uploaded files.
  */
-async function uploadToPod(
+export async function uploadToPod(
   containerUrl: string,
   file: File,
   fetch

@@ -1,5 +1,5 @@
 import { QueryEngine as QueryEngineSparql } from '@comunica/query-sparql';
-import { QueryEngine as QueryEngineSolid } from '@comunica/query-sparql-solid';
+import { QueryEngine as QueryEngineLink } from '@comunica/query-sparql-link-traversal-solid';
 import { Bindings } from '@comunica/types';
 import {
   getSolidDataset,
@@ -53,7 +53,7 @@ export async function executeQuery(query: string, providedSources: string[]): Pr
   let sparqlResults = null;
   let solidResults = null;
 
-  if (sparqlSources.length > 0) {
+  if (solidSources.length == 0) {
     sparqlResults = await sparqlEndpointQuery(query, sparqlSources);
     queryType += 1;
   }
@@ -64,42 +64,42 @@ export async function executeQuery(query: string, providedSources: string[]): Pr
 
   // for just SPARQL sources
   // TODO: Make this BOTH sources type work with data display (probably two different tables??)
-  if (queryType == 1) {
-    console.log('Results displayed are from ONLY SPARQL sources.');
-    return sparqlResults;
-  } else {
-    // for just Solid sources
-    if (queryType == 10) {
-      console.log('Results displayed are from ONLY SOLID Pod sources.');
-      return solidResults;
-    } else {
-      // for combination of Solid and SPARQL sources
-      if (queryType == 11) {
-        console.log('Results displayed are from BOTH SPARQL and SOLID sources.');
+  // if (queryType == 1) {
+  console.log('Results displayed are from BOTH SPARQL and SOLID sources.');
+  return sparqlResults;
+  // } else {
+  //   // for just Solid sources
+  //   if (queryType == 10) {
+  //     console.log('Results displayed are from ONLY SOLID Pod sources.');
+  //     return solidResults;
+  //   } else {
+  //     // for combination of Solid and SPARQL sources
+  //     if (queryType == 11) {
+  //       console.log('Results displayed are from BOTH SPARQL and SOLID sources.');
 
-        // Ensure both have `head.vars` and `results.bindings`
-        const sparqlVars = sparqlResults ? sparqlResults.head.vars : [];
-        const solidVars = solidResults ? solidResults.head.vars : [];
+  //       // Ensure both have `head.vars` and `results.bindings`
+  //       const sparqlVars = sparqlResults ? sparqlResults.head.vars : [];
+  //       const solidVars = solidResults ? solidResults.head.vars : [];
         
-        // Merge unique variables
-        const mergedVars = [...new Set([...sparqlVars, ...solidVars])];
+  //       // Merge unique variables
+  //       const mergedVars = [...new Set([...sparqlVars, ...solidVars])];
 
-        // Merge bindings while labeling sources
-        const sparqlBindings = sparqlResults ? sparqlResults.results.bindings.map(binding => ({ ...binding, source: "SPARQL" })) : [];
-        const solidBindings = solidResults ? solidResults.results.bindings.map(binding => ({ ...binding, source: "SOLID" })) : [];
+  //       // Merge bindings while labeling sources
+  //       const sparqlBindings = sparqlResults ? sparqlResults.results.bindings.map(binding => ({ ...binding, source: "SPARQL" })) : [];
+  //       const solidBindings = solidResults ? solidResults.results.bindings.map(binding => ({ ...binding, source: "SOLID" })) : [];
 
-        // Final merged JSON structure
-        return {
-          head: { vars: mergedVars },
-          results: { bindings: [...sparqlBindings, ...solidBindings] }
-        };
-      } else {
-        // for no valid sources
-        console.log('No valid sources detected...');
-        return null;
-      }
-    }
-  }
+  //       // Final merged JSON structure
+  //       return {
+  //         head: { vars: mergedVars },
+  //         results: { bindings: [...sparqlBindings, ...solidBindings] }
+  //       };
+  //     } else {
+  //       // for no valid sources
+  //       console.log('No valid sources detected...');
+  //       return null;
+  //     }
+  //   }
+  // }
 }
 
 /**
@@ -167,33 +167,33 @@ async function sparqlEndpointQuery(inputQuery: string, sparqlSources: string[]):
  * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
 */
 async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<queryResultJson | null> {
-  const mySolidEngine = new QueryEngineSolid();
-  const allSources: string[] = [];
+  const mySolidEngine = new QueryEngineLink();
 
-  // Discover all sources the current user has access to
-  for (const podUrl of podSources) {
-    try {
-      const dataset = await getSolidDataset(podUrl, { fetch });
-      const podResources = getContainedResourceUrlAll(dataset);
-      allSources.push(...podResources);
-    } catch (error) {
-      console.error(`Failed to access pod: ${podUrl}`, error);
-    }
-  }
+  // // Discover all sources the current user has access to
+  // for (const podUrl of podSources) {
+  //   try {
+  //     const dataset = await getSolidDataset(podUrl, { fetch });
+  //     const podResources = getContainedResourceUrlAll(dataset);
+  //     allSources.push(...podResources);
+  //   } catch (error) {
+  //     console.error(`Failed to access pod: ${podUrl}`, error);
+  //   }
+  // }
 
-  // Log discovered sources
-  if (allSources.length === 0) {
-    console.log("No accessible RDF sources found in the provided Pods.");
-    return;
-  } else {
-    console.log(`Found access to ${allSources.length} resources.\nQuerying the sources:`, allSources);
-  }
+  // // Log discovered sources
+  // if (allSources.length === 0) {
+  //   console.log("No accessible RDF sources found in the provided Pods.");
+  //   return;
+  // } else {
+  //   console.log(`Found access to ${allSources.length} resources.\nQuerying the sources:`, allSources);
+  // }
 
   // Execute query over discovered sources
   try {
     const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
-      sources: allSources,
+      sources: podSources,
       fetch: fetch,
+      lenient: true
     });
 
     const bindingsArray: any[] = [];
@@ -231,12 +231,13 @@ async function solidPodQuery(inputQuery: string, podSources: string[]): Promise<
       ? Array.from(firstBinding.keys()).map(variable => variable.value)
       : [];
 
+    console.log(bindingsArray)
     return {
       head: { vars },
       results: { bindings: bindingsArray },
     };
   } catch (err) {
-    console.error("Error querying multiple pods:", err);
+    console.error("Error querying Pod(s):", err);
     return null;
   }
 }

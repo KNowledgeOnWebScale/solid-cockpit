@@ -52,8 +52,6 @@
           <!-- SPARQL Query input box -->
           <!-- Source Designation -->
           <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) + integrate YASGUI -->
-          <div id="yasgui-container"></div>
-
           <div class="source-selection">
             <span>Datasources: </span>
             <v-combobox
@@ -72,6 +70,9 @@
               clearable
             ></v-combobox>
           </div>
+          <!-- <div> 
+            <SparqlEditor />
+          </div> -->
 
           <!-- Actual query -->
           <li>
@@ -98,7 +99,7 @@
               }}
             </p>
           </li>
-          <!-- execute query -->
+          
           <div class="bottom-container">
             <button
               class="execute-button"
@@ -183,16 +184,18 @@
                         @click="fetchQuery(cachedQueries[index].hash)"
                         class="drop-down"
                       >
-                        <i class="material-icons not-colored right"
-                          >{{ showRetrievedQuery
+                        <i class="material-icons not-colored right">{{
+                          showRetrievedQuery
                             ? "keyboard_arrow_down"
                             : "chevron_right"
-                          }}</i
-                        >
+                        }}</i>
                       </button>
                     </div>
 
-                    <div class="sparql-box" v-if="showRetrievedQuery && retrievedQuery != null">
+                    <div
+                      class="sparql-box"
+                      v-if="showRetrievedQuery && retrievedQuery != null"
+                    >
                       <pre><code>{{ retrievedQuery }}</code></pre>
                     </div>
                   </div>
@@ -251,7 +254,10 @@
                         </table>
                       </div>
                     </div>
-                    <div class="null-results" v-if="showRetrievedResults && retrievedResults == null">
+                    <div
+                      class="null-results"
+                      v-if="showRetrievedResults && retrievedResults == null"
+                    >
                       <span>This query had no results 🙃</span>
                     </div>
                   </div>
@@ -362,7 +368,7 @@
 </template>
 
 <script>
-// import YASGUI from '@triply/yasgui/build/yasgui.min.js'
+// import { SparqlEditor } from "./SIB-sparql-editor/sparql-editor/sparql-editor";
 import { currentWebId, getPodURLs } from "./login";
 import {
   ensureCacheContainer,
@@ -377,11 +383,13 @@ import {
 } from "./queryPod";
 import PodRegistration from "./PodRegistration.vue";
 import { toRaw } from "vue";
+import SparqlEditor from "./SparqlEditor.vue";
 // import { yasgui, yasr } from "@triply/yasgui";
 
 export default {
   components: {
     PodRegistration,
+    // SparqlEditor,
   },
   data() {
     return {
@@ -392,6 +400,14 @@ export default {
           name: "Example 1",
           sources: ["<https://sparql.rhea-db.org/sparql/>"],
           query: "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10",
+        },
+        {
+          name: "Bio-remediation",
+          sources: [
+            "<https://triple.ilabt.imec.be/test/bio-usecase/nbn-chist-era-annex-1-chemicals.ttl>",
+          ],
+          query:
+            "PREFIX sio: <http://semanticscience.org/resource/>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\nPREFIX sio: <http://semanticscience.org/resource/>\nPREFIX vocab: <http://rdf.ncbi.nlm.nih.gov/pubchem/vocabulary#>\nPREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>\nPREFIX endpoint: <https://idsm.elixir-czech.cz/sparql/endpoint/>\nSELECT ?CAS ?COMPOUND ?SIMILAR_COMPOUND ?SCORE WHERE {\n  ?s sio:SIO_000300 ?CAS .\n\n  SERVICE endpoint:idsm {\n    ?SYNONYM a sio:CHEMINF_000446. # CAS registry number\n    ?SYNONYM sio:SIO_000300 ?CAS.\n    ?SYNONYM sio:SIO_000011 ?COMPOUND.\n    ?COMPOUND a vocab:Compound.\n    ?ATTRIBUTE a sio:SIO_011120. # molecular structure file\n    ?ATTRIBUTE sio:SIO_000011 ?COMPOUND.\n    ?ATTRIBUTE sio:SIO_000300 ?MOLFILE.\n    {\n      SERVICE endpoint:chebi {\n        [ sachem:compound ?SIMILAR_COMPOUND;\n          sachem:score ?SCORE ] sachem:similaritySearch [\n            sachem:query ?MOLFILE;\n            sachem:cutoff \"0.7\"^^xsd:double;\n            sachem:similarityRadius '3'^^xsd:integer;\n            sachem:aromaticityMode sachem:aromaticityDetectIfMissing;\n            sachem:tautomerMode sachem:inchiTautomers\n        ].\n      }\n    }\n    UNION\n    {\n      SERVICE endpoint:chebi {\n        ?SIMILAR_COMPOUND sachem:substructureSearch [ sachem:query '[As]' ].\n      }\n    }\n  }\n}\nORDER BY DESC(?SCORE)",
         },
       ],
       possibleSources: [
@@ -529,19 +545,9 @@ export default {
           this.currentQuery.sources
         );
         this.resolvedQueryResults = await toRaw(this.currentQuery.results);
-        // this.initializeYasr();
-        // this.yasr.setResponse({ data: this.resolvedQueryResults, contentType: "application/sparql-results+json" });
       }
       this.loading = false;
     },
-
-    // initializeYasr() {
-    //   const yasgui = new yasgui(document.getElementById("yasgui"));
-    //   this.yasr = new yasgui.yasr(this.$refs.yasrContainer, {
-    //     persistency: false,
-    //     plugins: ["table", "response", "rawResponse"],
-    //   });
-    // },
 
     async loadCache() {
       this.currentView = "previousQueries";
@@ -582,29 +588,29 @@ export default {
       this.togglRetrievedQuery();
     },
   },
-  mounted() {
-    const textarea = this.$refs.codeEditor;
+  // mounted() {
+    // const textarea = this.$refs.codeEditor;
 
-    /* Small function that allows tab characters in the SPARQL query input box */
-    textarea.addEventListener("keydown", function (e) {
-      if (e.key === "Tab") {
-        e.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        // Insert tab (4 spaces in this case)
-        this.value =
-          this.value.substring(0, start) + "    " + this.value.substring(end);
-        // Place cursor after the tab
-        this.selectionStart = this.selectionEnd = start + 4;
-      }
-    });
-    /* Small function that allows input box to grow for longer queries */
-    textarea.addEventListener("input", function () {
-      // Reset height to auto to calculate new height
-      this.style.height = "auto";
-      // Set the height to match the scrollHeight
-      this.style.height = this.scrollHeight + "px";
-    });
+    // /* Small function that allows tab characters in the SPARQL query input box */
+    // textarea.addEventListener("keydown", function (e) {
+    //   if (e.key === "Tab") {
+    //     e.preventDefault();
+    //     const start = this.selectionStart;
+    //     const end = this.selectionEnd;
+    //     // Insert tab (4 spaces in this case)
+    //     this.value =
+    //       this.value.substring(0, start) + "    " + this.value.substring(end);
+    //     // Place cursor after the tab
+    //     this.selectionStart = this.selectionEnd = start + 4;
+    //   }
+    // });
+    // /* Small function that allows input box to grow for longer queries */
+    // textarea.addEventListener("input", function () {
+    //   // Reset height to auto to calculate new height
+    //   this.style.height = "auto";
+    //   // Set the height to match the scrollHeight
+    //   this.style.height = this.scrollHeight + "px";
+    // });
 
     //TODO: integrate yasgui
     // const container = document.getElementById('yasgui-container');
@@ -613,7 +619,7 @@ export default {
     //   copyEndpointOnNewTab: false,
     // });
     // Optionally, you can store or configure `yasguiInstance` further here.
-  },
+  // },
 };
 </script>
 
@@ -989,7 +995,7 @@ ul {
 .sparql-box code {
   display: block;
   padding: 5px;
-  color: #EDE7F6;
+  color: #ede7f6;
 }
 /* Displayed query results from .json file */
 .query-results {

@@ -4,7 +4,7 @@
       <v-row align="center" justify="start">
         <!-- Logo and App Title -->
         <img
-          :src="require('../../assets/solid-cockpit-logo.png')"
+          :src="logoUrl"
           alt="Solid Cockpit logo"
         />
         <v-card-title justify="start">
@@ -107,6 +107,7 @@ import {
 
 export default {
   data: () => ({
+    logoUrl: new URL('../../assets/solid-cockpit-logo.png', import.meta.url).href,
     loggedIn: false,
     login_status: "",
     menu: false,

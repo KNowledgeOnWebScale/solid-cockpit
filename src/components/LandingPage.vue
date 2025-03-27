@@ -3,7 +3,7 @@
     <v-col cols="12">
       <div class="logo-container">
         <img
-          :src="require('../assets/full-sc-logo-nb.png')"
+          :src="visualUrl"
           alt="Full Solid Cockpit logo"
         />
       </div>
@@ -80,6 +80,7 @@ export default {
   },
   data: () => ({
     login_status: true,
+    visualUrl: new URL('../assets/full-sc-logo-nb.png', import.meta.url).href,
   }),
   methods: {
     async credentials() {

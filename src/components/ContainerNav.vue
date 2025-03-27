@@ -26,9 +26,9 @@
   </nav>
 </template>
 
-<script>
+<script lang="ts">
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
-import { WorkingData } from "./privacyEdit";
+import { WorkingData } from "./getData";
 import { currentWebId } from "./login";
 import { fetchData, fetchAclAgents } from "./getData";
 
@@ -40,13 +40,13 @@ export default {
   data() {
     return {
       webId: "",
-      dirContents: WorkingData,
+      dirContents: null as WorkingData,
       currentLocation: "",
-      currentUrl: null,
-      urls: [],
-      containerUrls: [],
-      resourceUrls: [],
-      hasAccess: [],
+      currentUrl: null as string | null,
+      urls: [] as string[],
+      containerUrls: [] as string[],
+      resourceUrls: [] as string[],
+      hasAccess: [] as string[],
     };
   },
   methods: {
@@ -56,7 +56,7 @@ export default {
      * @param currentDir the current container from which child containers should be identified
      * @param contUrlList the list of containers in the current directory
      */
-    childContainers(currentDir, contUrlList) {
+    childContainers(currentDir: string, contUrlList: string[]) {
       const newUrlLst = contUrlList
         .filter((url) => url !== currentDir) // Remove the current parent container
         .map((url) => {
@@ -76,11 +76,11 @@ export default {
      *
      * @param aNewLocation the container name that a user will be traversing to
      */
-    async changeCurrentLocation(aNewLocation) {
+    async changeCurrentLocation(aNewLocation: string) {
       const dismembered = this.currentLocation.split("//");
       const segments = dismembered[1]
         .split("/")
-        .filter((segment) => segment.length > 0);
+        .filter((segment: string) => segment.length > 0);
 
       // for moving 'up' the container levels (toward the root)
       if (aNewLocation === "/..") {
@@ -117,7 +117,7 @@ export default {
      *
      * @param path the URL of the container for which access rights are being displayed
      */
-    async getSpecificData(path) {
+    async getSpecificData(path: string) {
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
@@ -135,8 +135,8 @@ export default {
      * Sorts container URLs and resource URLs into different lists
      */
     separateUrls() {
-      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
-      this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
+      this.containerUrls = this.urls.filter((url: string) => url.endsWith("/"));
+      this.resourceUrls = this.urls.filter((url: string) => !url.endsWith("/"));
       if (
         this.currentLocation === this.currentPod &&
         !this.urls.includes(this.currentPod)
@@ -144,9 +144,9 @@ export default {
         this.urls.push(this.currentPod);
         this.containerUrls.push(this.currentPod);
       }
-      this.urls = this.urls.sort((a, b) => a.length - b.length);
-      this.container = this.urls.sort((a, b) => a.length - b.length);
-      this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+      this.urls = this.urls.sort((a:string, b:string) => a.length - b.length);
+      this.container = this.urls.sort((a:string, b:string) => a.length - b.length);
+      this.resourceUrls = this.urls.sort((a:string, b:string) => a.length - b.length);
     },
 
 

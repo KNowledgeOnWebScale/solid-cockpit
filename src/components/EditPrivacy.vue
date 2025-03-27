@@ -461,14 +461,13 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import {
   changeAclAgent,
   changeAclPublic,
   checkUrl,
   generateAcl,
-  WorkingData,
   createInboxWithACL,
   createSharedWithMe,
   updateSharedWithOthers,
@@ -479,10 +478,22 @@ import {
   fetchData,
   fetchAclAgents,
   fetchPublicAccess,
+  WorkingData,
 } from "./getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import { uploadToPod } from "./fileUpload";
+
+interface Permissions {
+  read: boolean;
+  append: boolean;
+  write: boolean;
+  control: boolean;
+}
+
+interface AccessData {
+  [agent: string]: { [permission: string]: boolean };
+}
 
 export default {
   components: {
@@ -490,7 +501,38 @@ export default {
     ContainerNav,
   },
   name: "PrivacyComponent",
-  data() {
+  data(): {
+    currentPod: string;
+    filters: string[];
+    filterValues: boolean[];
+    filterMenuOpen: boolean;
+    showSharedIndex: number | null;
+    showFormIndex: number | null;
+    userUrl: string;
+    userUrlInvalid: boolean;
+    submissionDone: boolean;
+    recorded: string;
+    permissions: Permissions;
+    navValue: number;
+    permissionsString: string;
+    webId: string;
+    dirContents: WorkingData | null;
+    containerContents: WorkingData | null;
+    hasAcl: any; // Replace with a more specific type if available
+    cannotMakeAcl: boolean;
+    accessType: string;
+    currentLocation: string;
+    currentUrl: string | null;
+    urls: string[];
+    containerUrls: string[];
+    resourceUrls: string[];
+    inContainer: WorkingData | null;
+    newUrls: string[];
+    aclUrl: string;
+    hasAccess: AccessData;
+    publicAccess: { [permission: string]: boolean };
+    uploadedSharingDoc: string;
+  } {
     return {
       currentPod: "",
       filters: ["containers", "resources"],
@@ -511,8 +553,8 @@ export default {
       navValue: 0,
       permissionsString: "",
       webId: "",
-      dirContents: WorkingData,
-      containerContents: WorkingData,
+      dirContents: null,
+      containerContents: null,
       hasAcl: null,
       cannotMakeAcl: false,
       accessType: "Agent",
@@ -521,11 +563,11 @@ export default {
       urls: [],
       containerUrls: [],
       resourceUrls: [],
-      inContainer: WorkingData,
+      inContainer: null,
       newUrls: [],
       aclUrl: "",
-      hasAccess: [],
-      publicAccess: [],
+      hasAccess: {},
+      publicAccess: {},
       uploadedSharingDoc: "",
     };
   },

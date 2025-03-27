@@ -133,12 +133,12 @@ export default {
       currentPod: "",
       displayPath: "",
       currentLocation: "",
-      showInfoIndex: null,
-      showEditIndex: null,
+      showInfoIndex: null as number | null,
+      showEditIndex: null as number | null,
       podData: null,
-      urls: [],
-      dirContents: WorkingData,
-      containerContents: WorkingData,
+      urls: [] as string[],
+      dirContents: null as WorkingData,
+      containerContents: null as WorkingData,
       info: null,
     };
   },
@@ -167,7 +167,7 @@ export default {
       // not sure
     },
 
-    async getItems(path) {
+    async getItems(path: string) {
       try {
         this.dirContents = await fetchData(path); // value is SolidDataset
         this.urls = getContainedResourceUrlAll(this.dirContents);
@@ -177,7 +177,7 @@ export default {
       }
     },
 
-    async getItemInfo(path) {
+    async getItemInfo(path: string) {
       this.dirContents = await fetchData(path);
       this.info = this.dirContents.internal_resourceInfo;
     },
@@ -185,15 +185,15 @@ export default {
     /*
     Checks if the input item url is a container
     */
-    containerCheck(itemUrl) {
+    containerCheck(itemUrl: string) {
       return itemUrl.endsWith("/");
     },
     /**
      * Sorts container URLs and resource URLs into different lists
      */
     separateUrls() {
-      this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
-      this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
+      this.containerUrls = this.urls.filter((url:string) => url.endsWith("/"));
+      this.resourceUrls = this.urls.filter((url:string) => !url.endsWith("/"));
       if (
         this.currentLocation === this.podList[0] &&
         !this.urls.includes(this.podList[0])
@@ -201,22 +201,22 @@ export default {
         this.urls.push(this.podList[0]);
         this.containerUrls.push(this.podList[0]);
       }
-      this.urls = this.urls.sort((a, b) => a.length - b.length);
-      this.container = this.urls.sort((a, b) => a.length - b.length);
-      this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
+      this.urls = this.urls.sort((a:string, b:string) => a.length - b.length);
+      this.container = this.urls.sort((a:string, b:string) => a.length - b.length);
+      this.resourceUrls = this.urls.sort((a:string, b:string) => a.length - b.length);
     },
 
     /*
     Two methods for controlling the UI
     */
-    toggleForm(index) {
+    toggleForm(index: number) {
       if (this.showEditIndex === index) {
         this.showEditIndex = null; // Hide the form if it's already shown
       } else {
         this.showEditIndex = index; // Show the form for the clicked item
       }
     },
-    toggleInfo(index) {
+    toggleInfo(index: number) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
       } else {
@@ -224,13 +224,13 @@ export default {
       }
     },
     /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
+    handlePodSelected(selectedPod: string) {
       this.currentPod = selectedPod;
       this.displayPath = this.currentPod;
       this.getItems(this.displayPath);
     },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer) {
+    handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
       this.getItems(this.displayPath);
     },
