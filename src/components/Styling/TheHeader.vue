@@ -105,7 +105,14 @@ import {
   logOut,
 } from "./../login";
 
+interface User {
+  webId: string;
+  fullName: string;
+  email: string;
+}
+
 export default {
+<<<<<<< HEAD
   data: () => ({
     logoUrl: new URL('../../assets/solid-cockpit-logo.png', import.meta.url).href,
     loggedIn: false,
@@ -122,23 +129,42 @@ export default {
       email: "john.doe@doe.com", // Should pull this data from #card
     },
   }),
+=======
+  data() {
+    return {
+      logoUrl: new URL('../../assets/solid-cockpit-logo.png', import.meta.url).href as string,
+      loggedIn: false as boolean,
+      login_status: null as boolean | null,
+      menu: false as boolean,
+      message: false as boolean,
+      podAccess: false as boolean,
+      podList: null as string[] | null,
+      customPodUrl: null as string | null,
+      currentPod: "" as string,
+      user: {
+        webId: "" as string,
+        fullName: "John Doe" as string,
+        email: "john.doe@doe.com" as string,
+      } as User,
+    };
+  },
+>>>>>>> EDC_active
   methods: {
-    async userLogout() {
+    async userLogout(): Promise<void> {
       this.login_status = await logOut();
     },
-    loginCheck() {
+    loginCheck(): void {
       this.loggedIn = isLoggedin();
       this.user.webId = currentWebId();
     },
-    homepageRedir() {
+    homepageRedir(): void {
       redirectToHomepage();
     },
-    LoginpageRedir() {
+    LoginpageRedir(): void {
       redirectToLogin();
     },
-    
   },
-  mounted() {
+  mounted(): void {
     setTimeout(() => {
       this.loginCheck();
     }, 200);

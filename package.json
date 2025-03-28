@@ -33,7 +33,10 @@
     "iwanthue": "^2.0.0",
     "mermaid": "^11.6.0",
     "pinia": "^2.2.6",
+<<<<<<< HEAD
     "sigma": "^3.0.1",
+=======
+>>>>>>> EDC_active
     "sparqljs": "^3.7.3",
     "vite": "^6.2.3",
     "vue": "^3.2.13",
@@ -41,7 +44,11 @@
     "vuetify": "^3.5.14"
   },
   "devDependencies": {
+<<<<<<< HEAD
     "@tsconfig/node20": "^20.1.4",
+=======
+    "@tsconfig/node20": "^20.1.5",
+>>>>>>> EDC_active
     "@typescript-eslint/eslint-plugin": "^5.4.0",
     "@typescript-eslint/parser": "^5.4.0",
     "eslint": "8",

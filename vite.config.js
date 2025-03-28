@@ -11,6 +11,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+<<<<<<< HEAD
   base: process.env.NODE_ENV === 'production' ? '/solid-cockpit/' : '/',
   build: {
     outDir: 'dist',
@@ -22,4 +23,11 @@ export default defineConfig({
       },
     },
   },
+=======
+  base: process.env.VITE_BASE_URL || './',
+  transpileDependencies: true,
+  build: {
+    outDir: 'dist',
+  },
+>>>>>>> EDC_active
 })

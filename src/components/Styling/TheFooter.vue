@@ -41,19 +41,21 @@
   </footer>
 </template>
 
-<script>
-  export default {
-    name: "AppFooter",
+<script lang="ts">
+import { defineComponent } from "vue";
+
+export default defineComponent({
+  name: "AppFooter",
   data() {
     return {
-      lastModified: ""
+      lastModified: "" as string,
     };
   },
   mounted() {
     // Fetch the last commit info from GitHub
     fetch("https://api.github.com/repos/KNowledgeOnWebScale/solid-cockpit/commits")
-      .then(response => response.json())
-      .then(data => {
+      .then((response: Response) => response.json())
+      .then((data: Array<{ commit: { committer: { date: string } } }>) => {
         if (data && data.length > 0) {
           // Get the date from the most recent commit
           const lastPushDate = new Date(data[0].commit.committer.date);
@@ -61,10 +63,9 @@
           this.lastModified = lastPushDate.toISOString().split("T")[0];
         }
       })
-      .catch(error => console.error("Error fetching last commit date:", error));
-  }
-};
-
+      .catch((error: Error) => console.error("Error fetching last commit date:", error));
+  },
+});
 </script>
 
 <style scoped>

@@ -65,7 +65,7 @@
   </body>
 </template>
 
-<script>
+<script lang="ts">
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
@@ -79,17 +79,22 @@ export default {
     currPod: String,
   },
   data: () => ({
+<<<<<<< HEAD
     login_status: true,
     visualUrl: new URL('../assets/full-sc-logo-nb.png', import.meta.url).href,
+=======
+    login_status: true as boolean,
+    visualUrl: new URL('../assets/full-sc-logo-nb.png', import.meta.url).href as string,
+>>>>>>> EDC_active
   }),
   methods: {
-    async credentials() {
+    async credentials(): Promise<void> {
       handleRedirectAfterPageLoad();
     },
-    loggedIn() {
+    loggedIn(): boolean {
       return isLoggedin();
     },
-    mounted() {
+    mounted(): void {
       this.credentials();
       // Delays the execution of these functions on page reload (to avoid async-related errors)
       setTimeout(() => {

@@ -374,7 +374,7 @@ import {
   ensureCacheContainer,
   createQueriesTTL,
   uploadQueryFile,
-  uploadSparqlJson,
+  uploadResults,
   getQueriesTtl,
   fetchQueryFileData,
   getCachedQueries,
@@ -409,6 +409,12 @@ export default {
           query:
             "PREFIX sio: <http://semanticscience.org/resource/>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\nPREFIX sio: <http://semanticscience.org/resource/>\nPREFIX vocab: <http://rdf.ncbi.nlm.nih.gov/pubchem/vocabulary#>\nPREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>\nPREFIX endpoint: <https://idsm.elixir-czech.cz/sparql/endpoint/>\nSELECT ?CAS ?COMPOUND ?SIMILAR_COMPOUND ?SCORE WHERE {\n  ?s sio:SIO_000300 ?CAS .\n\n  SERVICE endpoint:idsm {\n    ?SYNONYM a sio:CHEMINF_000446. # CAS registry number\n    ?SYNONYM sio:SIO_000300 ?CAS.\n    ?SYNONYM sio:SIO_000011 ?COMPOUND.\n    ?COMPOUND a vocab:Compound.\n    ?ATTRIBUTE a sio:SIO_011120. # molecular structure file\n    ?ATTRIBUTE sio:SIO_000011 ?COMPOUND.\n    ?ATTRIBUTE sio:SIO_000300 ?MOLFILE.\n    {\n      SERVICE endpoint:chebi {\n        [ sachem:compound ?SIMILAR_COMPOUND;\n          sachem:score ?SCORE ] sachem:similaritySearch [\n            sachem:query ?MOLFILE;\n            sachem:cutoff \"0.7\"^^xsd:double;\n            sachem:similarityRadius '3'^^xsd:integer;\n            sachem:aromaticityMode sachem:aromaticityDetectIfMissing;\n            sachem:tautomerMode sachem:inchiTautomers\n        ].\n      }\n    }\n    UNION\n    {\n      SERVICE endpoint:chebi {\n        ?SIMILAR_COMPOUND sachem:substructureSearch [ sachem:query '[As]' ].\n      }\n    }\n  }\n}\nORDER BY DESC(?SCORE)",
         },
+        {
+          name: "Rhea 13",
+          sources: ["<https://sparql.rhea-db.org/sparql/>"],
+          query: "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}",
+        },
+
       ],
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
@@ -417,10 +423,10 @@ export default {
         "<https://rdf.metanetx.org/sparql/>",
         "<https://sparql.omabrowser.org/sparql>",
         "<https://sparql.orthodb.org/sparql/>",
-        "<https://sparql.rhea-db.org/sparql/>",
+        "<https://sparql.rhea-db.org/sparql>",
         "<https://sparql.swisslipids.org/sparql/>",
         "<https://biosoda.unil.ch/emi/sparql/>",
-        "<https://sparql.uniprot.org/sparql/>",
+        "<https://sparql.uniprot.org/sparql>",
         "<https://query.wikidata.org/sparql>",
       ],
       currentQuery: {
@@ -520,6 +526,7 @@ export default {
         // adds query to queries.ttl
         this.currHash = await createQueriesTTL(
           this.cachePath,
+          this.currentQuery.query,
           this.currentQuery.sources
         );
         // creates #hash.rq file containing the executed query
@@ -533,8 +540,17 @@ export default {
           this.currentQuery.query,
           this.currentQuery.sources
         );
+
+        // Handle empty results
+        if (!this.currentQuery.results || !this.currentQuery.results.results) {
+          this.currentQuery.results = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
         // create #hash.sparqljson file with query results
-        this.resultsFile = await uploadSparqlJson(
+        this.resultsFile = await uploadResults(
           this.cachePath,
           JSON.stringify(this.currentQuery.results, null, 2),
           this.currHash
@@ -544,7 +560,18 @@ export default {
           this.currentQuery.query,
           this.currentQuery.sources
         );
-        this.resolvedQueryResults = await toRaw(this.currentQuery.results);
+
+        // Handle empty results
+        if (!this.currentQuery.results || !this.currentQuery.results.results) {
+          this.currentQuery.results = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
+        this.resolvedQueryResults = toRaw(this.currentQuery.results);
+        // this.initializeYasr();
+        // this.yasr.setResponse({ data: this.resolvedQueryResults, contentType: "application/sparql-results+json" });
       }
       this.loading = false;
     },
