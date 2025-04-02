@@ -1,5 +1,5 @@
 import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
-import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
+import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-link-traversal-solid";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -108,6 +108,11 @@ export async function executeQuery(
   }
 }
 
+interface ComunicaSources {
+  value: string;
+  context?: Record<string, any>;
+}
+
 /**
  * Executes a SPARQL query over one or many SPARQL endpoints.
  *
@@ -120,6 +125,7 @@ async function sparqlEndpointQuery(
   sparqlSources: string[]
 ): Promise<queryResultJson | null> {
   // execute query over SPARQL endpoint(s)
+  
   const mySparqlEngine = new QueryEngineSparql();
   try {
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
@@ -182,6 +188,22 @@ async function mixedQuery(
   mixedSources: string[]
 ): Promise<queryResultJson | null> {
   const mySolidEngine = new QueryEngineSolid();
+  const hardcodedSources = [
+    {
+      value: 'https://sparql.rhea-db.org/sparql',
+    }
+    // {
+    //   value: 'https://triple.ilabt.imec.be/test/',
+    //   context: {
+    //     // this way, the authenticated fetch might be scoped to the pod
+    //     fetch: fetch,
+    //     // not to forget lenient mode
+    //     lenient: true,
+    //   },
+    // },
+  ];
+
+
   // const allSources: string[] = [];
 
   // // Discover all sources the current user has access to
@@ -209,8 +231,7 @@ async function mixedQuery(
   // Execute query over discovered sources
   try {
     const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
-      sources: mixedSources,
-      fetch: fetch,
+      sources: hardcodedSources,
     });
 
     const bindingsArray: any[] = [];

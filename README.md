@@ -150,9 +150,8 @@ The Solid Cockpit app provides several functionalities for managing and interact
 ### 🔮 In the Near Future
 
 - Improve the functionality of the Pod Browser for displaying pod contents effectively.
-- Create interface for querying pod(s) (and SPARQL endpoints).
-- Integrate example query catalogue for the querying functionality.
-- Enhance privacy management display
+- Ability to query using the SIB SPARQL Editor (with auto-complete + class visualization + example queries)
+- Enhance privacy management display ++ include sharedWithMe.ttl // sharedWithOthers.ttl
 
 > Stay tuned for future updates that will bring more features and improvements to the Solid Cockpit app, making it more powerful and easier to use.
 
@@ -163,6 +162,23 @@ The Solid Cockpit app provides several functionalities for managing and interact
 If you encounter issues during setup or usage, please consult our support resources or reach out to our support team for assistance.
 
 ---
+
+
+## Solid Pod VoID File Generation Guide
+
+### Tool Download
+
+Please navigate to https://github.com/JervenBolleman/void-generator/tree/solid-pod-support for more information about local dependencies and run guides.
+
+
+### Local command to execute
+
+```
+mvn package
+
+java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-solid-pod] --void-file [name-of-output].ttl -i [URL-to-solid-pod]/void.ttl --repository [URL-to-solid-pod]
+```
+
 🙏 We hope you find this guide helpful in setting up and exploring your Solid Pod. For questions or comments: [go here](https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions). To report bugs or problems: [try here](https://github.com/KNowledgeOnWebScale/solid-cockpit/issues).
 
 
