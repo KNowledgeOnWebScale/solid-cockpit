@@ -170,14 +170,20 @@ If you encounter issues during setup or usage, please consult our support resour
 
 Please navigate to https://github.com/JervenBolleman/void-generator/tree/solid-pod-support for more information about local dependencies and run guides.
 
-
 ### Local command to execute
 
 ```
 mvn package
 
-java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-solid-pod] --void-file [name-of-output].ttl -i [URL-to-solid-pod]/void.ttl --repository [URL-to-solid-pod]
+java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-solid-pod] --void-file void.ttl -i [URL-to-solid-pod]/void.ttl --repository [URL-to-solid-pod]
 ```
+
+### After VoID File Generation
+
+- Upload the VoID file to your Solid Pod (to the root directory [i.e. www.yourwebid.com/pod]) via the `Data Upload` page of Solid Cockpit
+
+
+---
 
 🙏 We hope you find this guide helpful in setting up and exploring your Solid Pod. For questions or comments: [go here](https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions). To report bugs or problems: [try here](https://github.com/KNowledgeOnWebScale/solid-cockpit/issues).
 

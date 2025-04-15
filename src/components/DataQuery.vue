@@ -2,7 +2,12 @@
   <div class="title-container">
     <span>Data Query</span>
   </div>
-  <div class="pod-chooseContainer">
+
+  <div v-if="!successfulLogin" class="login-container">
+    <pod-login @login-success="handleLoginStatus" />
+  </div>
+
+  <div v-if="successfulLogin" class="pod-chooseContainer">
     <PodRegistration @pod-selected="handlePodSelected" />
   </div>
   <div class="general-container">
@@ -52,7 +57,14 @@
           <!-- SPARQL Query input box -->
           <!-- Source Designation -->
           <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) + integrate YASGUI -->
-          <div id="yasgui-container"></div>
+          <div id="yasgui-container">
+            <!-- <sparql-editor
+              endpoint="https://www.bgee.org/sparql/,https://sparql.uniprot.org/sparql/"
+              examples-repo-add-url="https://github.com/sib-swiss/sparql-examples/new/master/examples/Bgee"
+              examples-on-main-page="10"
+              style="--btn-color: white; --btn-bg-color: #00709b"
+            ></sparql-editor> -->
+          </div>
 
           <div class="source-selection">
             <span>Datasources: </span>
@@ -98,6 +110,7 @@
               }}
             </p>
           </li>
+          
           <!-- execute query -->
           <div class="bottom-container">
             <button
@@ -183,16 +196,18 @@
                         @click="fetchQuery(cachedQueries[index].hash)"
                         class="drop-down"
                       >
-                        <i class="material-icons not-colored right"
-                          >{{ showRetrievedQuery
+                        <i class="material-icons not-colored right">{{
+                          showRetrievedQuery
                             ? "keyboard_arrow_down"
                             : "chevron_right"
-                          }}</i
-                        >
+                        }}</i>
                       </button>
                     </div>
 
-                    <div class="sparql-box" v-if="showRetrievedQuery && retrievedQuery != null">
+                    <div
+                      class="sparql-box"
+                      v-if="showRetrievedQuery && retrievedQuery != null"
+                    >
                       <pre><code>{{ retrievedQuery }}</code></pre>
                     </div>
                   </div>
@@ -251,7 +266,10 @@
                         </table>
                       </div>
                     </div>
-                    <div class="null-results" v-if="showRetrievedResults && retrievedResults == null">
+                    <div
+                      class="null-results"
+                      v-if="showRetrievedResults && retrievedResults == null"
+                    >
                       <span>This query had no results 🙃</span>
                     </div>
                   </div>
@@ -363,7 +381,7 @@
 
 <script>
 // import YASGUI from '@triply/yasgui/build/yasgui.min.js'
-import { currentWebId, getPodURLs } from "./login";
+import { isLoggedin } from "./login";
 import {
   ensureCacheContainer,
   createQueriesTTL,
@@ -375,16 +393,19 @@ import {
   executeQuery,
   fetchSparqlJsonFileData,
 } from "./queryPod";
+import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import { toRaw } from "vue";
-// import { yasgui, yasr } from "@triply/yasgui";
+import "@sib-swiss/sparql-editor";
 
 export default {
   components: {
+    PodLogin,
     PodRegistration,
   },
   data() {
     return {
+      successfulLogin: false,
       currentPod: "",
       currentView: "newQuery", // Tracks the active view: 'newQuery' or 'previousQueries'
       exampleQueries: [
@@ -396,9 +417,9 @@ export default {
         {
           name: "Rhea 13",
           sources: ["<https://sparql.rhea-db.org/sparql/>"],
-          query: "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}",
+          query:
+            "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}",
         },
-
       ],
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
@@ -484,10 +505,14 @@ export default {
       this.currentQuery.query = "";
     },
 
-    // method to obtain the current WebID and PodURL
-    async getPodURL() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
-      this.podURLs = await getPodURLs(); // calls async function to get Pod URLs
+    
+    /* Takes in the emitted value from PodLogin.vue */
+    handleLoginStatus(loginSuccess) {
+      this.successfulLogin = loginSuccess;
+    },
+    /* Checks if user is already logged in */
+    loginCheck() {
+      this.successfulLogin = isLoggedin();
     },
     /* Takes in the emitted value from PodRegistration.vue */
     handlePodSelected(selectedPod) {
@@ -631,6 +656,10 @@ export default {
       this.style.height = this.scrollHeight + "px";
     });
 
+    setTimeout(() => {
+      this.loginCheck();
+    }, 500); // Delay of 2 seconds
+
     //TODO: integrate yasgui
     // const container = document.getElementById('yasgui-container');
     // const yasguiInstance = new YASGUI(container, {
@@ -671,11 +700,15 @@ body {
   padding-left: 20px;
   padding-right: 20px;
 }
+.login-container {
+  margin: 0 0.25rem 0.25rem 0.25rem;
+}
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
+  padding: 1rem 1rem 0.1rem 1rem;
   margin: 0.5rem;
 }
 
@@ -1014,7 +1047,7 @@ ul {
 .sparql-box code {
   display: block;
   padding: 5px;
-  color: #EDE7F6;
+  color: #ede7f6;
 }
 /* Displayed query results from .json file */
 .query-results {

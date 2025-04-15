@@ -1,6 +1,6 @@
 <template>
   <div class="pod-register" v-if="loggedIn">
-    <div v-if="!podAccess">
+    <div class="add-webid" v-if="!podAccess">
       <v-alert
         density="compact"
         title="No Pod Registered to your WebId"
@@ -8,7 +8,7 @@
       >
         <!-- TODO: a hint with the user's current "likely" pod based on WebId 
               Also, maybe a "one session" pod reference would be cool -->
-        <div id="addAccess">
+        <div class="add-access">
           <button @click="toggleForm" class="icon-button">
             <span>Input your Pod URL (optional)</span>
             <i v-if="!showFormIndex" class="material-icons right">add</i>
@@ -44,7 +44,7 @@
             >
               Register Pod
               <v-tooltip activator="parent" location="end"
-                >Click to (attempt) to add your pod to your WebId card
+                >Click to add your pod to your WebId card
               </v-tooltip>
             </v-btn>
           </div>
@@ -121,18 +121,18 @@ export default {
      * Method for adding a pod to a user's webId card
      */
     async addToWebIdData() {
-      console.log(checkUrl(this.customPodUrl, this.currentPod));
       /* For TRIPLE consortium */
       if (this.customPodUrl === "") {
         await webIdDataset(this.user.webId, this.customPodUrl);
+        this.$forceUpdate(); // Forces a re-render of the component
       } else {
         /* For provided URL */
         if (!checkUrl(this.customPodUrl, this.currentPod)) {
-          console.log(this.customPodUrl);
           await webIdDataset(this.user.webId, this.customPodUrl);
+          this.$forceUpdate(); // Forces a re-render of the component
         } else {
           /* For invalid URL 
-        TODO: make this a little prettier */
+          TODO: make this a little prettier */
           console.log("Not a valid URL ... ");
         }
       }
@@ -174,7 +174,7 @@ export default {
     }, 200);
     setTimeout(() => {
       this.findPodList();
-    }, 500);
+    }, 400);
   },
 };
 </script>
@@ -183,10 +183,12 @@ export default {
 .pod-register {
   font-family: "Oxanium", monospace;
   margin: auto;
-  margin-left: 15px;
-  margin-bottom: 10px;
+  margin-bottom: 1rem;
 }
 
+.add-webid {
+  padding: 0.5rem;
+}
 /* For pod registration */
 .input-podURL {
   justify-content: center;
@@ -195,16 +197,24 @@ export default {
 .pod-registerButton {
   margin-top: 10px;
 }
-#addAccess {
+.add-access {
   display: flex;
+  align-items: center;
+}
+.add-access .icon-button {
+  display: flex;
+  align-items: center;
+  margin-top: 0.2rem;
+}
+.add-access span {
+  display: flex;
+  align-items: center;
 }
 .refresh {
   margin-left: auto;
 }
 
-/* For pod selection 
-   TODO: Fix the alignment of this :( */
-
+/* For pod selection */
 .horizontal-list {
   display: flex;
   justify-content: flex-start;

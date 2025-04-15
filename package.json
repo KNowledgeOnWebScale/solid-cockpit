@@ -19,6 +19,7 @@
     "@comunica/query-sparql-link-traversal-solid": "^0.3.0",
     "@inrupt/solid-client": "^2.0.1",
     "@inrupt/solid-client-authn-browser": "^2.1.0",
+    "@sib-swiss/sparql-editor": "^0.2.11",
     "@triply/yasgui": "^4.2.28",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/eslint-config-typescript": "^9.1.0",

@@ -1,0 +1,17 @@
+{
+  "@context": ["https://www.w3.org/ns/solid/oidc-context.jsonld"],
+
+  "client_id": "https://knowledgeonwebscale.github.io/solid-cockpit/client-id.jsonld",
+  "client_name": "Solid Cockpit",
+  "redirect_uris": ["https://knowledgeonwebscale.github.io/solid-cockpit/"],
+  "client_uri": "https://knowledgeonwebscale.github.io/solid-cockpit/",
+  "logo_uri" : "https://knowledgeonwebscale.github.io/solid-cockpit/src/assets/solid-cockpit-logo.png",
+  "contacts": [
+    "elias.crum@ugent.be"
+  ],
+  "scope" : "openid profile offline_access webid",
+  "grant_types" : ["refresh_token","authorization_code"],
+  "response_types" : ["code"],
+  "default_max_age" : 3600,
+  "require_auth_time" : true
+}

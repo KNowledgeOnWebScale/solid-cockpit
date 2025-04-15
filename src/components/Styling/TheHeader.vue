@@ -133,6 +133,7 @@ export default {
   methods: {
     async userLogout(): Promise<void> {
       this.login_status = await logOut();
+      window.location.reload();
     },
     loginCheck(): void {
       this.loggedIn = isLoggedin();

@@ -358,7 +358,8 @@
                             ><br />
                             Was given:
                             <i>{{ permissionsString }}</i> rights<br />
-                            To resources in the container: <i>{{ url }}</i><br />
+                            To resources in the container: <i>{{ url }}</i
+                            ><br />
                             {{ recorded }}
                           </v-alert>
 
@@ -833,9 +834,9 @@ export default {
       this.hasAccess = await fetchAclAgents(path);
       this.publicAccess = await fetchPublicAccess(path);
       this.hasAccess = {
-          "Public": this.publicAccess,
-          ...this.hasAccess,
-        };
+        Public: this.publicAccess,
+        ...this.hasAccess,
+      };
     },
     /**
      * Obtains a list of agents that have access to the designated resource or container
@@ -848,7 +849,7 @@ export default {
         this.hasAccess = await fetchAclAgents(path);
         this.publicAccess = await fetchPublicAccess(path);
         this.hasAccess = {
-          "Public": this.publicAccess,
+          Public: this.publicAccess,
           ...this.hasAccess,
         };
         this.cannotMakeAcl = false;
@@ -874,7 +875,7 @@ export default {
       this.currentPod = selectedPod;
       this.currentLocation = this.currentPod;
       this.getGeneralData();
-      this.createStuff()
+      this.createStuff();
     },
     /* creates files and directories if not already present */
     async createStuff() {
@@ -912,6 +913,8 @@ export default {
   border-radius: 6px;
   background-color: #445560;
   margin: 0.5rem;
+  resize: vertical;
+  overflow: auto;
 }
 .side-nav {
   flex: 1 1 auto;
@@ -920,7 +923,6 @@ export default {
   flex: 1 1 auto;
   overflow-y: auto;
   scroll-behavior: smooth;
-  max-height: 40em;
 }
 .dir-nav {
   background-color: #445560;
@@ -959,6 +961,7 @@ export default {
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
+  padding: 0.2rem 0 0 1rem;
   margin: 0rem 0.5rem;
   font-family: "Oxanium", monospace;
 }
@@ -976,9 +979,6 @@ export default {
   min-width: fit-content;
   background-color: #445560;
   border: 2px solid #ede7f6;
-}
-.nav-container {
-  display: flex;
   align-items: center;
   width: 100%;
   position: sticky;
@@ -992,8 +992,7 @@ export default {
   overflow: auto;
 }
 .container-fluid {
-  max-height: 500px; /* Set a maximum height */
-  overflow-y: auto;  /* Enable vertical scrolling when content overflows */
+  overflow-y: auto; /* Enable vertical scrolling when content overflows */
   overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 .path-selection {
@@ -1120,6 +1119,7 @@ export default {
   background-color: #28353e;
   border-radius: 4px;
   border: 0.5px solid #ede7f6;
+  min-height: max-content;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);

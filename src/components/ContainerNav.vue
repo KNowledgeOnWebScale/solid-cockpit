@@ -158,11 +158,11 @@ export default defineComponent({
   display: flex;
   align-items: center;
   list-style-type: none;
-  padding: 0;
-  margin: 0;
+  padding-left: 1rem;
+  margin-left: 0;
 }
 .dir-nav {
-  padding: 10px;
+  padding: 1rem;
 }
 
 .directory-nav span {

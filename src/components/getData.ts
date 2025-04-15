@@ -43,7 +43,6 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | string
   const profThing = getThing(profData, url);
   let updatedThing = null;
   
-  console.log(profThing);
   /* if the user DID NOT sepcify a Pod url */
   if (customLoc === '') {
     const parsedUrl = new URL(url);
@@ -56,19 +55,32 @@ export async function webIdDataset(url: UrlString, customLoc: UrlString | string
       // updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
       /* saves the updated card to the User's Pod (with their pod is registered) */
       const newCard = setThing(profData, updatedThing);
-      const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
+      saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
     } 
 
+    /* if the user is using a different pod hosting server */
+    else {
+      // attempt to register pod root container using provided WebId
+      try {
+        const pathSegments = parsedUrl.pathname.split('/').filter(segment => segment.length > 0);
+        const rootPath = (parsedUrl.origin + '/' + pathSegments[0] + '/').toString();
+        updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", rootPath);
+        // updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
+        /* saves the updated card to the User's Pod (with their pod is registered) */
+        const newCard = setThing(profData, updatedThing);
+        saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
+      } catch (error) {
+        console.error("Error registering pod root container: ", error);
+        // Handle the error as needed
+      }
+    }
+    
   /* if the user DID specify their Pod's URL */
   } else {
-    /* TODO: Add another conditional and logic for inferring a Pod URL when one is not provided */
-
     updatedThing = addUrl(profThing, "http://www.w3.org/ns/pim/space#storage", customLoc);
-    // updatedThing = addStringNoLocale(profThing, "http://www.w3.org/ns/pim/space#storage", "<../>");
-    
     /* saves the updated card to the User's Pod (with their pod is registered) */
     const newCard = setThing(profData, updatedThing);
-    const updatedCard = saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
+    saveSolidDatasetAt(profThing.url, newCard, { fetch: fetch })
   }
 }
 

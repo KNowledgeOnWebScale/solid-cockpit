@@ -4,6 +4,7 @@ import {
   hasAccessibleAcl,
   setAgentResourceAccess,
   setPublicResourceAccess,
+  setPublicDefaultAccess,
   WithResourceInfo,
   AclDataset,
   SolidDataset,
@@ -103,10 +104,19 @@ export async function changeAclAgent(
   user: string,
   accessLevel: Permissions
 ): Promise<void> {
+  // Changes access for the resource
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
   const resourceAcl = getResourceAcl(solidDataWAcl);
   const updatedAcl = setAgentResourceAccess(resourceAcl, user, accessLevel);
   await saveAclFor(solidDataWAcl, updatedAcl);
+
+  // Changes access for all resources within the container (if the url is a container)
+  if (url.endsWith('/')) {
+    const asolidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+    const aresourceAcl = getResourceAcl(asolidDataWAcl);
+    const aupdatedAcl = setPublicDefaultAccess(aresourceAcl, accessLevel);
+    await saveAclFor(asolidDataWAcl, aupdatedAcl);
+  }
 }
 
 /**
@@ -121,10 +131,19 @@ export async function changeAclPublic(
   url: UrlString,
   accessLevel: Permissions
 ): Promise<void> {
+  // Changes access for the resource
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
   const resourceAcl = getResourceAcl(solidDataWAcl);
   const updatedAcl = setPublicResourceAccess(resourceAcl, accessLevel);
   await saveAclFor(solidDataWAcl, updatedAcl);
+
+  // Changes access for all resources within the container (if the url is a container)
+  if (url.endsWith('/')) {
+    const asolidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+    const aresourceAcl = getResourceAcl(asolidDataWAcl);
+    const aupdatedAcl = setPublicDefaultAccess(aresourceAcl, accessLevel);
+    await saveAclFor(asolidDataWAcl, aupdatedAcl);
+  }
 }
 
 /**

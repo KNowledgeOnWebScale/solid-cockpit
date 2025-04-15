@@ -25,9 +25,11 @@ async function startLogin(purl: string): Promise<string> {
   let status = '';
   if (!session.info.isLoggedIn) {
     try {
+      sessionStorage.setItem("postLoginRedirect", window.location.href);
+
       await session.login({
-        oidcIssuer: purl, //https does not work for some reason?? figure this out later
-        redirectUrl: new URL("/solid-cockpit/", window.location.href).toString(),
+        oidcIssuer: purl, 
+        redirectUrl: window.location.href,
         clientName: "Solid Cockpit"
       });
     } catch (error) {

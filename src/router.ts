@@ -8,8 +8,8 @@ import PodUpload from "./components/PodUpload.vue";
 import PodBrowser from "./components/PodBrowser.vue";
 import DataQuery from "./components/DataQuery.vue";
 import EditPrivacy from "./components/EditPrivacy.vue";
+import LoginRedirect from "./components/LoginRedirect.vue";
 import NotFound from "./components/Styling/NotFound.vue";
-
 
 import { isLoggedin } from "./components/login";
 
@@ -67,19 +67,20 @@ const router = createRouter({
  * The result is the routing of the web page flow from the login page to the functional parts of the app
  * (and returning to the login page if logged out at any point)
  */
+const publicPages = ["Home", "Login Page", "Query"];
 setTimeout(() => {
-  router.beforeEach(async (to, from) => {
+  router.beforeEach(async (to, from, next) => {
     // make sure the user is authenticated
-    if (!isLoggedin() && to.name !== "Login Page" && from.name === "Home") {
-      return { name: "Login Page" };
-    } else if (!isLoggedin() && to.name === "Home" && from.name !== "Login Page") {
-      return { name: "Home" };
-    } else if (!isLoggedin() && to.name !== "Home" && from.name === "Login Page") {
-      return { name: "Login Page" };
-    } else if (isLoggedin() && to.name === "Login Page") {
-      return { name: "Home" };
+    if (publicPages.includes(to.name)) {
+      // Always allow public pages
+      return next();
     }
-
+    // If not logged in, redirect to login
+    if (!isLoggedin()) {
+      return next({ name: "Login Page" });
+    }
+    // Otherwise allow navigation
+    next();
   });
 }, 100);
 

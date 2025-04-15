@@ -380,6 +380,7 @@ body {
   background: #445560;
   border-radius: 8px;
   margin: 0rem 0.5rem;
+  padding: 0.2rem 0 0 1rem;
 }
 
 /* Upload location nav container */
