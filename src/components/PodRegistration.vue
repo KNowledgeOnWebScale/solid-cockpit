@@ -13,13 +13,13 @@
             <span>Input your Pod URL (optional)</span>
             <i v-if="!showFormIndex" class="material-icons right">add</i>
             <i v-if="showFormIndex" class="material-icons right"> remove </i>
-            <v-tooltip v-if="showFormIndex" activator="parent" location="end"
+            <v-tooltip class="tool-tip" v-if="showFormIndex" activator="parent" location="end"
               >Close Pod URL input
             </v-tooltip>
           </button>
           <button @click="findPodList" class="refresh icon-button right">
             <i class="material-icons right">refresh</i>
-            <v-tooltip activator="parent" location="end"
+            <v-tooltip class="tool-tip" activator="parent" location="end"
               >Refresh to check if Pod has been added
             </v-tooltip>
           </button>
@@ -43,7 +43,7 @@
               type="submit"
             >
               Register Pod
-              <v-tooltip activator="parent" location="end"
+              <v-tooltip class="tool-tip" activator="parent" location="end"
                 >Click to add your pod to your WebId card
               </v-tooltip>
             </v-btn>
@@ -72,7 +72,7 @@
               @click="selectPod"
             >
               Select Pod
-              <v-tooltip activator="parent" location="end"
+              <v-tooltip class="tool-tip" activator="parent" location="end"
                 >Click to select this pod
               </v-tooltip>
             </v-btn>
@@ -182,10 +182,7 @@ export default {
 <style scoped>
 .pod-register {
   font-family: "Oxanium", monospace;
-  margin: auto;
-  margin-bottom: 1rem;
 }
-
 .add-webid {
   padding: 0.5rem;
 }
@@ -212,6 +209,9 @@ export default {
 }
 .refresh {
   margin-left: auto;
+}
+.tool-tip {
+  font-family: "Oxanium", monospace;
 }
 
 /* For pod selection */

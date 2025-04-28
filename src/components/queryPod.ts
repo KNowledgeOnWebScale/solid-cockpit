@@ -281,7 +281,7 @@ async function mixedQuery(
 
 /**
  * Generates a unique 6-character hash using alphanumeric characters.
- * @param length - Optional length for the hash (default is 6)
+ * @param length - Length for the hash
  * @returns A string representing the hash.
  */
 export function generateHash(length: number): string {
@@ -293,6 +293,51 @@ export function generateHash(length: number): string {
     hash += charset.charAt(randomIndex);
   }
   return hash;
+}
+
+/**
+ * Generates a deterministic alphanumeric hash of given length using a seed.
+ * @param seedValue - The string used to seed the hash generation
+ * @param length - Length of the output hash (default: 10)
+ * @returns A deterministic hash string
+ */
+export function generateSeededHash(seedValue: string, length = 10): string {
+  const charset =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const seed = stringToSeed(seedValue);
+  const random = mulberry32(seed);
+
+  let hash = "";
+  for (let i = 0; i < length; i++) {
+    const index = Math.floor(random() * charset.length);
+    hash += charset.charAt(index);
+  }
+  return hash;
+}
+
+/**
+ * Creates a seeded pseudorandom number generator.
+ * Mulberry32 is fast and well-suited for small tasks like this.
+ */
+function mulberry32(seed: number): () => number {
+  return function () {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Converts a string into a numeric seed.
+ */
+function stringToSeed(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+  }
+  return hash >>> 0;
 }
 
 /**
@@ -622,13 +667,13 @@ export async function uploadResults(
 /**
  * Determines if there is are cached queries in the pod.
  *
- * @param containerUrl - The container URL (should end with a slash).
+ * @param containerUrl - The ttl URL
  * @returns boolean representing if a cache is present.
  */
-export async function getQueriesTtl(containerUrl: string): Promise<boolean> {
+export async function getStoredTtl(resourceUrl: string): Promise<boolean> {
   try {
-    // Try to retrieve the dataset (container) and save updated dataset
-    await getSolidDataset(containerUrl + "queries.ttl", { fetch });
+    // Try to retrieve the dataset and save updated dataset
+    await getSolidDataset(resourceUrl, { fetch });
     return true;
   } catch (error) {
     return false;

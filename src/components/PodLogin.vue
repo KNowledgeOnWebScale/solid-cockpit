@@ -26,7 +26,7 @@
             >
               <!-- Info button -->
               <template v-slot:prepend>
-                <v-tooltip location="top">
+                <v-tooltip class="tool-tip" location="top">
                   <template v-slot:activator="{ props }">
                     <v-icon
                       fab
@@ -149,7 +149,7 @@ export default {
     // Delays the execution loginCheck() on page reload (to avoid async-related errors)
     setTimeout(() => {
       this.loginCheck();
-    }, 100); // Delay of 2 seconds
+    }, 400); // Delay of 2 seconds
   },
 };
 </script>
@@ -168,6 +168,9 @@ export default {
 }
 .login-display {
   padding: 1rem;
+}
+.tool-tip {
+  font-family: "Oxanium", monospace;
 }
 #errorIndicator {
   margin-bottom: 1rem;

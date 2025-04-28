@@ -130,7 +130,7 @@
               ></v-checkbox>
               <div class="save-info">
                 <v-icon>mdi-information</v-icon>
-                <v-tooltip activator="parent" location="right"
+                <v-tooltip class="tool-tip" activator="parent" location="right"
                   >Check this box if you would like to save the query and any
                   results to your pod</v-tooltip
                 >
@@ -151,7 +151,7 @@
             <span class="cached-title">Cached Queries</span>
 
             <!-- Iterates over list queries in Query Cache -->
-            <!-- TODO: Fix awitching between queries without closing drop-downs (right now it has weird activity...) -->
+            <!-- TODO: Fix switching between queries without closing drop-downs (right now it has weird activity...) -->
             <!-- TODO: Fix the arrow changing for all div when only one query is exanded (also apply fix to PrivacyEditing component) -->
             <li v-for="(query, index) in cachedQueries" :key="index">
               <div class="card-panel folder">
@@ -387,7 +387,7 @@ import {
   createQueriesTTL,
   uploadQueryFile,
   uploadResults,
-  getQueriesTtl,
+  getStoredTtl,
   fetchQueryFileData,
   getCachedQueries,
   executeQuery,
@@ -595,8 +595,8 @@ export default {
 
     async loadCache() {
       this.currentView = "previousQueries";
-      this.queriesCacheExists = await getQueriesTtl(
-        this.currentPod + "querycache/"
+      this.queriesCacheExists = await getStoredTtl(
+        this.currentPod + "querycache/queries.ttl"
       );
       if (this.queriesCacheExists) {
         try {
@@ -686,6 +686,9 @@ body {
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
+.tool-tip {
+  font-family: "Oxanium", monospace;
+}
 
 /* Title bar */
 .title-container {
@@ -708,7 +711,7 @@ body {
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
-  padding: 1rem 1rem 0.1rem 1rem;
+  padding: 0rem 0 0 1rem;
   margin: 0.5rem;
 }
 

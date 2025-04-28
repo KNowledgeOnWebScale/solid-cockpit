@@ -113,13 +113,13 @@ img {
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .login-container {
-  margin: 0 0.5rem 1rem 0.5rem;
+  margin: 0 0.5rem 0 0.5rem;
 }
 .pod-reg {
   background-color: #445560;
   border-radius: 8px;
   max-width: 100%;
-  margin: 0 1rem;
+  margin: 0.5rem 1rem;
   padding: 0.2rem 0 0 1rem;
 }
 
