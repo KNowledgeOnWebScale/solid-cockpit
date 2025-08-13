@@ -939,7 +939,6 @@ export default {
 .content-container {
   display: flex;
   flex-direction: column;
-  margin: auto;
   border-radius: 6px;
 }
 .body-container {

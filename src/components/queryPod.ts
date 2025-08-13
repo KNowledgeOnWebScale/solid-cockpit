@@ -186,20 +186,20 @@ async function mixedQuery(
   mixedSources: string[]
 ): Promise<queryResultJson | null> {
   const mySolidEngine = new QueryEngineSolid();
-  const hardcodedSources = [
-    {
-      value: 'https://sparql.rhea-db.org/sparql',
-    }
-    // {
-    //   value: 'https://triple.ilabt.imec.be/test/',
-    //   context: {
-    //     // this way, the authenticated fetch might be scoped to the pod
-    //     fetch: fetch,
-    //     // not to forget lenient mode
-    //     lenient: true,
-    //   },
-    // },
-  ];
+  // const hardcodedSources = [
+  //   {
+  //     value: 'https://sparql.rhea-db.org/sparql',
+  //   }
+  //   // {
+  //   //   value: 'https://triple.ilabt.imec.be/test/',
+  //   //   context: {
+  //   //     // this way, the authenticated fetch might be scoped to the pod
+  //   //     fetch: fetch,
+  //   //     // not to forget lenient mode
+  //   //     lenient: true,
+  //   //   },
+  //   // },
+  // ];
 
 
   // const allSources: string[] = [];
@@ -229,7 +229,8 @@ async function mixedQuery(
   // Execute query over discovered sources
   try {
     const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
-      sources: hardcodedSources,
+      sources: mixedSources,
+      fetch
     });
 
     const bindingsArray: any[] = [];

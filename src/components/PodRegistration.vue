@@ -1,85 +1,99 @@
 <template>
   <div class="pod-register" v-if="loggedIn">
-    <div class="add-webid" v-if="!podAccess">
-      <v-alert
-        density="compact"
-        title="No Pod Registered to your WebId"
-        type="warning"
-      >
-        <!-- TODO: a hint with the user's current "likely" pod based on WebId 
-              Also, maybe a "one session" pod reference would be cool -->
-        <div class="add-access">
-          <button @click="toggleForm" class="icon-button">
-            <span>Input your Pod URL (optional)</span>
-            <i v-if="!showFormIndex" class="material-icons right">add</i>
-            <i v-if="showFormIndex" class="material-icons right"> remove </i>
-            <v-tooltip class="tool-tip" v-if="showFormIndex" activator="parent" location="end"
-              >Close Pod URL input
-            </v-tooltip>
-          </button>
-          <button @click="findPodList" class="refresh icon-button right">
-            <i class="material-icons right">refresh</i>
-            <v-tooltip class="tool-tip" activator="parent" location="end"
-              >Refresh to check if Pod has been added
-            </v-tooltip>
-          </button>
-        </div>
-
-        <!-- Add Pod to WebId form -->
-        <form @submit.prevent="addToWebIdData">
-          <div class="input-podURL">
-            <div id="shareBox" v-if="showFormIndex" class="form-container">
-              <!-- For adding custom Pod URL -->
-              <v-text-field
-                v-model="customPodUrl"
-                density="compact"
-                :rules="rules"
-              ></v-text-field>
-            </div>
-            <v-btn
-              class="pod-registerButton"
-              variant="tonal"
-              rounded="xs"
-              type="submit"
-            >
-              Register Pod
-              <v-tooltip class="tool-tip" activator="parent" location="end"
-                >Click to add your pod to your WebId card
-              </v-tooltip>
-            </v-btn>
-          </div>
-        </form>
-      </v-alert>
+    <!-- delay div prevents yellow flashing of pod selection box -->
+    <div class="loading-spinner-container" v-if="delay">
+      <div class="spinner"></div>
+      <span class="loading-text">Checking login status ...</span>
     </div>
 
-    <!-- Pod Selection dropdown -->
-    <div class="select-pod" v-if="podAccess">
-      <ul class="horizontal-list">
-        <li>
-          <span>Select Pod:</span>
-        </li>
-        <li>
-          <div class="sel-pod">
-            <v-select
-              variant="outlined"
-              v-model="currentPod"
-              :items="podList"
-            ></v-select>
-            <v-btn
-              class="pod-selectButton"
-              variant="tonal"
-              rounded="xs"
-              @click="selectPod"
-            >
-              Select Pod
-              <v-tooltip class="tool-tip" activator="parent" location="end"
-                >Click to select this pod
+    <div class="delay-placeholder" v-if="!delay">
+      <!-- Pod Selection dropdown -->
+      <div class="select-pod" v-if="podAccess">
+        <ul class="horizontal-list">
+          <li>
+            <span>Select Pod:</span>
+          </li>
+          <li>
+            <div class="sel-pod">
+              <v-select
+                variant="outlined"
+                v-model="currentPod"
+                :items="podList"
+              ></v-select>
+              <v-btn
+                class="pod-selectButton"
+                variant="tonal"
+                rounded="xs"
+                @click="selectPod"
+              >
+                Select Pod
+                <v-tooltip class="tool-tip" activator="parent" location="end"
+                  >Click to select this pod
+                </v-tooltip>
+              </v-btn>
+              <v-icon class="check-mark" v-if="podSuccess" color="green"
+                >mdi-check</v-icon
+              >
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="add-webid" v-else>
+        <v-alert
+          density="compact"
+          title="No Pod Registered to your WebId"
+          type="warning"
+        >
+          <!-- TODO: a hint with the user's current "likely" pod based on WebId 
+              Also, maybe a "one session" pod reference would be cool -->
+          <div class="add-access">
+            <button @click="toggleForm" class="icon-button">
+              <span>Input your Pod URL (optional)</span>
+              <i v-if="!showFormIndex" class="material-icons right">add</i>
+              <i v-if="showFormIndex" class="material-icons right"> remove </i>
+              <v-tooltip
+                class="tool-tip"
+                v-if="showFormIndex"
+                activator="parent"
+                location="end"
+                >Close Pod URL input
               </v-tooltip>
-            </v-btn>
-            <v-icon class="check-mark" v-if="podSuccess" color="green">mdi-check</v-icon>
+            </button>
+            <button @click="findPodList" class="refresh icon-button right">
+              <i class="material-icons right">refresh</i>
+              <v-tooltip class="tool-tip" activator="parent" location="end"
+                >Refresh to check if Pod has been added
+              </v-tooltip>
+            </button>
           </div>
-        </li>
-      </ul>
+
+          <!-- Add Pod to WebId form -->
+          <form @submit.prevent="addToWebIdData">
+            <div class="input-podURL">
+              <div id="shareBox" v-if="showFormIndex" class="form-container">
+                <!-- For adding custom Pod URL -->
+                <v-text-field
+                  v-model="customPodUrl"
+                  density="compact"
+                  :rules="rules"
+                ></v-text-field>
+              </div>
+              <v-btn
+                class="pod-registerButton"
+                variant="tonal"
+                rounded="xs"
+                type="submit"
+              >
+                Register Pod
+                <v-tooltip class="tool-tip" activator="parent" location="end"
+                  >Click to add your pod to your WebId card
+                </v-tooltip>
+              </v-btn>
+            </div>
+          </form>
+        </v-alert>
+      </div>
     </div>
   </div>
 </template>
@@ -96,6 +110,7 @@ export default {
     menu: false,
     message: false,
     podAccess: false,
+    delay: true,
     podList: null,
     customPodUrl: "",
     currentPod: "",
@@ -113,6 +128,10 @@ export default {
     ],
   }),
   methods: {
+    // delays the loading div so there is no yellow flash from async fetching
+    toggleDelay() {
+      this.delay = false;
+    },
     logIn() {
       this.loggedIn = isLoggedin();
       this.user.webId = currentWebId();
@@ -175,6 +194,9 @@ export default {
     setTimeout(() => {
       this.findPodList();
     }, 400);
+    setTimeout(() => {
+      this.toggleDelay();
+    }, 450);
   },
 };
 </script>
@@ -214,6 +236,39 @@ export default {
   font-family: "Oxanium", monospace;
 }
 
+/* Pod lodaing spinner */
+.loading-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  margin: 0 0.25rem 0.25rem 0.25rem;
+  padding: 1rem;
+  margin-left: 8px;
+}
+.loading-text {
+  font-family: "Oxanium", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.spinner {
+  border: 4px solid rgba(63, 1, 117, 0.3);
+  border-top: 4px solid #754ff6;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 /* For pod selection */
 .horizontal-list {
   display: flex;
@@ -250,5 +305,9 @@ button:focus {
 }
 .sel-pod .check-mark {
   margin-bottom: 5px;
+}
+
+.delay-placeholder {
+  background-color: transparent;
 }
 </style>

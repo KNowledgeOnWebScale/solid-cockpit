@@ -3,12 +3,20 @@
     <span>Data Query</span>
   </div>
 
-  <div v-if="!successfulLogin" class="login-container">
-    <pod-login @login-success="handleLoginStatus" />
+  <!-- delay div prevents flashing of login and pod selection box -->
+  <div class="loading-spinner-container" v-if="delay">
+    <div class="spinner"></div>
+    <span class="loading-text">Checking login status ...</span>
   </div>
 
-  <div v-if="successfulLogin" class="pod-chooseContainer">
-    <PodRegistration @pod-selected="handlePodSelected" />
+  <div class="delay-placeholder" v-if="!delay">
+    <div v-if="!successfulLogin" class="login-container">
+      <pod-login @login-success="handleLoginStatus" />
+    </div>
+
+    <div v-if="successfulLogin" class="pod-chooseContainer">
+      <PodRegistration @pod-selected="handlePodSelected" />
+    </div>
   </div>
   <div class="general-container">
     <!-- Left Navigation Bar -->
@@ -110,7 +118,7 @@
               }}
             </p>
           </li>
-          
+
           <!-- execute query -->
           <div class="bottom-container">
             <button
@@ -130,7 +138,7 @@
               ></v-checkbox>
               <div class="save-info">
                 <v-icon>mdi-information</v-icon>
-                <v-tooltip class="tool-tip" activator="parent" location="right"
+                <v-tooltip class="tool-tip" activator="parent" location="bottom"
                   >Check this box if you would like to save the query and any
                   results to your pod</v-tooltip
                 >
@@ -456,9 +464,13 @@ export default {
       cachedQueries: Object,
       queries: [],
       loading: false,
+      delay: true,
     };
   },
   methods: {
+    handleDelay() {
+      this.delay = false;
+    },
     // details about a specific query
     toggleQuery(index) {
       this.showQueryIndex = this.showQueryIndex === index ? null : index;
@@ -505,7 +517,6 @@ export default {
       this.currentQuery.query = "";
     },
 
-    
     /* Takes in the emitted value from PodLogin.vue */
     handleLoginStatus(loginSuccess) {
       this.successfulLogin = loginSuccess;
@@ -659,6 +670,9 @@ export default {
     setTimeout(() => {
       this.loginCheck();
     }, 500); // Delay of 2 seconds
+    setTimeout(() => {
+      this.handleDelay();
+    }, 520); // Delay of 2 seconds
 
     //TODO: integrate yasgui
     // const container = document.getElementById('yasgui-container');
@@ -694,7 +708,7 @@ body {
 .title-container {
   background-color: #445560;
   border-radius: 8px;
-  margin: 0.5rem;
+  margin: 0.5rem 0.5rem 0 0.5rem;
 }
 .title-container span {
   font-size: 30pt;
@@ -707,12 +721,31 @@ body {
   margin: 0 0.25rem 0.25rem 0.25rem;
 }
 
+/* loading spinner for login-check */
+.loading-spinner-container {
+  display: flex;
+  background-color: #445560;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  margin: 0.5rem 0.5rem 0 0.5rem;
+  padding: 1rem;
+  margin-left: 8px;
+}
+.loading-text {
+  font-family: "Oxanium", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 /* Container pod-chooser bar */
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
-  padding: 0rem 0 0 1rem;
-  margin: 0.5rem;
+  padding: 0 0 0 1rem;
+  margin: 0.5rem 0.5rem 0 0.5rem;
 }
 
 /* Whole nav and query container */
