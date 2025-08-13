@@ -15,57 +15,58 @@
     <pod-login />
   </div>
 
-  <div class="pod-reg">
-    <pod-registration />
+  <div class="container">
+    <div class="item">
+      <button class="dropdown-toggle" @click="toggleInfoDropdown">
+        <h2 class="guide" style="display:inline;">What can this application do?</h2>
+        <i class="material-icons dropdown-arrow">
+          {{ infodropdownOpen ? "keyboard_arrow_down" : "chevron_right" }}</i>
+      </button>
+      <div v-if="infodropdownOpen" class="dropdown-content">
+        <h3 class="req"><i class="material-icons arrow-bullet">chevron_right</i> Connect to your <a href="https://solidproject.org/">Solid Pod</a></h3>
+        <p>Login to your pod via your pod provider + personal credentials.</p>
+        <h3 class="req"><i class="material-icons arrow-bullet">chevron_right</i> Manage files in your pod</h3>
+        <p>Upload, delete, and move files in your Solid Pod.</p>
+        <h3 class="req"><i class="material-icons arrow-bullet">chevron_right</i> Query your pod (and SPARQL endpoints you specify)</h3>
+        <p>
+          Execute SPARQL queries over your pod and other accessible Solid Pods or
+          SPARQL Endpoints.
+        </p>
+        <h3 class="req"><i class="material-icons arrow-bullet">chevron_right</i> Edit the privacy of files in your pod</h3>
+        <p>
+          Modify access controls for files and containers in your pod + notify
+          others of the changes.
+        </p>
+        <h3 class="req">
+          <i class="material-icons arrow-bullet">chevron_right</i> Coming soon: edit the profile information associated with your
+          Pod/webId
+        </h3>
+        <p>
+          Edit the personal data incorporated with your Solid Pod and/or your
+          WebID.
+        </p>
+      </div>
+    </div>
+    
+    <div class="item">
+      <button class="dropdown-toggle" @click="toggleGuideDropdown">
+        <h2 class="guide" style="display:inline;">Guides:</h2>
+        <i class="material-icons dropdown-arrow">
+          {{ guidedropdownOpen ? "keyboard_arrow_down" : "chevron_right" }}</i>
+      </button>
+      <div v-if="guidedropdownOpen" class="dropdown-content">
+        ...
+      </div>
+    </div>
+
+
   </div>
 
-  <body>
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="container" >
-      <h2 class="guide">What can this application do?</h2>
 
-      <hr />
-
-      <h3 class="req">1. Connect to your <a href="https://solidproject.org/">Solid Pod</a></h3>
-
-      <p>Login to your pod via your pod provider + personal credentials.</p>
-
-      <hr />
-
-      <h3 class="req">2. Manage files in your pod</h3>
-      <p>Upload, delete, and move files in your Solid Pod.</p>
-
-      <hr />
-
-      <h3 class="req">3. Query your pod (and SPARQL endpoints you specify)</h3>
-      <p>
-        Execute SPARQL queries over your pod and other accessible Solid Pods or
-        SPARQL Endpoints.
-      </p>
-
-      <hr />
-
-      <h3 class="req">4. Edit the privacy of files in your pod</h3>
-      <p>
-        Modify access controls for files and containers in your pod + notify
-        others of the changes.
-      </p>
-
-      <hr />
-
-      <h3 class="req">
-        5. Coming soon: edit the profile information associated with your
-        Pod/webId
-      </h3>
-      <p>
-        Edit the personal data incorporated with your Solid Pod and/or your
-        WebID.
-      </p>
-    </div>
-  </body>
 </template>
 
 <script lang="ts">
+import { getPublicDefaultAccess } from "@inrupt/solid-client";
 import { handleRedirectAfterPageLoad, isLoggedin } from "./login";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
@@ -81,8 +82,16 @@ export default {
   data: () => ({
     login_status: true as boolean,
     visualUrl: new URL('../assets/full-sc-logo-nb.png', import.meta.url).href as string,
+    infodropdownOpen: false as boolean,
+    guidedropdownOpen: false as boolean,
   }),
   methods: {
+    toggleInfoDropdown() {
+      this.infodropdownOpen = !this.infodropdownOpen;
+    },
+    toggleGuideDropdown() {
+      this.guidedropdownOpen = !this.guidedropdownOpen;
+    },
     async credentials(): Promise<void> {
       handleRedirectAfterPageLoad();
     },
@@ -113,7 +122,8 @@ img {
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .login-container {
-  margin: 0 0.5rem 0 0.5rem;
+  margin: 0 0.5rem 0.5rem 0.5rem;
+  
 }
 .pod-reg {
   background-color: #445560;
@@ -143,6 +153,7 @@ img {
 
 .req {
   margin-top: 10px;
+  font-size: 12pt;
 }
 
 .detail {
@@ -150,6 +161,8 @@ img {
 }
 
 p {
+  font-size: 11pt;
+  margin-left: 2.5rem;
   margin-bottom: 15px;
 }
 
@@ -202,9 +215,51 @@ a:hover {
   font-family: "Oxanium", monospace;
   max-width: 100%;
   margin: 0 1rem;
-  padding: 2rem;
+  padding: 1rem;
   background: #445560;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Dropdown style */
+.dropdown-toggle {
+  background: #28353e;
+  border: 1px solid #ede7f6;
+  color: #ede7f6;
+  font-family: "Oxanium", monospace;
+  font-size: 12pt;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dropdown-toggle:hover {
+  background: #37474f;
+  color: #fff;
+}
+.dropdown-arrow {
+  font-size: 1.5em;
+  margin-left: 0.5em;
+  color: #ede7f6;
+}
+.dropdown-content {
+  margin-top: 0.5rem;
+  background: #37474f;
+  border-radius: 8px;
+  padding: 0.2rem 0.5rem;
+  color: #ede7f6;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.10);
+}
+.arrow-bullet {
+  font-size: 1.1em;
+  color: #ede7f6;
+  margin-right: 0.5em;
+  vertical-align: middle;
 }
 </style>

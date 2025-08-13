@@ -12,10 +12,8 @@ import {
   setThing,
   Thing,
   getThingAll,
-  getStringNoLocale,
   SolidDataset,
   getFile,
-  getContainedResourceUrlAll,
   getUrl,
   getDatetime,
 } from "@inrupt/solid-client";

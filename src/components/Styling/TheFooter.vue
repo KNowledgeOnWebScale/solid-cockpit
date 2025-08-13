@@ -2,10 +2,10 @@
   <br>
   <footer class="app-footer">
     <div class="copyright">
-      <span class="copyright-tiem">Copyright</span>
-      <span class="copyright-tiem">©</span>
-      <span class="copyright-tiem">2024 - present</span> 
-      <span class="copyright-tiem">
+      <span class="copyright-item">Copyright</span>
+      <span class="copyright-item">©</span>
+      <span class="copyright-item">2024 - present</span> 
+      <span class="copyright-item">
         <a
           href="https://knows.idlab.ugent.be/"
           target="_blank"
@@ -80,14 +80,19 @@ export default defineComponent({
   font-family: Oxanium;
   font-weight: 700;
   border-radius: 4px;
+  margin-top: auto;
 }
 .copyright {
   display: flex;
   justify-content: space-evenly;
   align-items: center;
-  width: 40%;
+  width: 60%;
   margin: 0 auto;
   padding: 0.5rem 1rem 1rem 1rem;
+}
+.copyright-item {
+  display: flex;
+  justify-content: space-evenly;
 }
 .copyright-content {
   justify-content: center;

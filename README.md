@@ -5,12 +5,11 @@
 ---
 
 ## Table of Contents
-- [Ways to Get a Solid Pod:](#solidpod)
+- [Ways to Get a Solid Pod](#ways-to-get-a-solid-pod)
 - [Contribute](#contribute)
-- [Development Notes](#devnotes)
-- [Features](#features)
-- [TRIPLE Guide](#triple)
-- [License](#license)
+- [Development Notes](#development-notes)
+- [TRIPLE Guide](#triple-guide)
+- [Solid Pod VoID File Generation Guide](#solid-pod-void-file-generation-guide)
 - [Contact](#contact)
 
 # Solid Cockpit
@@ -185,8 +184,10 @@ java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-s
 
 ---
 
+## Contact
+
 🙏 We hope you find this guide helpful in setting up and exploring your Solid Pod. For questions or comments: [go here](https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions). To report bugs or problems: [try here](https://github.com/KNowledgeOnWebScale/solid-cockpit/issues).
 
 
 
-Enjoy piloting your Pod with Solid Cockpit!
+We hope you enjoy piloting your Solid Pod with Solid Cockpit!
