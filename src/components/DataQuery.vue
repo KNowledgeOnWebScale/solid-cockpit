@@ -159,8 +159,6 @@
             <span class="cached-title">Cached Queries</span>
 
             <!-- Iterates over list queries in Query Cache -->
-            <!-- TODO: Fix switching between queries without closing drop-downs (right now it has weird activity...) -->
-            <!-- TODO: Fix the arrow changing for all div when only one query is exanded (also apply fix to PrivacyEditing component) -->
             <li v-for="(query, index) in cachedQueries" :key="index">
               <div class="card-panel folder">
                 <div class="folder-header">
@@ -176,9 +174,9 @@
                     </div>
                     <i class="material-icons not-colored info-icon">
                       {{
-                        showQueryIndex === null
-                          ? "chevron_right info"
-                          : "keyboard_arrow_down info"
+                        showQueryIndex === index
+                          ? "keyboard_arrow_down info"
+                          : "chevron_right info"
                       }}</i
                     >
                   </button>
@@ -196,21 +194,21 @@
                   <!-- The SPARQL query that was executed -->
                   <div class="query-file-container">
                     <span class="user-tag">Query File: <br /></span>
-                    <div class="query-file">
-                      <span class="the-user"
-                        ><i>{{ query.queryFile }}</i></span
-                      >
-                      <button
-                        @click="fetchQuery(cachedQueries[index].hash)"
-                        class="drop-down"
-                      >
-                        <i class="material-icons not-colored right">{{
+                    <button
+                      @click="fetchQuery(cachedQueries[index].hash)"
+                      class="drop-down"
+                    >
+                      <div class="query-file-info">
+                        <span class="the-user"
+                          ><i>{{ query.queryFile }}</i></span
+                        >
+                        <i class="material-icons not-colored">{{
                           showRetrievedQuery
                             ? "keyboard_arrow_down"
                             : "chevron_right"
                         }}</i>
-                      </button>
-                    </div>
+                      </div>
+                    </button>
 
                     <div
                       class="sparql-box"
@@ -224,14 +222,14 @@
                   <div class="query-results-container">
                     <span class="user-tag">Results File: <br /></span>
                     <div class="query-results">
-                      <span class="the-user"
-                        ><i>{{ query.resultsFile }}</i></span
-                      >
                       <button
                         @click="fetchResults(cachedQueries[index].hash)"
                         class="drop-down"
                       >
-                        <i class="material-icons not-colored right">{{
+                        <span class="the-user"
+                          ><i>{{ query.resultsFile }}</i></span
+                        >
+                        <i class="material-icons not-colored">{{
                           showRetrievedResults
                             ? "keyboard_arrow_down"
                             : "chevron_right"
@@ -290,6 +288,134 @@
                         <a>{{ source }}</a>
                       </li>
                     </ul>
+                  </div>
+
+                  <!-- TODO: Need top level for the whole query cache -->
+                  <!-- TODO: Then a lower level for each query hash -->
+                  <!-- For sharing cached query data -->
+                  <div class="sharing-prompt">
+                    <button
+                      @click="toggleShared(), getSpecificCacheAclData(url)"
+                      class="sharing-button full-width"
+                    >
+                      <span>Resource Sharing Information</span>
+                      <i class="material-icons not-colored info-icon">
+                        {{
+                          showSharing
+                            ? "keyboard_arrow_down share"
+                            : "chevron_right share"
+                        }}</i
+                      >
+                    </button>
+                    <div id="permissionsBox" class="form-container" v-if="showSharing">
+
+                      <!-- For the case that a container/resource has an existing .acl -->
+                      <div id="aclExists" v-if="hasAcl !== null">
+                        <div>
+                          <span id="permissionsInstructions"
+                            >Current Access Rights
+                            <button
+                              @click="getSpecificAclData(url)"
+                              class="icon-button right"
+                            >
+                              <i class="material-icons not-colored right"
+                                >refresh</i
+                              >
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="end"
+                                >Refresh access rights
+                              </v-tooltip>
+                            </button></span
+                          >
+                        </div>
+                        <div id="currentPermissions">
+                          <li
+                            class="access-item"
+                            v-for="(agent, inde) in hasAccess"
+                            :key="inde"
+                          >
+                            <div class="user-id">
+                              <div class="left-content">
+                                <span class="user-tag">Agent:<br /></span>
+                                <span class="the-user"
+                                  ><i>{{ inde }}</i>
+                                </span>
+                              </div>
+                              <button
+                                @click="copyText(inde.toString())"
+                                class="icon-button right"
+                              >
+                                <i class="material-icons not-colored right"
+                                  >content_copy</i
+                                >
+                                <v-tooltip
+                                  class="tool-tip"
+                                  activator="parent"
+                                  location="left"
+                                  >Copy WebID to clipboard
+                                </v-tooltip>
+                              </button>
+                            </div>
+                            <span class="permissions-tag"
+                              >Permissions:<br
+                            /></span>
+                            <ul
+                              v-for="(permission, ind) in hasAccess[inde]"
+                              :key="ind"
+                            >
+                              <div
+                                class="permission-item"
+                                :class="{
+                                  'true-color': permission,
+                                  'false-color': !permission,
+                                }"
+                              >
+                                <span class="permission-label">{{ ind }}</span>
+                                <span class="permission-value">
+                                  <i>({{ permission }})</i>
+                                  <i class="material-icons right">
+                                    {{ permission ? "check" : "dangerous" }}
+                                  </i>
+                                </span>
+                              </div>
+                            </ul>
+                          </li>
+                          <span id="withPermissions"> </span>
+                        </div>
+                      </div>
+
+                      <!-- For the case the query cache does not have an existing .acl -->
+                      <div
+                        id="noAclExists"
+                        v-if="hasAcl === null && !cannotMakeAcl"
+                      >
+                        <v-alert
+                          type="warning"
+                          title="There is no .acl (permissions file) for the query cache"
+                          >Click the button below to create and initalize
+                          one.</v-alert
+                        >
+                        <button @click="makeNewAcl(url)" class="new-acl">
+                          <span>Generate .acl</span>
+                        </button>
+                      </div>
+
+                      <!-- For the case that an .acl connot be initialized (e.g. for a file) -->
+                      <div
+                        id="noAclMade"
+                        v-if="hasAcl === null && cannotMakeAcl"
+                      >
+                        <v-alert
+                          type="error"
+                          title="Cannot initialize an .acl for this item"
+                          closable
+                          >The .acl of the container this file is located within
+                          will be used for access controls.</v-alert
+                        >
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -401,6 +527,20 @@ import {
   executeQuery,
   fetchSparqlJsonFileData,
 } from "./queryPod";
+import {
+  fetchPermissionsData,
+  fetchAclAgents,
+  fetchPublicAccess,
+} from "./getData";
+import {
+  changeAclAgent,
+  changeAclPublic,
+  checkUrl,
+  generateAcl,
+  createInboxWithACL,
+  updateSharedWithMe,
+  updateSharedWithOthers,
+} from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import { toRaw } from "vue";
@@ -465,6 +605,11 @@ export default {
       queries: [],
       loading: false,
       delay: true,
+      showSharing: false,
+      hasAcl: null,
+      cannotMakeAcl: false,
+      hasAccess: {},
+      publicAccess: {},
     };
   },
   methods: {
@@ -473,7 +618,15 @@ export default {
     },
     // details about a specific query
     toggleQuery(index) {
+      // Reset expanded states when switching queries
+      if (this.showQueryIndex !== index) {
+        this.showRetrievedQuery = false;
+        this.showRetrievedResults = false;
+      }
       this.showQueryIndex = this.showQueryIndex === index ? null : index;
+    },
+    toggleShared() {
+      this.showSharing = !this.showSharing;
     },
     // for the sources autocomplete list
     itemPropsSources(item) {
@@ -532,6 +685,8 @@ export default {
     },
 
     // Executes user provided query and saves it to querycache if specified
+    // TODO: Implement Bryan's Module here
+    // TODO: Implement Jonni's Module here (after Bryan's)
     async runExecuteQuery() {
       this.loading = true;
       if (this.currentQuery.query.trim() === "") {
@@ -641,6 +796,58 @@ export default {
         `${this.currentPod}querycache/${hash}.rq`
       );
       this.togglRetrievedQuery();
+    },
+
+    /**
+     * Obtains a list of agents that have access to the designated resource or container
+     *
+     * @param path the URL of the resource or container for which access rights are to be displayed
+     */
+    async getSpecificCacheAclData() {
+      const cacheUrl = this.currentPod + "querycache/";
+      this.hasAcl = await fetchPermissionsData(cacheUrl); // value is either .acl obj OR null (if .acl does not exist)
+      if (this.hasAcl !== null) {
+        this.hasAccess = await fetchAclAgents(cacheUrl);
+        this.publicAccess = await fetchPublicAccess(cacheUrl);
+        this.hasAccess = {
+          Public: this.publicAccess,
+          ...this.hasAccess,
+        };
+        this.cannotMakeAcl = false;
+      }
+    },
+    /**
+     * Obtains a list of agents that have access to the designated resource or container
+     *
+     * @param path the URL of the resource or container for which access rights are to be displayed
+     */
+    async getSpecificQueryAclData(queryHash) {
+      const queryUrl = this.currentPod + "querycache/" + queryHash;
+      this.hasAcl = await fetchPermissionsData(queryUrl); // value is either .acl obj OR null (if .acl does not exist)
+      if (this.hasAcl !== null) {
+        this.hasAccess = await fetchAclAgents(cacheUrl);
+        this.publicAccess = await fetchPublicAccess(cacheUrl);
+        this.hasAccess = {
+          Public: this.publicAccess,
+          ...this.hasAccess,
+        };
+        this.cannotMakeAcl = false;
+      }
+    },
+    /**
+     * Makes a new .acl file for containers or resources that do not have a vaild .acl
+     *
+     * @param path the URL of the resource or container for which an .acl is to be made
+     */
+    async makeNewAcl() {
+      const cacheUrl = this.currentPod + "querycache/";
+      try {
+        await generateAcl(cacheUrl, this.webId);
+        await this.getSpecificCacheAclData();
+      } catch (err) {
+        console.error(err);
+        this.cannotMakeAcl = true;
+      }
     },
   },
   mounted() {
@@ -1017,6 +1224,7 @@ ul {
 .specific-query {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   background: #1e1e1e;
   padding: 10px;
   margin-top: 10px;
@@ -1057,7 +1265,12 @@ ul {
 }
 
 /* Displayed SPARQL query from .rq file */
-.query-file {
+.query-file-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+.drop-down {
   display: flex;
   justify-content: space-between;
   width: 100%;
@@ -1150,7 +1363,7 @@ ul {
   margin: 1rem;
 }
 .result-count {
-  font-size: 16px;
+  font-size: 14px;
   margin-left: 3rem;
 }
 .scroll-wrapper {
@@ -1160,8 +1373,8 @@ ul {
 .result-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
   table-layout: auto; /* Ensures columns adjust dynamically */
-  min-width: 100%; /* Prevents columns from shrinking too much */
   border-radius: 5px;
 }
 /* Header & Data Cell Styling */
@@ -1169,12 +1382,11 @@ ul {
 .result-table td {
   font-family: "Oxanium", monospace;
   padding: 12px 15px; /* More padding for better spacing */
-  border: 1px solid #ede7f6;
+  border-radius: 5px;
   text-align: left;
   white-space: nowrap; /* Prevents text from wrapping */
   overflow: hidden;
   text-overflow: ellipsis; /* Adds "..." if text is too long */
-  border-radius: 5px;
 }
 /* Header Styling */
 .result-table th {
@@ -1190,10 +1402,44 @@ ul {
 .result-table tr:nth-child(even) {
   background-color: #445560; /* Slightly lighter shade */
 }
+.result-table tr:nth-child(odd) {
+  background-color: #2c363d; /* Slightly lighter shade */
+}
 /* Hover Effect */
 .result-table tr:hover {
   background-color: #201054; /* Light blue highlight */
   cursor: pointer;
+}
+
+/* Sharing of a cached query */
+.sharing-prompt {
+  background-color: #0d1115;
+  border-radius: 8px;
+  margin-top: 0.25rem;
+}
+.sharing-prompt:hover {
+  background-color: #764ff633;
+  transition: background-color 0.2s ease;
+}
+.sharing-button {
+  padding: 0.25rem 0.25rem 0.25rem 0;
+  font-weight: 600;
+}
+
+/* button that generates a new acl (if one does not already exist) */
+.new-acl {
+  padding: 0.25rem;
+  margin-top: 5px;
+  background-color: #ede7f6;
+  color: #445560;
+  border: none;
+  cursor: pointer;
+  font-family: "Oxanium", monospace;
+  font-size: large;
+  border-radius: 6px;
+}
+.new-acl:hover {
+  background-color: #a9a7ad;
 }
 
 /* The how to use guide */

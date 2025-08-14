@@ -1,5 +1,5 @@
 import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
-import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-link-traversal-solid";
+import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -200,7 +200,6 @@ async function mixedQuery(
   //   //   },
   //   // },
   // ];
-
 
   // const allSources: string[] = [];
 

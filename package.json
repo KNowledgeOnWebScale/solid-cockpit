@@ -15,8 +15,8 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@comunica/query-sparql": "^3.3.0",
-    "@comunica/query-sparql-link-traversal-solid": "^0.3.0",
+    "@comunica/query-sparql": "^4.3.0",
+    "@comunica/query-sparql-solid": "^4.0.2",
     "@inrupt/solid-client": "^2.0.1",
     "@inrupt/solid-client-authn-browser": "^2.1.0",
     "@sib-swiss/sparql-editor": "^0.2.11",
