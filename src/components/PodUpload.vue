@@ -432,7 +432,6 @@ body {
   padding: 0;
   margin: 0;
 }
-
 .path-selection span {
   font-size: 18pt;
   font-family: "Oxanium", monospace;

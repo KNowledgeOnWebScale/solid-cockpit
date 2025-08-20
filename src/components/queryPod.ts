@@ -1,5 +1,8 @@
 import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
 import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
+import { QueryEngineFactory as QueryFactorySparql } from 'query-sparql-remote-cache';
+import { KeyRemoteCache } from 'actor-query-process-remote-cache';
+import { LoggerPretty } from "@comunica/logger-pretty";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -26,7 +29,7 @@ interface queryResultJson {
 }
 
 /**
- * Cleans an array of source URLs by removing angle brackets ("<" and ">") 
+ * Cleans an array of source URLs by removing angle brackets ("<" and ">")
  * from URLs that are enclosed in them.
  *
  * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
@@ -98,9 +101,70 @@ export async function executeQuery(
       return results;
     } else {
       // for combination of Solid and SPARQL sources
-      console.log(
-        "Results displayed are from BOTH SPARQL and SOLID sources."
-      );
+      console.log("Results displayed are from BOTH SPARQL and SOLID sources.");
+      return results;
+    }
+  }
+}
+
+
+/**
+ * Executes a SPARQL query over one or many SPARQL endpoints and/or Solid Pods.
+ *
+ * @param query The string representation of a SPARQL query to be executed.
+ * @param providedSources a string[] that provides the sources for executing the specified query
+ * @param userCachePath a string designating the user's pod url
+ * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+ */
+export async function executeQueryWithPodConnected(
+  query: string,
+  providedSources: string[],
+  userCachePath: string
+): Promise<queryResultJson | null> {
+  // remove "<>" from Endpoint IRIs
+  const cleanedSources = cleanSourcesUrls(providedSources);
+  const sparqlSources: string[] = [];
+  const solidSources: string[] = [];
+  let queryType = 0;
+
+  for (const sourceUrl of cleanedSources) {
+    if (sourceUrl.includes("sparql")) {
+      sparqlSources.push(sourceUrl);
+    } else {
+      solidSources.push(sourceUrl);
+    }
+  }
+  console.log("SPARQL Sources: ", sparqlSources);
+  console.log("Solid Sources: ", solidSources);
+
+  let results = null;
+
+  if (solidSources.length < 1) {
+    results = await sparqlQueryWithCache(query, sparqlSources, userCachePath);
+    queryType += 1;
+  }
+  if (solidSources.length > 0 && sparqlSources.length < 1) {
+    results = await mixedQuery(query, cleanedSources);
+    queryType += 10;
+  }
+  if (solidSources.length > 0 && sparqlSources.length > 0) {
+    results = await mixedQuery(query, cleanedSources);
+    queryType += 11;
+  }
+
+  // for just SPARQL sources
+  // TODO: Make this BOTH sources type work with data display (probably two different tables??)
+  if (queryType == 1) {
+    console.log("Results displayed are from ONLY SPARQL sources.");
+    return results;
+  } else {
+    // for just Solid sources
+    if (queryType == 10) {
+      console.log("Results displayed are from ONLY SOLID Pod sources.");
+      return results;
+    } else {
+      // for combination of Solid and SPARQL sources
+      console.log("Results displayed are from BOTH SPARQL and SOLID sources.");
       return results;
     }
   }
@@ -123,7 +187,7 @@ async function sparqlEndpointQuery(
   sparqlSources: string[]
 ): Promise<queryResultJson | null> {
   // execute query over SPARQL endpoint(s)
-  
+
   const mySparqlEngine = new QueryEngineSparql();
   try {
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
@@ -172,6 +236,49 @@ async function sparqlEndpointQuery(
   } catch (err) {
     return null;
   }
+}
+
+/**
+ * Executes a SPARQL query over a list of provided Solid Pod URLs.
+ *
+ * @param inputQuery The string representation of a SPARQL query to be executed.
+ * @param mixedSources a string[] that provides the Solid Pod sources for executing the specified query.
+ * @param cachePath a string designating the user's pod url
+ * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+ */
+async function sparqlQueryWithCache(
+  inputQuery: string,
+  mixedSources: string[],
+  cachePath: string
+): Promise<queryResultJson | null> {
+  const cacheLocation = { url: cachePath + "/queries.ttl" };
+  const mySparqlEngine = await new QueryFactorySparql().create();
+
+  const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
+    lenient: true,
+    [KeyRemoteCache.location.name]: cacheLocation,
+    sources: mixedSources,
+    failOnCacheMiss: true,
+    log: new LoggerPretty({ level: "info" }),
+    "@comunica/core:log": new LoggerPretty({ level: "info" }),
+  });
+
+  let i = 0;
+  bindingsStream.getProperty("provenance", (val) => {
+    console.log(`provenance: ${JSON.stringify(val, null, 2)}`);
+  });
+
+  bindingsStream.on("data", (_binding) => {
+    i += 1;
+  });
+  bindingsStream.on("end", () => {
+    console.log(`there are ${i} results`);
+  });
+  bindingsStream.on("error", (error) => {
+    console.error(error);
+  });
+
+  return null;
 }
 
 /**
@@ -229,7 +336,7 @@ async function mixedQuery(
   try {
     const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
       sources: mixedSources,
-      fetch
+      fetch,
     });
 
     const bindingsArray: any[] = [];
@@ -320,10 +427,10 @@ export function generateSeededHash(seedValue: string, length = 10): string {
 function mulberry32(seed: number): () => number {
   return function () {
     seed |= 0;
-    seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -333,7 +440,7 @@ function mulberry32(seed: number): () => number {
 function stringToSeed(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+    hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
   }
   return hash >>> 0;
 }
@@ -442,7 +549,7 @@ export async function createQueriesTTL(
     "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
   const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint";
   const OWL = "http://www.w3.org/2002/07/owl#";
-  const SCHEMA = 'https://schema.org/';
+  const SCHEMA = "https://schema.org/";
   const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
 
   let cleanedSources: string[] = cleanSourcesUrls(sources);
@@ -508,11 +615,13 @@ export async function createQueriesTTL(
     // Add date of query execution.
     .addDatetime(`${CREATED}`, new Date())
     .build();
-  
+
   // Adds any SERVICE description sources to query entry
   if (serviceSources.length > 0) {
     serviceSources.forEach((source) => {
-      newQueryThing = buildThing(newQueryThing).addUrl(`${SPEX}federatesWith`, source).build();
+      newQueryThing = buildThing(newQueryThing)
+        .addUrl(`${SPEX}federatesWith`, source)
+        .build();
     });
   }
 

@@ -307,8 +307,11 @@
                         }}</i
                       >
                     </button>
-                    <div id="permissionsBox" class="form-container" v-if="showSharing">
-
+                    <div
+                      id="permissionsBox"
+                      class="form-container"
+                      v-if="showSharing"
+                    >
                       <!-- For the case that a container/resource has an existing .acl -->
                       <div id="aclExists" v-if="hasAcl !== null">
                         <div>
@@ -525,6 +528,7 @@ import {
   fetchQueryFileData,
   getCachedQueries,
   executeQuery,
+  executeQueryWithPodConnected,
   fetchSparqlJsonFileData,
 } from "./queryPod";
 import {
@@ -544,7 +548,6 @@ import {
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import { toRaw } from "vue";
-import "@sib-swiss/sparql-editor";
 
 export default {
   components: {
@@ -685,7 +688,6 @@ export default {
     },
 
     // Executes user provided query and saves it to querycache if specified
-    // TODO: Implement Bryan's Module here
     // TODO: Implement Jonni's Module here (after Bryan's)
     async runExecuteQuery() {
       this.loading = true;
@@ -694,10 +696,36 @@ export default {
         return;
       }
 
+      // Use the query cache for querying if a pod is connected
       // Here, the app will save the query and results using a hash
       if (this.saveQuery) {
         this.cachePath = await ensureCacheContainer(this.currentPod);
 
+        // execute the query (using the cache if a pod is connected)
+        if (!this.currentPod == "") {
+          this.currentQuery.results = await executeQueryWithPodConnected(
+            this.currentQuery.query,
+            this.currentQuery.sources,
+            this.cachePath
+          );
+        } else {
+          this.currentQuery.results = await executeQuery(
+            this.currentQuery.query,
+            this.currentQuery.sources
+          );
+        }
+
+        // TODO: handle error thrown by not finding a proper result ...
+        
+        // Handle empty results
+        if (!this.currentQuery.results || !this.currentQuery.results.results) {
+          this.currentQuery.results = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
+        // adding query and results to cache
         // adds query to queries.ttl
         this.currHash = await createQueriesTTL(
           this.cachePath,
@@ -710,31 +738,28 @@ export default {
           this.currentQuery.query,
           this.currHash
         );
-        // execute the query
-        this.currentQuery.results = await executeQuery(
-          this.currentQuery.query,
-          this.currentQuery.sources
-        );
-
-        // Handle empty results
-        if (!this.currentQuery.results || !this.currentQuery.results.results) {
-          this.currentQuery.results = {
-            head: { vars: [] },
-            results: { bindings: [] },
-          };
-        }
-
         // create #hash.sparqljson file with query results
         this.resultsFile = await uploadResults(
           this.cachePath,
           JSON.stringify(this.currentQuery.results, null, 2),
           this.currHash
         );
-      } else {
-        this.currentQuery.results = await executeQuery(
-          this.currentQuery.query,
-          this.currentQuery.sources
-        );
+      } 
+      // for when there is not a pod connected when querying
+      else {
+        // execute the query (using the cache if a pod is connected)
+        if (!this.currentPod == "") {
+          this.currentQuery.results = await executeQueryWithPodConnected(
+            this.currentQuery.query,
+            this.currentQuery.sources,
+            this.currentPod
+          );
+        } else {
+          this.currentQuery.results = await executeQuery(
+            this.currentQuery.query,
+            this.currentQuery.sources
+          );
+        }
 
         // Handle empty results
         if (!this.currentQuery.results || !this.currentQuery.results.results) {
