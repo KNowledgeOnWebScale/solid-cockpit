@@ -1,6 +1,6 @@
 import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
 import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
-import { QueryEngineFactory as QueryFactorySparql } from 'query-sparql-remote-cache';
+import { QueryEngine as SparqlEngineCache } from 'query-sparql-remote-cache';
 import { KeyRemoteCache } from 'actor-query-process-remote-cache';
 import { LoggerPretty } from "@comunica/logger-pretty";
 import { Bindings } from "@comunica/types";
@@ -238,6 +238,18 @@ async function sparqlEndpointQuery(
   }
 }
 
+import { init } from 'z3-solver'
+
+async function boot() {
+  const { Context } = await init()        // loads WASM + workers
+  const { Solver, Int, And } = new Context('main')
+
+  const x = Int.const('x')
+  const s = new Solver()
+  s.add(And(x.ge(0), x.le(9)))
+  console.log(await s.check())            // -> "sat"
+}
+
 /**
  * Executes a SPARQL query over a list of provided Solid Pod URLs.
  *
@@ -252,10 +264,11 @@ async function sparqlQueryWithCache(
   cachePath: string
 ): Promise<queryResultJson | null> {
   const cacheLocation = { url: cachePath + "/queries.ttl" };
-  const mySparqlEngine = await new QueryFactorySparql().create();
+  const mySparqlEngine = new SparqlEngineCache();
 
   const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
     lenient: true,
+    fetch: fetch,
     [KeyRemoteCache.location.name]: cacheLocation,
     sources: mixedSources,
     failOnCacheMiss: true,
