@@ -36,7 +36,7 @@
         <li>
           <button
             :class="{ highlight: currentView === 'previousQueries' }"
-            @click="loadCache"
+            @click="previousQueriesView"
           >
             Past Queries
           </button>
@@ -170,7 +170,7 @@
                       <i class="material-icons not-colored left">{{
                         "search"
                       }}</i>
-                      <span class="query-hash">{{ query.hash }}</span>
+                      <span>{{ query.hash }}</span>
                     </div>
                     <i class="material-icons not-colored info-icon">
                       {{
@@ -429,18 +429,103 @@
     </div>
   </div>
 
-  <div class="results-container" v-if="loading || currentQuery.results != null">
+  <div class="results-container" v-if="loading || currentQuery.output != null">
     <!-- Loading Spinner -->
     <div v-if="loading" class="spinner-container">
       <div class="spinner"></div>
       <p>Loading query results...</p>
     </div>
 
-    <!-- <div class="init-yasgui" id="yasgui"></div>
-    <div ref="yasrContainer" class="yasr-container"></div> -->
+    <!-- TODO: A Stop Query button to halt execution -->
+
+    <!-- Display Query Cache Informaton -->
+    <div
+      class="cache-header"
+      v-if="
+        !loading &&
+        currentQuery.output != null &&
+        currentQuery.output.provenanceOutput != null
+      "
+    >
+      <div class="cached-container">
+        <div class="folder-header">
+          <button
+            @click="toggleResultsQuery(currentCachedQueryHash)"
+            class="icon-button full-width"
+          >
+            <span
+              >Executed query is
+              {{
+                provType(currentQuery.output.provenanceOutput.algorithm)
+              }}
+              cached query:</span
+            >
+            <div class="query-hash">
+              <span>{{ currentCachedQueryHash }}</span>
+            </div>
+            <i class="querycache-icon material-icons not-colored info-icon">
+              {{
+                showResultQuery
+                  ? "keyboard_arrow_down info"
+                  : "chevron_right info"
+              }}</i
+            >
+          </button>
+        </div>
+        <div class="specific-query" v-if="showResultQuery">
+          <!-- When query was executed -->
+          <div class="query-time">
+            <span class="user-tag">Date Executed: <br /></span>
+            <span class="the-user"
+              ><i>{{ cachedQueries[cachedQueryIndex].created }}</i></span
+            >
+          </div>
+
+          <!-- The SPARQL query that was executed -->
+          <div class="query-file-container">
+            <span class="user-tag">Query File: <br /></span>
+            <button
+              @click="fetchQuery(currentCachedQueryHash)"
+              class="drop-down"
+            >
+              <div class="query-file-info">
+                <span class="the-user"
+                  ><i>{{ cachedQueries[cachedQueryIndex].queryFile }}</i></span
+                >
+                <i class="material-icons not-colored">{{
+                  showRetrievedQuery ? "keyboard_arrow_down" : "chevron_right"
+                }}</i>
+              </div>
+            </button>
+
+            <!-- Query text -->
+            <div
+              class="sparql-box"
+              v-if="showRetrievedQuery && retrievedQuery != null"
+            >
+              <pre><code>{{ retrievedQuery }}</code></pre>
+            </div>
+          </div>
+
+          <!-- Query sources -->
+          <div class="query-sources">
+            <span class="user-tag">Sources: <br /></span>
+            <ul>
+              <li
+                v-for="(source, i) in cachedQueries[cachedQueryIndex]
+                  .sourceUrls"
+                :key="i"
+              >
+                <a>{{ source }}</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Display Result Count -->
-    <div class="results-header" v-if="!loading && currentQuery.results != null">
+    <div class="results-header" v-if="!loading && currentQuery.output != null">
       <span>Query Results</span>
       <p class="result-count">
         (n = {{ resolvedQueryResults.results.bindings.length }})
@@ -589,7 +674,7 @@ export default {
         name: "",
         sources: [],
         query: "", // The current SPARQL query input
-        results: null,
+        output: null,
       },
       resolvedQueryResults: Object,
       saveQuery: false,
@@ -613,11 +698,33 @@ export default {
       cannotMakeAcl: false,
       hasAccess: {},
       publicAccess: {},
+      currentCachedQueryHash: null,
+      cacheType: "",
+      showResultQuery: false,
+      cachedQueryIndex: null,
     };
   },
   methods: {
     handleDelay() {
       this.delay = false;
+    },
+    provType(p) {
+      return p === "equality" ? "equivalent to" : "a specialization of";
+    },
+    async toggleResultsQuery(hash) {
+      if (!this.showResultQuery) {
+        this.showResultQuery = true;
+        await this.loadCache();
+      } else {
+        this.showResultQuery = false;
+      }
+      // keep track of current cached query's index for data fetching
+      for (let i = 0; i < this.cachedQueries.length; i++) {
+        if (this.cachedQueries[i].hash === hash) {
+          this.cachedQueryIndex = i;
+          break;
+        }
+      }
     },
     // details about a specific query
     toggleQuery(index) {
@@ -696,30 +803,34 @@ export default {
         return;
       }
 
-      // Use the query cache for querying if a pod is connected
       // Here, the app will save the query and results using a hash
       if (this.saveQuery) {
+        // check if a querycache is present within pod
         this.cachePath = await ensureCacheContainer(this.currentPod);
 
-        // execute the query (using the cache if a pod is connected)
-        if (!this.currentPod == "") {
-          this.currentQuery.results = await executeQueryWithPodConnected(
-            this.currentQuery.query,
-            this.currentQuery.sources,
-            this.cachePath
-          );
-        } else {
-          this.currentQuery.results = await executeQuery(
-            this.currentQuery.query,
-            this.currentQuery.sources
+        // execute the query using the cache
+        this.currentQuery.output = await executeQueryWithPodConnected(
+          this.currentQuery.query,
+          this.currentQuery.sources,
+          this.cachePath
+        );
+
+        //Handling the display if the cache was used
+        if (this.currentQuery.output.provenanceOutput != null) {
+          this.cacheType = this.currentQuery.output.provenanceOutput.algorithm;
+          this.currentCachedQueryHash = this.getCacheEntryHash(
+            this.currentQuery.output.provenanceOutput.id.value
           );
         }
 
         // TODO: handle error thrown by not finding a proper result ...
-        
+
         // Handle empty results
-        if (!this.currentQuery.results || !this.currentQuery.results.results) {
-          this.currentQuery.results = {
+        if (
+          !this.currentQuery.output.resultsOutput ||
+          !this.currentQuery.output.resultsOutput.results
+        ) {
+          this.currentQuery.output.resultsOutput = {
             head: { vars: [] },
             results: { bindings: [] },
           };
@@ -741,51 +852,62 @@ export default {
         // create #hash.sparqljson file with query results
         this.resultsFile = await uploadResults(
           this.cachePath,
-          JSON.stringify(this.currentQuery.results, null, 2),
+          JSON.stringify(this.currentQuery.output.resultsOutput, null, 2),
           this.currHash
         );
-      } 
-      // for when there is not a pod connected when querying
+      }
+
+      // for when the query is not to be saved
       else {
         // execute the query (using the cache if a pod is connected)
         if (!this.currentPod == "") {
-          this.currentQuery.results = await executeQueryWithPodConnected(
+          // if there is a pod connected
+          this.cachePath = await ensureCacheContainer(this.currentPod);
+          this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
             this.currentQuery.sources,
-            this.currentPod
+            this.cachePath
           );
         } else {
-          this.currentQuery.results = await executeQuery(
+          // when there is not a pod connected
+          this.currentQuery.output = await executeQuery(
             this.currentQuery.query,
             this.currentQuery.sources
           );
         }
 
+        // Handling the display if the cache was useds
+        if (this.currentQuery.output.provenanceOutput != null) {
+          this.cacheType = this.currentQuery.output.provenanceOutput.algorithm;
+          this.currentCachedQueryHash = this.getCacheEntryHash(
+            this.currentQuery.output.provenanceOutput.id.value
+          );
+        }
+
         // Handle empty results
-        if (!this.currentQuery.results || !this.currentQuery.results.results) {
-          this.currentQuery.results = {
+        if (
+          !this.currentQuery.output.resultsOutput ||
+          !this.currentQuery.output.resultsOutput.results
+        ) {
+          this.currentQuery.output.resultsOutput = {
             head: { vars: [] },
             results: { bindings: [] },
           };
         }
 
-        this.resolvedQueryResults = toRaw(this.currentQuery.results);
-        // this.initializeYasr();
-        // this.yasr.setResponse({ data: this.resolvedQueryResults, contentType: "application/sparql-results+json" });
+        this.resolvedQueryResults = toRaw(
+          this.currentQuery.output.resultsOutput
+        );
       }
       this.loading = false;
     },
 
-    // initializeYasr() {
-    //   const yasgui = new yasgui(document.getElementById("yasgui"));
-    //   this.yasr = new yasgui.yasr(this.$refs.yasrContainer, {
-    //     persistency: false,
-    //     plugins: ["table", "response", "rawResponse"],
-    //   });
-    // },
 
-    async loadCache() {
+    async previousQueriesView() {
       this.currentView = "previousQueries";
+      await this.loadCache();
+    },
+    async loadCache() {
       this.queriesCacheExists = await getStoredTtl(
         this.currentPod + "querycache/queries.ttl"
       );
@@ -794,13 +916,16 @@ export default {
           const cachedQueriesThing = await getCachedQueries(
             this.currentPod + "querycache/queries.ttl"
           );
-          this.cachedQueries = await toRaw(cachedQueriesThing);
+          this.cachedQueries = toRaw(cachedQueriesThing);
         } catch (err) {
           console.error("Error fetching queries:", err);
         }
       }
     },
 
+    getCacheEntryHash(prov) {
+      return prov.split("#")[1];
+    },
     togglRetrievedResults() {
       this.showRetrievedResults = !this.showRetrievedResults;
     },
@@ -1332,11 +1457,11 @@ ul {
 
 /* Container for the Table */
 .results-container {
-  max-height: 40rem;
+  max-height: 60rem;
   min-height: 20rem;
   overflow-y: auto;
-  border-radius: 5px;
-  margin: 0.5rem;
+  border-radius: 6px;
+  margin: 0 0.5rem 0.5rem 0.5rem;
   padding: 1rem;
   background-color: #28353e;
   color: #ede7f6;
@@ -1369,16 +1494,24 @@ ul {
 }
 
 /* Results */
-/* .init-yasgui {
-  display: none;
+.cache-header {
+  font-family: "Oxanium", monospace;
+  display: flex;
+  align-items: center;
+  background-color: #444;
+  border-radius: 6px;
 }
-.yasr-container {
-  width: 100%;
-  min-height: 300px;
-  border: 1px solid #ddd;
-  background-color: #28353e;
-} */
-
+.query-hash {
+  display: flex;
+  margin-right: auto;
+  margin-left: 2rem;
+  color: #90caf9;
+  font-style: italic;
+  font-size: 16pt;
+}
+.querycache-icon {
+  margin-left: 2rem;
+}
 .results-header {
   font-family: "Oxanium", monospace;
   display: flex;

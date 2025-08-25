@@ -2,7 +2,6 @@ import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
 import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
 import { QueryEngine as SparqlEngineCache } from 'query-sparql-remote-cache';
 import { KeyRemoteCache } from 'actor-query-process-remote-cache';
-import { LoggerPretty } from "@comunica/logger-pretty";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -57,7 +56,7 @@ export function cleanSourcesUrls(dirtySources: string[]): string[] {
 export async function executeQuery(
   query: string,
   providedSources: string[]
-): Promise<queryResultJson | null> {
+): Promise<CacheOutput | null> {
   // remove "<>" from Endpoint IRIs
   const cleanedSources = cleanSourcesUrls(providedSources);
   const sparqlSources: string[] = [];
@@ -71,26 +70,29 @@ export async function executeQuery(
       solidSources.push(sourceUrl);
     }
   }
-  console.log("SPARQL Sources: ", sparqlSources);
-  console.log("Solid Sources: ", solidSources);
+  // console.log("SPARQL Sources: ", sparqlSources);
+  // console.log("Solid Sources: ", solidSources);
 
-  let results = null;
+  let results: CacheOutput | null = null;
 
   if (solidSources.length < 1) {
-    results = await sparqlEndpointQuery(query, sparqlSources);
+    results = {
+      provenanceOutput: null,
+      resultsOutput: await sparqlEndpointQuery(query, sparqlSources),
+    };
+    console.log(results);
     queryType += 1;
   }
   if (solidSources.length > 0 && sparqlSources.length < 1) {
-    results = await mixedQuery(query, cleanedSources);
+    // results = await mixedQuery(query, cleanedSources);
     queryType += 10;
   }
   if (solidSources.length > 0 && sparqlSources.length > 0) {
-    results = await mixedQuery(query, cleanedSources);
+    // results = await mixedQuery(query, cleanedSources);
     queryType += 11;
   }
 
   // for just SPARQL sources
-  // TODO: Make this BOTH sources type work with data display (probably two different tables??)
   if (queryType == 1) {
     console.log("Results displayed are from ONLY SPARQL sources.");
     return results;
@@ -120,7 +122,7 @@ export async function executeQueryWithPodConnected(
   query: string,
   providedSources: string[],
   userCachePath: string
-): Promise<queryResultJson | null> {
+): Promise<CacheOutput | null> {
   // remove "<>" from Endpoint IRIs
   const cleanedSources = cleanSourcesUrls(providedSources);
   const sparqlSources: string[] = [];
@@ -134,13 +136,34 @@ export async function executeQueryWithPodConnected(
       solidSources.push(sourceUrl);
     }
   }
-  console.log("SPARQL Sources: ", sparqlSources);
-  console.log("Solid Sources: ", solidSources);
+  // console.log("SPARQL Sources: ", sparqlSources);
+  // console.log("Solid Sources: ", solidSources);
 
   let results = null;
-
+  let cacheObj: CacheOutput | string | null = null;
+  // Need to fix this to handle new output structure
   if (solidSources.length < 1) {
-    results = await sparqlQueryWithCache(query, sparqlSources, userCachePath);
+    cacheObj = await sparqlQueryWithCache(query, sparqlSources, userCachePath);
+    // if cache was not used then execute a new query
+    if (cacheObj === "no-cache") {
+      results = {
+        provenanceOutput: null,
+        resultsOutput: await sparqlEndpointQuery(query, sparqlSources),
+      };
+      // TODO: Fix this part because it is being problematic...
+      console.log(results);
+    } else {
+      // if chache was used
+      if (cacheObj != null) {
+        results = {
+          provenanceOutput: cacheObj.provenanceOutput,
+          resultsOutput: cacheObj.resultsOutput,
+        };
+      } else {
+        // if there was an error
+        results = null;
+      }
+    }
     queryType += 1;
   }
   if (solidSources.length > 0 && sparqlSources.length < 1) {
@@ -238,16 +261,17 @@ async function sparqlEndpointQuery(
   }
 }
 
-import { init } from 'z3-solver'
+interface ProvenanceData {
+  algorithm: string;
+  id: {
+    termType: string;
+    value: string;
+  };
+}
 
-async function boot() {
-  const { Context } = await init()        // loads WASM + workers
-  const { Solver, Int, And } = new Context('main')
-
-  const x = Int.const('x')
-  const s = new Solver()
-  s.add(And(x.ge(0), x.le(9)))
-  console.log(await s.check())            // -> "sat"
+export interface CacheOutput {
+  provenanceOutput: ProvenanceData | null;
+  resultsOutput: queryResultJson;
 }
 
 /**
@@ -256,42 +280,96 @@ async function boot() {
  * @param inputQuery The string representation of a SPARQL query to be executed.
  * @param mixedSources a string[] that provides the Solid Pod sources for executing the specified query.
  * @param cachePath a string designating the user's pod url
- * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+ * @returns either:
+ *  a) a CacheOutput object (containing cache provenance + query results)
+ *  b) a string indicating no cache was used
+ *  c) null if there was an error
  */
 async function sparqlQueryWithCache(
   inputQuery: string,
   mixedSources: string[],
   cachePath: string
-): Promise<queryResultJson | null> {
-  const cacheLocation = { url: cachePath + "/queries.ttl" };
+): Promise<CacheOutput | string | null> {
+  const cacheLocation = { url: cachePath + "queries.ttl" };
   const mySparqlEngine = new SparqlEngineCache();
 
-  const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
-    lenient: true,
-    fetch: fetch,
-    [KeyRemoteCache.location.name]: cacheLocation,
-    sources: mixedSources,
-    failOnCacheMiss: true,
-    log: new LoggerPretty({ level: "info" }),
-    "@comunica/core:log": new LoggerPretty({ level: "info" }),
-  });
+  try {
+    // Query executor using Comunica
+    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
+      lenient: true,
+      fetch: fetch,
+      [KeyRemoteCache.location.name]: cacheLocation,
+      sources: mixedSources,
+      failOnCacheMiss: true
+    });
 
-  let i = 0;
-  bindingsStream.getProperty("provenance", (val) => {
-    console.log(`provenance: ${JSON.stringify(val, null, 2)}`);
-  });
+    // extract provenance information
+    let provenance: ProvenanceData | null = null;
+    // Extract provenance information to display in the UI
+    bindingsStream.getProperty("provenance", (val) => {
+      if (val && typeof val === "object" && "algorithm" in val && "id" in val) {
+        provenance = {
+          algorithm: val.algorithm,
+          id: {
+            termType: val.id.termType,
+            value: val.id.value
+          }
+        };
+      }
+    });
 
-  bindingsStream.on("data", (_binding) => {
-    i += 1;
-  });
-  bindingsStream.on("end", () => {
-    console.log(`there are ${i} results`);
-  });
-  bindingsStream.on("error", (error) => {
-    console.error(error);
-  });
+    // Displays the results of the query
+    const bindingsArray: any[] = [];
+    let firstBinding: Bindings | undefined = undefined;
 
-  return null;
+    // Process each binding from the stream.
+    for await (const binding of bindingsStream) {
+      // Capture the variable names from the first binding.
+      if (!firstBinding) {
+        firstBinding = binding;
+      }
+      const bindingObj: Record<string, { type: string; value: string }> = {};
+      binding.forEach((term, variable) => {
+        let termType: string;
+        switch (term.termType) {
+          case "Literal":
+            termType = "literal";
+            break;
+          case "NamedNode":
+            termType = "uri";
+            break;
+          case "BlankNode":
+            termType = "bnode";
+            break;
+          default:
+            termType = term.termType.toLowerCase();
+        }
+        bindingObj[variable.value] = { type: termType, value: term.value };
+      });
+      bindingsArray.push(bindingObj);
+    }
+
+    // If there were no results, use an empty array of variables.
+    const vars = firstBinding
+      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
+      : [];
+    
+    // results as an object
+    const resultsOutput: queryResultJson = {
+      head: { vars },
+      results: { bindings: bindingsArray },
+    };
+
+    const returnVal: CacheOutput = {
+      provenanceOutput: provenance,
+      resultsOutput: resultsOutput
+    }
+    return returnVal;
+
+  } catch (err) {
+    return "no-cache";
+  }
+
 }
 
 /**
@@ -470,7 +548,6 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
   try {
     // Try to retrieve the dataset (container)
     await getSolidDataset(cacheUrl, { fetch });
-    console.log(`Query Cache container exists at ${cacheUrl}`);
     return cacheUrl;
   } catch (error) {
     // If not found, create the container
