@@ -5,7 +5,7 @@
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.vue"
-  ],
+, "src/components/queryWorker.js"  ],
   "exclude": [
     "node_modules",
     "dist"

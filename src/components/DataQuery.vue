@@ -122,12 +122,22 @@
           <!-- execute query -->
           <div class="bottom-container">
             <button
+              v-if="!loading"
               class="execute-button"
               @click="runExecuteQuery"
               :disabled="loading"
             >
               Execute Query
             </button>
+            <button
+              v-if="loading"
+              class="execute-button"
+              @click="cancelQuery"
+              :disabled="!loading"
+            >
+              Cancel Query
+            </button>
+
             <div class="save-query" v-if="currentPod !== ''">
               <v-checkbox
                 class="save-checkbox"
@@ -315,7 +325,7 @@
                       <!-- For the case that a container/resource has an existing .acl -->
                       <div id="aclExists" v-if="hasAcl !== null">
                         <div>
-                          <span id="permissionsInstructions"
+                          <!-- <span id="permissionsInstructions"
                             >Current Access Rights
                             <button
                               @click="getSpecificAclData(url)"
@@ -331,7 +341,7 @@
                                 >Refresh access rights
                               </v-tooltip>
                             </button></span
-                          >
+                          > -->
                         </div>
                         <div id="currentPermissions">
                           <li
@@ -346,20 +356,20 @@
                                   ><i>{{ inde }}</i>
                                 </span>
                               </div>
-                              <button
+                              <!-- <button
                                 @click="copyText(inde.toString())"
                                 class="icon-button right"
+                              > -->
+                              <i class="material-icons not-colored right"
+                                >content_copy</i
                               >
-                                <i class="material-icons not-colored right"
-                                  >content_copy</i
-                                >
-                                <v-tooltip
-                                  class="tool-tip"
-                                  activator="parent"
-                                  location="left"
-                                  >Copy WebID to clipboard
-                                </v-tooltip>
-                              </button>
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="left"
+                                >Copy WebID to clipboard
+                              </v-tooltip>
+                              <!-- </button> -->
                             </div>
                             <span class="permissions-tag"
                               >Permissions:<br
@@ -455,9 +465,7 @@
           >
             <span
               >Executed query is
-              {{
-                provType(currentQuery.output.provenanceOutput.algorithm)
-              }}
+              {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
               cached query:</span
             >
             <div class="query-hash">
@@ -601,7 +609,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 // import YASGUI from '@triply/yasgui/build/yasgui.min.js'
 import { isLoggedin } from "./login";
 import {
@@ -612,9 +620,12 @@ import {
   getStoredTtl,
   fetchQueryFileData,
   getCachedQueries,
-  executeQuery,
   executeQueryWithPodConnected,
   fetchSparqlJsonFileData,
+  stopQuery,
+  ComunicaSources,
+  CacheOutput,
+  cleanSourcesUrls,
 } from "./queryPod";
 import {
   fetchPermissionsData,
@@ -641,22 +652,23 @@ export default {
   },
   data() {
     return {
-      successfulLogin: false,
-      currentPod: "",
-      currentView: "newQuery", // Tracks the active view: 'newQuery' or 'previousQueries'
+      successfulLogin: false as boolean,
+      currentPod: "" as string,
+      currentView: "newQuery" as "newQuery" | "previousQueries",
       exampleQueries: [
         {
-          name: "Example 1",
-          sources: ["<https://sparql.rhea-db.org/sparql/>"],
-          query: "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10",
+          name: "Example 1" as string,
+          sources: ["<https://sparql.rhea-db.org/sparql/>"] as string[],
+          query:
+            "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10" as string,
         },
         {
-          name: "Rhea 13",
-          sources: ["<https://sparql.rhea-db.org/sparql/>"],
+          name: "Rhea 13" as string,
+          sources: ["<https://sparql.rhea-db.org/sparql/>"] as string[],
           query:
-            "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}",
+            "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}" as string,
         },
-      ],
+      ] as Array<{ name: string; sources: string[]; query: string }>,
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
         "<https://glyconnect.expasy.org/sparql>",
@@ -669,49 +681,52 @@ export default {
         "<https://biosoda.unil.ch/emi/sparql/>",
         "<https://sparql.uniprot.org/sparql>",
         "<https://query.wikidata.org/sparql>",
-      ],
+      ] as string[],
       currentQuery: {
-        name: "",
-        sources: [],
-        query: "", // The current SPARQL query input
-        output: null,
+        name: "" as string,
+        sources: [] as string[],
+        query: "" as string,
+        output: null as any,
       },
-      resolvedQueryResults: Object,
-      saveQuery: false,
-      cachePath: "",
-      currHash: "",
-      queryFile: "",
-      resultsFile: "",
-      retrievedQuery: null,
-      retrievedResults: null,
-      showRetrievedQuery: false,
-      showRetrievedResults: false,
-      showQueryIndex: null,
-      queriesCacheExists: false,
-      inputType: "",
-      cachedQueries: Object,
-      queries: [],
-      loading: false,
-      delay: true,
-      showSharing: false,
-      hasAcl: null,
-      cannotMakeAcl: false,
-      hasAccess: {},
-      publicAccess: {},
-      currentCachedQueryHash: null,
-      cacheType: "",
-      showResultQuery: false,
-      cachedQueryIndex: null,
+      resolvedQueryResults: {} as any,
+      saveQuery: false as boolean,
+      cancelRequested: false as boolean,
+      abortController: null as AbortController | null,
+      cachePath: "" as string,
+      currHash: "" as string,
+      queryFile: "" as string,
+      resultsFile: "" as string,
+      retrievedQuery: null as string | null,
+      retrievedResults: null as any,
+      showRetrievedQuery: false as boolean,
+      showRetrievedResults: false as boolean,
+      showQueryIndex: null as number | null,
+      queriesCacheExists: false as boolean,
+      inputType: "" as string,
+      cachedQueries: [] as Array<any>,
+      queries: [] as Array<any>,
+      loading: false as boolean,
+      delay: true as boolean,
+      showSharing: false as boolean,
+      hasAcl: null as any,
+      cannotMakeAcl: false as boolean,
+      hasAccess: {} as Record<string, any>,
+      publicAccess: {} as Record<string, any>,
+      currentCachedQueryHash: null as string | null,
+      cacheType: "" as string,
+      showResultQuery: false as boolean,
+      cachedQueryIndex: null as number | null,
+      worker: null as Worker | null,
     };
   },
   methods: {
     handleDelay() {
       this.delay = false;
     },
-    provType(p) {
+    provType(p: string) {
       return p === "equality" ? "equivalent to" : "a specialization of";
     },
-    async toggleResultsQuery(hash) {
+    async toggleResultsQuery(hash: string) {
       if (!this.showResultQuery) {
         this.showResultQuery = true;
         await this.loadCache();
@@ -727,7 +742,7 @@ export default {
       }
     },
     // details about a specific query
-    toggleQuery(index) {
+    toggleQuery(index: number) {
       // Reset expanded states when switching queries
       if (this.showQueryIndex !== index) {
         this.showRetrievedQuery = false;
@@ -739,17 +754,17 @@ export default {
       this.showSharing = !this.showSharing;
     },
     // for the sources autocomplete list
-    itemPropsSources(item) {
+    itemPropsSources(item: string) {
       return {
         title: item.url,
       };
     },
-    itemPropsExampleQueries(item2) {
+    itemPropsExampleQueries(item2: { name: string }) {
       return {
         title: item2.name,
       };
     },
-    isValidSPARQL(query) {
+    isValidSPARQL(query: string) {
       // Check if the query starts with a valid SPARQL keyword
       const sparqlRegex = /^(SELECT|ASK|CONSTRUCT|DESCRIBE|PREFIX|BASE)\s+/i;
       if (!sparqlRegex.test(query.trim())) {
@@ -798,111 +813,173 @@ export default {
     // TODO: Implement Jonni's Module here (after Bryan's)
     async runExecuteQuery() {
       this.loading = true;
+      this.cancelRequested = false;
       if (this.currentQuery.query.trim() === "") {
         alert("Please enter a valid SPARQL query before executing.");
+        this.loading = false;
         return;
       }
 
-      // Here, the app will save the query and results using a hash
-      if (this.saveQuery) {
-        // check if a querycache is present within pod
-        this.cachePath = await ensureCacheContainer(this.currentPod);
-
-        // execute the query using the cache
-        this.currentQuery.output = await executeQueryWithPodConnected(
-          this.currentQuery.query,
-          this.currentQuery.sources,
-          this.cachePath
-        );
-
-        //Handling the display if the cache was used
-        if (this.currentQuery.output.provenanceOutput != null) {
-          this.cacheType = this.currentQuery.output.provenanceOutput.algorithm;
-          this.currentCachedQueryHash = this.getCacheEntryHash(
-            this.currentQuery.output.provenanceOutput.id.value
-          );
-        }
-
-        // TODO: handle error thrown by not finding a proper result ...
-
-        // Handle empty results
-        if (
-          !this.currentQuery.output.resultsOutput ||
-          !this.currentQuery.output.resultsOutput.results
-        ) {
-          this.currentQuery.output.resultsOutput = {
-            head: { vars: [] },
-            results: { bindings: [] },
-          };
-        }
-
-        // adding query and results to cache
-        // adds query to queries.ttl
-        this.currHash = await createQueriesTTL(
-          this.cachePath,
-          this.currentQuery.query,
-          this.currentQuery.sources
-        );
-        // creates #hash.rq file containing the executed query
-        this.queryFile = await uploadQueryFile(
-          this.cachePath,
-          this.currentQuery.query,
-          this.currHash
-        );
-        // create #hash.sparqljson file with query results
-        this.resultsFile = await uploadResults(
-          this.cachePath,
-          JSON.stringify(this.currentQuery.output.resultsOutput, null, 2),
-          this.currHash
-        );
-      }
-
-      // for when the query is not to be saved
-      else {
-        // execute the query (using the cache if a pod is connected)
-        if (!this.currentPod == "") {
-          // if there is a pod connected
+      try {
+        // if Save Query box is selected (pod must be connected)
+        if (this.saveQuery) {
           this.cachePath = await ensureCacheContainer(this.currentPod);
+
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
             this.currentQuery.sources,
             this.cachePath
           );
+
+          // obtaining query cache hash if the cache contains a similar query
+          if (
+            this.currentQuery.output &&
+            this.currentQuery.output.provenanceOutput != null
+          ) {
+            this.cacheType =
+              this.currentQuery.output.provenanceOutput.algorithm;
+            this.currentCachedQueryHash = this.getCacheEntryHash(
+              this.currentQuery.output.provenanceOutput.id.value
+            );
+          }
+
+          // if the result of the query was null
+          if (
+            !this.currentQuery.output.resultsOutput ||
+            !this.currentQuery.output.resultsOutput.results
+          ) {
+            this.currentQuery.output.resultsOutput = {
+              head: { vars: [] },
+              results: { bindings: [] },
+            };
+          }
+
+          // If there is not an equivalent query in cache, then add it to cache
+          if (
+            this.currentQuery.output.provenanceOutput.algorithm != "equivalence"
+          ) {
+            this.currHash = await createQueriesTTL(
+              this.cachePath,
+              this.currentQuery.query,
+              this.currentQuery.sources
+            );
+            this.queryFile = await uploadQueryFile(
+              this.cachePath,
+              this.currentQuery.query,
+              this.currHash
+            );
+            this.resultsFile = await uploadResults(
+              this.cachePath,
+              JSON.stringify(this.currentQuery.output.resultsOutput, null, 2),
+              this.currHash
+            );
+          }
         } else {
-          // when there is not a pod connected
-          this.currentQuery.output = await executeQuery(
-            this.currentQuery.query,
-            this.currentQuery.sources
+          // If the Save Query button was not selected
+          if (this.currentPod !== "") {
+            // if there is a pod connected, try to use cache
+            this.cachePath = await ensureCacheContainer(this.currentPod);
+            this.currentQuery.output = await executeQueryWithPodConnected(
+              this.currentQuery.query,
+              this.currentQuery.sources,
+              this.cachePath
+            );
+          } else {
+            // if there is no pod connected, use the default query execution
+            this.currentQuery.output = await this.executeQuery(
+              this.currentQuery.query,
+              this.currentQuery.sources
+            );
+          }
+
+          // try to obtain cache hash if the cache contains a similar query
+          if (
+            this.currentQuery.output &&
+            this.currentQuery.output.provenanceOutput != null
+          ) {
+            this.cacheType =
+              this.currentQuery.output.provenanceOutput.algorithm;
+            this.currentCachedQueryHash = this.getCacheEntryHash(
+              this.currentQuery.output.provenanceOutput.id.value
+            );
+          }
+
+          if (
+            !this.currentQuery.output.resultsOutput ||
+            !this.currentQuery.output.resultsOutput.results
+          ) {
+            this.currentQuery.output.resultsOutput = {
+              head: { vars: [] },
+              results: { bindings: [] },
+            };
+          }
+
+          this.resolvedQueryResults = toRaw(
+            this.currentQuery.output.resultsOutput
           );
         }
-
-        // Handling the display if the cache was useds
-        if (this.currentQuery.output.provenanceOutput != null) {
-          this.cacheType = this.currentQuery.output.provenanceOutput.algorithm;
-          this.currentCachedQueryHash = this.getCacheEntryHash(
-            this.currentQuery.output.provenanceOutput.id.value
-          );
-        }
-
-        // Handle empty results
-        if (
-          !this.currentQuery.output.resultsOutput ||
-          !this.currentQuery.output.resultsOutput.results
-        ) {
-          this.currentQuery.output.resultsOutput = {
-            head: { vars: [] },
-            results: { bindings: [] },
-          };
-        }
-
-        this.resolvedQueryResults = toRaw(
-          this.currentQuery.output.resultsOutput
-        );
+      } catch (err) {
+        // Error already handled in cancellableQuery
       }
       this.loading = false;
     },
 
+    /**
+     * Executes a SPARQL query over one or many SPARQL endpoints and/or Solid Pods.
+     *
+     * @param query The string representation of a SPARQL query to be executed.
+     * @param providedSources a string[] that provides the sources for executing the specified query
+     * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+     */
+    async executeQuery(
+      query: string,
+      providedSources: string[]
+    ): Promise<CacheOutput | null> {
+      const cleanedSources = cleanSourcesUrls(providedSources);
 
+      this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
+        type: "module",
+      });
+
+      this.worker.postMessage({
+        query,
+        sources: cleanedSources,
+      });
+
+      return new Promise((resolve) => {
+        this.worker.onmessage = (e) => {
+          const { data } = e;
+          if (data.error) {
+            console.log("Worker error:", data.error);
+            resolve(null);
+          } else {
+            resolve({
+              provenanceOutput: null,
+              resultsOutput: data,
+            });
+          }
+        };
+      });
+    },
+
+    // TODO: This cancelling of queries mess ...
+    cancelQuery() {
+      this.cancelRequested = true;
+      if (this.worker != null) {
+        this.worker.terminate();
+        this.worker = null;
+      }
+      if (
+        this.activeBindingStream &&
+        typeof this.activeBindingStream.destroy === "function"
+      ) {
+        this.activeBindingStream.destroy();
+        this.activeBindingStream = null;
+      }
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+    },
     async previousQueriesView() {
       this.currentView = "previousQueries";
       await this.loadCache();
@@ -923,7 +1000,7 @@ export default {
       }
     },
 
-    getCacheEntryHash(prov) {
+    getCacheEntryHash(prov: string) {
       return prov.split("#")[1];
     },
     togglRetrievedResults() {
@@ -933,7 +1010,7 @@ export default {
       this.showRetrievedQuery = !this.showRetrievedQuery;
     },
     // retrieves cached results for display
-    async fetchResults(hash) {
+    async fetchResults(hash: string) {
       const retrievedQuery = await fetchSparqlJsonFileData(
         `${this.currentPod}querycache/${hash}.json`
       );
@@ -941,7 +1018,7 @@ export default {
       this.togglRetrievedResults();
     },
     // retrieves cached query for display
-    async fetchQuery(hash) {
+    async fetchQuery(hash: string) {
       this.retrievedQuery = await fetchQueryFileData(
         `${this.currentPod}querycache/${hash}.rq`
       );
@@ -971,12 +1048,12 @@ export default {
      *
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
-    async getSpecificQueryAclData(queryHash) {
+    async getSpecificQueryAclData(queryHash: string) {
       const queryUrl = this.currentPod + "querycache/" + queryHash;
       this.hasAcl = await fetchPermissionsData(queryUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
-        this.hasAccess = await fetchAclAgents(cacheUrl);
-        this.publicAccess = await fetchPublicAccess(cacheUrl);
+        this.hasAccess = await fetchAclAgents(queryUrl);
+        this.publicAccess = await fetchPublicAccess(queryUrl);
         this.hasAccess = {
           Public: this.publicAccess,
           ...this.hasAccess,
@@ -1043,7 +1120,6 @@ export default {
 </script>
 
 <style scoped>
-@import url("https://unpkg.com/@triply/yasgui/build/yasgui.min.css");
 body {
   line-height: 1.6;
   margin: 15px;
@@ -1241,6 +1317,11 @@ body {
 }
 /* execute */
 .execute-button {
+  padding: 8px 14px;
+  border: 2px solid #28353e;
+  border-radius: 8px;
+}
+.cancel-query {
   padding: 8px 14px;
   border: 2px solid #28353e;
   border-radius: 8px;
