@@ -446,8 +446,6 @@
       <p>Loading query results...</p>
     </div>
 
-    <!-- TODO: A Stop Query button to halt execution -->
-
     <!-- Display Query Cache Informaton -->
     <div
       class="cache-header"
@@ -650,6 +648,7 @@ export default {
     PodLogin,
     PodRegistration,
   },
+  // TODO: Integrate demonstrators + example queries
   data() {
     return {
       successfulLogin: false as boolean,
@@ -822,7 +821,6 @@ export default {
     },
 
     // Executes user provided query and saves it to querycache if specified
-    // TODO: Implement Jonni's Module here (after Bryan's)
     async runExecuteQuery() {
       this.loading = true;
       this.cancelRequested = false;
@@ -1052,7 +1050,7 @@ export default {
         }
       }
 
-      // TODO: cancellation of cache query process
+      // TODO: cancellation of cache query process (in future)
       // if (
       //   this.activeBindingStream &&
       //   typeof this.activeBindingStream.destroy === "function"
@@ -1064,6 +1062,10 @@ export default {
       //   this.abortController.abort();
       // }
     },
+
+
+    // TODO: Sharing of query results (maybe just the whole container?)
+
     async previousQueriesView() {
       this.currentView = "previousQueries";
       await this.loadCache();
@@ -1082,7 +1084,6 @@ export default {
         }
       }
     },
-
     getCacheEntryHash(prov: string) {
       return prov.split("#")[1];
     },
