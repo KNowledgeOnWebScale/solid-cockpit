@@ -1,5 +1,6 @@
 import { QueryEngine as SparqlEngineCache } from "query-sparql-remote-cache";
 import { KeyRemoteCache } from "actor-query-process-remote-cache";
+import { createCoiFetch } from "./z3-headers";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -39,22 +40,38 @@ export interface ComunicaSources {
   value: string;
   context?: Record<string, any>;
 }
+export interface CachedQuery {
+  hash: string;
+  queryFile: string;
+  resultsFile: string;
+  sourceUrls: string[];
+  created: string;
+}
+
+export type FetchLike = (
+  input: RequestInfo | URL,
+  init?: RequestInit
+) => Promise<Response>;
+
+export interface CoiFetchOptions {
+  /** Mimic SW behavior: for no-cors requests, drop credentials (except excluded URLs). Default: true */
+  coepCredentialless?: boolean;
+
+  /** Exclude certain URLs from the credentialless rewrite. Default: url.includes("sparql") */
+  excludeUrl?: (url: string) => boolean;
+
+  /** Optional logger for errors (mostly parity with SW's console.error on fetch failure). */
+  onError?: (e: unknown) => void;
+}
 
 /**
- * Stops an ongoing query by either terminating a worker thread or destroying a main thread binding stream.
- * @param options - An object containing either a worker or a bindingStream.
- *   - worker: The Worker instance to terminate.
- *   - bindingStream: The Comunica bindings stream to destroy.
+ * Stops an ongoing query by destroying a main thread binding stream.
+ * @param bindingStream - The Comunica bindings stream to destroy.
  */
-export function stopQuery(options: { worker?: Worker; bindingStream?: any }) {
-  if (options.worker) {
-    // Terminate the worker thread
-    options.worker.terminate();
-    return true;
-  }
-  if (options.bindingStream && typeof options.bindingStream.destroy === 'function') {
+export function stopQuery(bindingStream: any) {
+  if (bindingStream && typeof bindingStream.destroy === "function") {
     // Destroy the main thread binding stream
-    options.bindingStream.destroy();
+    bindingStream.destroy();
     return true;
   }
   return false;
@@ -90,69 +107,6 @@ export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
 }
 
 /**
- * Parses a SPARQL query string to extract any SERVICE endpoint URLs.
- *
- * @param query - The SPARQL query string to parse.
- * @returns An array of SERVICE endpoint URLs found in the query.
- */
-export function getQueryParams(query: string, providedSources: string[]) {
-  const cleanedSources = cleanSourcesUrls(providedSources);
-  return { query, sources: cleanedSources };
-}
-
-/**
- * Gets the query parameters for a cache query.
- *
- * @param query - The SPARQL query string.
- * @param providedSources - The sources to use for the query.
- * @param userCachePath - The user's cache path.
- * @returns An object containing the query, sources, and cache path.
- */
-export function getCacheQueryParams(query: string, providedSources: string[], userCachePath: string) {
-  const cleanedSources = cleanSourcesUrls(providedSources);
-  return { query, sources: cleanedSources, cachepath: userCachePath };
-}
-
-/**
- * Executes a SPARQL query over one or many SPARQL endpoints and/or Solid Pods.
- *
- * @param query The string representation of a SPARQL query to be executed.
- * @param providedSources a string[] that provides the sources for executing the specified query
- * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
- */
-export async function executeQuery(
-  query: string,
-  providedSources: string[]
-): Promise<CacheOutput | null> {
-  // remove "<>" from Endpoint IRIs
-  const cleanedSources = cleanSourcesUrls(providedSources);
-
-  const worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
-    type: "module",
-  });
-
-  worker.postMessage({
-    query,
-    sources: cleanedSources,
-  });
-
-  return new Promise((resolve) => {
-    worker.onmessage = (e) => {
-      const { data } = e;
-      if (data.error) {
-        console.log("Worker error:", data.error);
-        resolve(null);
-      } else {
-        resolve({
-          provenanceOutput: null,
-          resultsOutput: data,
-        });
-      }
-    };
-  });
-}
-
-/**
  * Executes a SPARQL query over one or many SPARQL endpoints and/or Solid Pods.
  *
  * @param query The string representation of a SPARQL query to be executed.
@@ -167,7 +121,7 @@ export async function executeQueryWithPodConnected(
   query: string,
   providedSources: string[],
   userCachePath: string
-): Promise<CacheOutput | null> {
+): Promise<CacheOutput | string | null> {
   const cleanedSources = cleanSourcesUrls(providedSources);
 
   // TODO: z3-solver DOES NOT work on a Worker Thread... (maybe could fix?)
@@ -227,33 +181,7 @@ export async function executeQueryWithPodConnected(
     userCachePath
   );
   // case where cache is not used
-  if (typeof output === "string") {
-    const worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
-      type: "module",
-    });
-
-    worker.postMessage({
-      query,
-      sources: cleanedSources,
-    });
-
-    return new Promise((resolve) => {
-      worker.onmessage = (e) => {
-        const { data } = e;
-        if (data.error) {
-          console.log("Worker error:", data.error);
-          resolve(null);
-        } else {
-          resolve({
-            provenanceOutput: null,
-            resultsOutput: data,
-          });
-        }
-      };
-    });
-  } else {
-    return output;
-  }
+  return output;
 }
 
 /**
@@ -276,10 +204,12 @@ async function sparqlQueryWithCache(
   const mySparqlEngine = new SparqlEngineCache();
 
   try {
+    const fetchForCache = createCoiFetch(fetch, { coepCredentialless: true });
+
     // Query executor using Comunica
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
       lenient: true,
-      fetch: fetch,
+      fetch: fetchForCache,
       [KeyRemoteCache.location.name]: cacheLocation,
       sources: mixedSources,
       failOnCacheMiss: true,

@@ -162,7 +162,7 @@
       <div v-if="currentView === 'previousQueries'">
         <span class="no-pod" v-if="currentPod == ''"
           >Please connect your pod if you wish to look at your Query
-          Cache...</span
+          Cache... <br />(simply click the "select pod" button above.)</span
         >
         <ul>
           <div class="cached-container" v-if="currentPod != ''">
@@ -439,7 +439,7 @@
     </div>
   </div>
 
-  <div class="results-container" v-if="loading || currentQuery.output != null">
+  <div class="results-container" v-if="loading || (currentQuery.output != null && typeof currentQuery.output !== 'string')">
     <!-- Loading Spinner -->
     <div v-if="loading" class="spinner-container">
       <div class="spinner"></div>
@@ -464,8 +464,8 @@
             class="icon-button full-width"
           >
             <span
-              >Executed query is
-              {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
+              >Executed query is <i>
+              {{ provType(currentQuery.output.provenanceOutput.algorithm) }} </i>
               cached query:</span
             >
             <div class="query-hash">
@@ -533,7 +533,7 @@
     </div>
 
     <!-- Display Result Count -->
-    <div class="results-header" v-if="!loading && currentQuery.output != null">
+    <div class="results-header" v-if="!loading && (currentQuery.output != null && typeof currentQuery.output !== 'string')">
       <span>Query Results</span>
       <p class="result-count">
         (n = {{ resolvedQueryResults.results.bindings.length }})
@@ -623,7 +623,7 @@ import {
   executeQueryWithPodConnected,
   fetchSparqlJsonFileData,
   stopQuery,
-  ComunicaSources,
+  CachedQuery,
   CacheOutput,
   cleanSourcesUrls,
 } from "./queryPod";
@@ -663,8 +663,20 @@ export default {
             "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10" as string,
         },
         {
+          name: "TRIPLE Demonstrator (WikiData)" as string,
+          sources: ["<https://query.wikidata.org/sparql>"] as string[],
+          query:
+            'PREFIX bd: <http://www.bigdata.com/rdf#>\nPREFIX p: <http://www.wikidata.org/prop/>\nPREFIX pq: <http://www.wikidata.org/prop/qualifier/>\nPREFIX wdt: <http://www.wikidata.org/prop/direct/>\nPREFIX wd: <http://www.wikidata.org/entity/>\nPREFIX wikibase: <http://wikiba.se/ontology#>\n\nSELECT DISTINCT ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number  ?cas_number (AVG(?ld50) AS ?avg_ld50) WHERE {\n  ?compound  wdt:P31 wd:Q113145171 ;\n    wdt:P232 ?ec_number ;\n    wdt:P231 ?cas_number ;\n    wdt:P2240 ?ld50 ; # toxicity level - NOTE: not many data points have this info (only 9 results in total)\n    wdt:P366 ?use_type .\n  ?use_type  wdt:P279* wd:Q131656 .\n  ?compound p:P2240 ?ref.\n  ?ref pq:P636 wd:Q285166 .\n  ?rats wdt:P279 wd:Q184224 .\n  ?ref  pq:P689|pq:P2352 ?rats .\n\n  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],mul,en". } # Helps get the label in your language, if not, then default for all languages, then en language\n} GROUP BY ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number ?cas_number ORDER BY ?avg_ld50 # rank by toxicity' as string,
+        },
+        {
+          name: "TRIPLE Demonstrator (Rhea)" as string,
+          sources: ["<https://sparql.rhea-db.org/sparql>"] as string[],
+          query:
+            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX rh: <http://rdf.rhea-db.org/>\n\nSELECT DISTINCT ?chebi ?rhea ?equation ?uniprot WHERE {\n  VALUES ?chebi { <http://purl.obolibrary.org/obo/CHEBI_15930> } # from IDSM\n  ?rhea rdfs:subClassOf rh:Reaction .\n  ?rhea rh:equation ?equation .\n  ?rhea rh:side/rh:contains/rh:compound ?compound .\n  #\n  # the ChEBI can be used either as a small molecule, the reactive part of a macromolecule or as a polymer.\n  #\n  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi . # ?chebi comes from IDSM higher\n}" as string,
+        },
+        {
           name: "Rhea 13" as string,
-          sources: ["<https://sparql.rhea-db.org/sparql/>"] as string[],
+          sources: ["<https://sparql.rhea-db.org/sparql>"] as string[],
           query:
             "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}" as string,
         },
@@ -703,7 +715,7 @@ export default {
       showQueryIndex: null as number | null,
       queriesCacheExists: false as boolean,
       inputType: "" as string,
-      cachedQueries: [] as Array<any>,
+      cachedQueries: [] as CachedQuery[],
       queries: [] as Array<any>,
       loading: false as boolean,
       delay: true as boolean,
@@ -728,8 +740,8 @@ export default {
     },
     async toggleResultsQuery(hash: string) {
       if (!this.showResultQuery) {
-        this.showResultQuery = true;
         await this.loadCache();
+        this.showResultQuery = true;
       } else {
         this.showResultQuery = false;
       }
@@ -756,7 +768,7 @@ export default {
     // for the sources autocomplete list
     itemPropsSources(item: string) {
       return {
-        title: item.url,
+        title: item,
       };
     },
     itemPropsExampleQueries(item2: { name: string }) {
@@ -824,12 +836,19 @@ export default {
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
           this.cachePath = await ensureCacheContainer(this.currentPod);
-
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
             this.currentQuery.sources,
             this.cachePath
           );
+
+          // If the output is a string, it means there was no matching entry in the cache
+          if (typeof this.currentQuery.output === "string") {
+            this.currentQuery.output = await this.executeQuery(
+              this.currentQuery.query,
+              this.currentQuery.sources
+            );
+          }
 
           // obtaining query cache hash if the cache contains a similar query
           if (
@@ -884,6 +903,15 @@ export default {
               this.currentQuery.sources,
               this.cachePath
             );
+
+            // If the output is a string, it means there was no matching entry in the cache
+            if (typeof this.currentQuery.output === "string") {
+              this.currentQuery.output = await this.executeQuery(
+                this.currentQuery.query,
+                this.currentQuery.sources
+              );
+            }
+
           } else {
             // if there is no pod connected, use the default query execution
             this.currentQuery.output = await this.executeQuery(
@@ -919,7 +947,11 @@ export default {
           );
         }
       } catch (err) {
-        // Error already handled in cancellableQuery
+        if (this.cancelRequested) {
+          console.log("Query canceled by user.");
+        } else {
+          console.log("Error executing query:", err);
+        }
       }
       this.loading = false;
     },
@@ -935,50 +967,102 @@ export default {
       query: string,
       providedSources: string[]
     ): Promise<CacheOutput | null> {
+      this.cancelRequested = false;
       const cleanedSources = cleanSourcesUrls(providedSources);
 
       this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
         type: "module",
       });
 
-      this.worker.postMessage({
-        query,
-        sources: cleanedSources,
-      });
-
-      return new Promise((resolve) => {
-        this.worker.onmessage = (e) => {
-          const { data } = e;
-          if (data.error) {
-            console.log("Worker error:", data.error);
-            resolve(null);
-          } else {
-            resolve({
-              provenanceOutput: null,
-              resultsOutput: data,
-            });
+      return new Promise<CacheOutput | null>((resolve, reject) => {
+        this.worker!.onmessage = (e: MessageEvent) => {
+          const { data } = e as { data: any };
+          switch (data?.type) {
+            case "result":
+              this.cleanupWorker();
+              resolve({
+                provenanceOutput: null,
+                resultsOutput: data.payload,
+              });
+              break;
+            case "error":
+              console.log("Worker error:", data.error);
+              this.cleanupWorker();
+              resolve(null); // or reject(data.error) if you prefer
+              break;
+            case "cancelled":
+              this.cleanupWorker();
+              resolve(null);
+              break;
+            default:
+              // ignore unknown
+              break;
           }
         };
+        // for an error or cancellation
+        this.worker!.onerror = (err) => {
+          console.log("Worker error:", err);
+          this.cancelQuery();
+          reject(err);
+        };
+        // starts a run
+        this.worker.postMessage({
+          type: "run",
+          query,
+          sources: cleanedSources,
+        });
       });
     },
 
-    // TODO: This cancelling of queries mess ...
+    // cleans up worker after it is done or if the query is cancelled
+    cleanupWorker() {
+      if (this.worker) {
+        this.worker.onmessage = null as any;
+        this.worker.onerror = null as any;
+        this.worker = null;
+        this.loading = false;
+      } else {
+        this.loading = false;
+      }
+    },
+
+    // test to see if worker is running
+    isWorkerRunning(): boolean {
+      return !!this.worker; // true if we haven't cleaned it up yet
+    },
+
+    // cancels the currently running query
     cancelQuery() {
       this.cancelRequested = true;
-      if (this.worker != null) {
-        this.worker.terminate();
-        this.worker = null;
+      // to cancel a query being run in a worker thread
+      if (this.worker) {
+        try {
+          const w = this.worker;
+          // 1) ask the worker to stop cooperatively
+          this.worker.postMessage({ type: "cancel" });
+          // 2) fallback: if the same worker is still around after 1500ms, hard terminate
+          if (this.worker === w) {
+            w.terminate();
+            this.cleanupWorker();
+          }
+        } catch {
+          // if posting failed, just hard kill
+          this.worker.terminate();
+          this.cleanupWorker();
+        }
       }
-      if (
-        this.activeBindingStream &&
-        typeof this.activeBindingStream.destroy === "function"
-      ) {
-        this.activeBindingStream.destroy();
-        this.activeBindingStream = null;
-      }
-      if (this.abortController) {
-        this.abortController.abort();
-      }
+
+      // TODO: cancellation of cache query process
+      // if (
+      //   this.activeBindingStream &&
+      //   typeof this.activeBindingStream.destroy === "function"
+      // ) {
+      //   this.activeBindingStream.destroy();
+      //   this.activeBindingStream = null;
+      // }
+      // if (this.abortController) {
+      //   this.abortController.abort();
+      // }
     },
     async previousQueriesView() {
       this.currentView = "previousQueries";
@@ -990,12 +1074,11 @@ export default {
       );
       if (this.queriesCacheExists) {
         try {
-          const cachedQueriesThing = await getCachedQueries(
+          this.cachedQueries = await getCachedQueries(
             this.currentPod + "querycache/queries.ttl"
           );
-          this.cachedQueries = toRaw(cachedQueriesThing);
         } catch (err) {
-          console.error("Error fetching queries:", err);
+          console.log("Error fetching queries:", err);
         }
       }
     },
@@ -1077,6 +1160,9 @@ export default {
       }
     },
   },
+  beforeUnmount() {
+    if (this.worker) this.worker.terminate();
+  },
   mounted() {
     const textarea = this.$refs.codeEditor;
 
@@ -1117,6 +1203,7 @@ export default {
     // Optionally, you can store or configure `yasguiInstance` further here.
   },
 };
+
 </script>
 
 <style scoped>
@@ -1345,6 +1432,13 @@ body {
 .save-info {
   padding: 0px 0px 0px 10px;
   color: #a9aeb1;
+}
+/* message in past queries when no pod is connected */
+.no-pod {
+  display: block;
+  text-align: center;
+  font-size: 1.2rem;
+  padding: 2rem;
 }
 
 /* Past Queries Display */

@@ -8,7 +8,6 @@ import PodUpload from "./components/PodUpload.vue";
 import PodBrowser from "./components/PodBrowser.vue";
 import DataQuery from "./components/DataQuery.vue";
 import EditPrivacy from "./components/EditPrivacy.vue";
-import LoginRedirect from "./components/LoginRedirect.vue";
 import NotFound from "./components/Styling/NotFound.vue";
 
 import { isLoggedin } from "./components/login";
