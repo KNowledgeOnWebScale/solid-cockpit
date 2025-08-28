@@ -21,7 +21,7 @@ import {
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { Parser as SparqlParser } from "sparqljs";
 
-export interface queryResultJson {
+export interface QueryResultJson {
   head: { vars: string[] };
   results: { bindings: any[] };
 }
@@ -34,7 +34,7 @@ export interface ProvenanceData {
 }
 export interface CacheOutput {
   provenanceOutput: ProvenanceData | null;
-  resultsOutput: queryResultJson;
+  resultsOutput: QueryResultJson;
 }
 export interface ComunicaSources {
   value: string;
@@ -267,7 +267,7 @@ async function sparqlQueryWithCache(
       : [];
 
     // results as an object
-    const resultsOutput: queryResultJson = {
+    const resultsOutput: QueryResultJson = {
       head: { vars },
       results: { bindings: bindingsArray },
     };
@@ -815,7 +815,7 @@ export async function fetchQueryFileData(fileUrl: string): Promise<string> {
  */
 export async function fetchSparqlJsonFileData(
   fileUrl: string
-): Promise<queryResultJson | null> {
+): Promise<QueryResultJson | null> {
   const file = await getFile(fileUrl, { fetch });
   const textContent = await file.text();
   try {

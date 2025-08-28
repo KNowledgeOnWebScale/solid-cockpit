@@ -50,30 +50,25 @@
         <ul>
           <div class="top-container">
             <span class="top-label">Input a New Query</span>
+
+            <!-- Example Queries -->
             <!-- TODO: Add more example queries here -->
-            <v-select
-              class="example-queries"
-              :item-props="itemPropsExampleQueries"
-              :items="exampleQueries"
-              v-model="currentQuery"
-              density="compact"
-              rounded
-              flat
-              label="Sample Queries"
-            ></v-select>
-          </div>
-          <!-- SPARQL Query input box -->
-          <!-- Source Designation -->
-          <!-- TODO: offer a way to specify your own URL (Solid pod or SPARQL endpoint) + integrate YASGUI -->
-          <div id="yasgui-container">
-            <!-- <sparql-editor
-              endpoint="https://www.bgee.org/sparql/,https://sparql.uniprot.org/sparql/"
-              examples-repo-add-url="https://github.com/sib-swiss/sparql-examples/new/master/examples/Bgee"
-              examples-on-main-page="10"
-              style="--btn-color: white; --btn-bg-color: #00709b"
-            ></sparql-editor> -->
+            <div class="example-dropdown">
+              <v-select
+                class="example-queries"
+                :item-props="itemPropsExampleQueries"
+                :items="exampleQueries"
+                v-model="selectedExample"
+                @update:modelValue="onSelectExample"
+                density="compact"
+                rounded
+                flat
+                label="Sample Queries"
+              ></v-select>
+            </div>
           </div>
 
+          <!-- Source Designation -->
           <div class="source-selection">
             <span>Datasources: </span>
             <v-combobox
@@ -94,30 +89,7 @@
           </div>
 
           <!-- Actual query -->
-          <li>
-            <textarea
-              ref="codeEditor"
-              v-model="currentQuery.query"
-              placeholder="Enter your SPARQL query here..."
-              class="input-box"
-            ></textarea>
-          </li>
-          <li>
-            <p
-              class="valid-text"
-              :class="
-                isValidSPARQL(currentQuery.query)
-                  ? 'text-green-600'
-                  : 'text-red-600'
-              "
-            >
-              {{
-                isValidSPARQL(currentQuery.query)
-                  ? "Looks like a valid SPARQL query."
-                  : "Invalid SPARQL query. Please check syntax."
-              }}
-            </p>
-          </li>
+          <div id="yasqe-container"></div>
 
           <!-- execute query -->
           <div class="bottom-container">
@@ -161,8 +133,8 @@
 
       <div v-if="currentView === 'previousQueries'">
         <span class="no-pod" v-if="currentPod == ''"
-          >Please connect your pod if you wish to look at your Query
-          Cache... <br />(simply click the "select pod" button above.)</span
+          >Please connect your pod if you wish to look at your Query Cache...
+          <br />(simply click the "select pod" button above.)</span
         >
         <ul>
           <div class="cached-container" v-if="currentPod != ''">
@@ -305,7 +277,7 @@
                   <!-- For sharing cached query data -->
                   <div class="sharing-prompt">
                     <button
-                      @click="toggleShared(), getSpecificCacheAclData(url)"
+                      @click="toggleShared(), getSpecificCacheAclData()"
                       class="sharing-button full-width"
                     >
                       <span>Resource Sharing Information</span>
@@ -410,7 +382,7 @@
                           >Click the button below to create and initalize
                           one.</v-alert
                         >
-                        <button @click="makeNewAcl(url)" class="new-acl">
+                        <button @click="makeNewAcl()" class="new-acl">
                           <span>Generate .acl</span>
                         </button>
                       </div>
@@ -439,7 +411,13 @@
     </div>
   </div>
 
-  <div class="results-container" v-if="loading || (currentQuery.output != null && typeof currentQuery.output !== 'string')">
+  <div
+    class="results-container"
+    v-if="
+      loading ||
+      (currentQuery.output != null && typeof currentQuery.output !== 'string')
+    "
+  >
     <!-- Loading Spinner -->
     <div v-if="loading" class="spinner-container">
       <div class="spinner"></div>
@@ -462,8 +440,10 @@
             class="icon-button full-width"
           >
             <span
-              >Executed query is <i>
-              {{ provType(currentQuery.output.provenanceOutput.algorithm) }} </i>
+              >Executed query is
+              <i>
+                {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
+              </i>
               cached query:</span
             >
             <div class="query-hash">
@@ -531,15 +511,26 @@
     </div>
 
     <!-- Display Result Count -->
-    <div class="results-header" v-if="!loading && (currentQuery.output != null && typeof currentQuery.output !== 'string')">
+
+    <div class="table-container" v-if="!loading && resultsForYasr != null">
+      <div id="yasr-container"></div>
+    </div>
+    <!-- <div
+      class="results-header"
+      v-if="
+        !loading &&
+        currentQuery.output != null &&
+        typeof currentQuery.output !== 'string'
+      "
+    >
       <span>Query Results</span>
       <p class="result-count">
         (n = {{ resolvedQueryResults.results.bindings.length }})
       </p>
-    </div>
+    </div> -->
 
     <!-- Table for Displaying Results -->
-    <div
+    <!-- <div
       class="table-container"
       v-if="!loading && resolvedQueryResults.results != null"
     >
@@ -571,7 +562,7 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </div> -->
   </div>
 
   <!-- Guide for file uploading -->
@@ -608,7 +599,10 @@
 </template>
 
 <script lang="ts">
-// import YASGUI from '@triply/yasgui/build/yasgui.min.js'
+import Yasqe from "@triply/yasqe";
+import "@triply/yasqe/build/yasqe.min.css";
+import Yasr from "@triply/yasr";
+import "@triply/yasr/build/yasr.min.css";
 import { isLoggedin } from "./login";
 import {
   ensureCacheContainer,
@@ -624,6 +618,7 @@ import {
   CachedQuery,
   CacheOutput,
   cleanSourcesUrls,
+  QueryResultJson,
 } from "./queryPod";
 import {
   fetchPermissionsData,
@@ -641,7 +636,7 @@ import {
 } from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
-import { toRaw } from "vue";
+import { toRaw, shallowRef, ref } from "vue";
 
 export default {
   components: {
@@ -651,35 +646,20 @@ export default {
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
+      yasqe: shallowRef<Yasqe | null>(null),
+      yasr: shallowRef<Yasr | null>(null),
+      yasrEl: null as any,
+      resultsForYasr: null as QueryResultJson | null,
       successfulLogin: false as boolean,
       currentPod: "" as string,
       currentView: "newQuery" as "newQuery" | "previousQueries",
-      exampleQueries: [
-        {
-          name: "Example 1" as string,
-          sources: ["<https://sparql.rhea-db.org/sparql/>"] as string[],
-          query:
-            "SELECT DISTINCT ?p WHERE {\n\t?s ?p ?o .\n}LIMIT 10" as string,
-        },
-        {
-          name: "TRIPLE Demonstrator (WikiData)" as string,
-          sources: ["<https://query.wikidata.org/sparql>"] as string[],
-          query:
-            'PREFIX bd: <http://www.bigdata.com/rdf#>\nPREFIX p: <http://www.wikidata.org/prop/>\nPREFIX pq: <http://www.wikidata.org/prop/qualifier/>\nPREFIX wdt: <http://www.wikidata.org/prop/direct/>\nPREFIX wd: <http://www.wikidata.org/entity/>\nPREFIX wikibase: <http://wikiba.se/ontology#>\n\nSELECT DISTINCT ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number  ?cas_number (AVG(?ld50) AS ?avg_ld50) WHERE {\n  ?compound  wdt:P31 wd:Q113145171 ;\n    wdt:P232 ?ec_number ;\n    wdt:P231 ?cas_number ;\n    wdt:P2240 ?ld50 ; # toxicity level - NOTE: not many data points have this info (only 9 results in total)\n    wdt:P366 ?use_type .\n  ?use_type  wdt:P279* wd:Q131656 .\n  ?compound p:P2240 ?ref.\n  ?ref pq:P636 wd:Q285166 .\n  ?rats wdt:P279 wd:Q184224 .\n  ?ref  pq:P689|pq:P2352 ?rats .\n\n  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],mul,en". } # Helps get the label in your language, if not, then default for all languages, then en language\n} GROUP BY ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number ?cas_number ORDER BY ?avg_ld50 # rank by toxicity' as string,
-        },
-        {
-          name: "TRIPLE Demonstrator (Rhea)" as string,
-          sources: ["<https://sparql.rhea-db.org/sparql>"] as string[],
-          query:
-            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX rh: <http://rdf.rhea-db.org/>\n\nSELECT DISTINCT ?chebi ?rhea ?equation ?uniprot WHERE {\n  VALUES ?chebi { <http://purl.obolibrary.org/obo/CHEBI_15930> } # from IDSM\n  ?rhea rdfs:subClassOf rh:Reaction .\n  ?rhea rh:equation ?equation .\n  ?rhea rh:side/rh:contains/rh:compound ?compound .\n  #\n  # the ChEBI can be used either as a small molecule, the reactive part of a macromolecule or as a polymer.\n  #\n  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi . # ?chebi comes from IDSM higher\n}" as string,
-        },
-        {
-          name: "Rhea 13" as string,
-          sources: ["<https://sparql.rhea-db.org/sparql>"] as string[],
-          query:
-            "PREFIX rh: <http://rdf.rhea-db.org/>\nPREFIX taxon: <http://purl.uniprot.org/taxonomy/>\nPREFIX up: <http://purl.uniprot.org/core/>\nSELECT ?uniprot ?mnemo ?rhea ?accession ?equation \nWHERE {\n\tSERVICE <https://sparql.uniprot.org/sparql> {\n\t\tVALUES (?taxid) { (taxon:83333) }\n\t\tGRAPH <http://sparql.uniprot.org/uniprot> {\n\t\t\t?uniprot up:reviewed true .\n\t\t\t?uniprot up:mnemonic ?mnemo .\n\t\t\t?uniprot up:organism ?taxid .\n\t\t\t?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .\n\t\t}\n\t}\n\t?rhea rh:accession ?accession .\n\t?rhea rh:equation ?equation .\n}" as string,
-        },
-      ] as Array<{ name: string; sources: string[]; query: string }>,
+      selectedExample: null as any,
+      loadExampleQuery: false as boolean,
+      exampleQueries: [] as Array<{
+        name: string;
+        sources: string[];
+        query: string;
+      }>,
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
         "<https://glyconnect.expasy.org/sparql>",
@@ -770,40 +750,58 @@ export default {
         title: item,
       };
     },
+    // For selecting an example query
     itemPropsExampleQueries(item2: { name: string }) {
       return {
         title: item2.name,
       };
     },
-    isValidSPARQL(query: string) {
-      // Check if the query starts with a valid SPARQL keyword
-      const sparqlRegex = /^(SELECT|ASK|CONSTRUCT|DESCRIBE|PREFIX|BASE)\s+/i;
-      if (!sparqlRegex.test(query.trim())) {
-        return false;
-      }
+    // loads example queries from the demonstrator folder
+    async loadExampleQueries() {
+      const demonstratorFiles = import.meta.glob("../../demonstrator/*.rq", {
+        as: "raw",
+      });
+      const queries = [];
 
-      // Check if the query contains a WHERE clause
-      if (!/WHERE\s*\{/.test(query)) {
-        return false;
-      }
+      for (const path in demonstratorFiles) {
+        const content = await demonstratorFiles[path]();
+        const lines = content.split("\n");
+        const name = path.split("/").pop()?.replace(".rq", "") || "";
 
-      // Check for balanced braces {}
-      const braces =
-        (query.match(/\{/g) || []).length === (query.match(/\}/g) || []).length;
-      if (!braces) {
-        return false;
-      }
+        let sources: string[] = [];
+        const sourceLine = lines.find((line) =>
+          line.startsWith("# Datasources:")
+        );
+        if (sourceLine) {
+          sources = sourceLine
+            .replace("# Datasources:", "")
+            .trim()
+            .split(",")
+            .map((s) => `<${s.trim()}>`);
+        }
 
-      // Check for balanced angle brackets <>
-      const angleBrackets =
-        (query.match(/</g) || []).length === (query.match(/>/g) || []).length;
-      if (!angleBrackets) {
-        return false;
+        const query = lines
+          .filter((line) => !line.startsWith("# Datasources:"))
+          .join("\n")
+          .trim();
+
+        queries.push({ name, sources, query });
       }
-      return true;
+      this.exampleQueries = queries;
     },
-    clearQueryInput() {
-      this.currentQuery.query = "";
+    // displays example query in YASQUE
+    onSelectExample(ex: any) {
+      if (!this.selectedExample || !this.yasqe) return;
+
+      if (ex && Array.isArray(ex.sources)) {
+        this.currentQuery.sources = ex.sources;
+      }
+
+      const y = this.yasqe;
+      y.setValue(ex.query || "");
+      this.currentQuery.query = y.getValue();
+      y.setCursor({ line: 0, ch: 0 });
+      y.focus();
     },
 
     /* Takes in the emitted value from PodLogin.vue */
@@ -909,7 +907,6 @@ export default {
                 this.currentQuery.sources
               );
             }
-
           } else {
             // if there is no pod connected, use the default query execution
             this.currentQuery.output = await this.executeQuery(
@@ -943,6 +940,7 @@ export default {
           this.resolvedQueryResults = toRaw(
             this.currentQuery.output.resultsOutput
           );
+          this.resultsForYasr = this.resolvedQueryResults;
         }
       } catch (err) {
         if (this.cancelRequested) {
@@ -1063,6 +1061,35 @@ export default {
       // }
     },
 
+    // TODO: FIX THIS MESS -- Display Result using YASR
+    // initializes the YASR instance
+    initYasr() {
+      if (this.yasr) return;
+      const parent = document.getElementById("yasr-container");
+      this.yasr = new Yasr(parent, {
+        pluginOrder: ["table", "response"],
+        defaultPlugin: "table",
+      });
+    },
+    /**
+     * Render any SPARQL JSON result (SELECT/ASK) into YASR
+     * `json` must follow the SPARQL Results JSON spec (head/results/boolean).
+     * Optionally pass status/executionTime (ms) if you have them.
+     */
+    renderYasrFromJson(json: QueryResultJson) {
+      console.log(json);
+      if (!this.yasr) this.initYasr();
+      if (!this.yasr) return; // still not initialized
+
+      const prefixes = this.extractPrefixesFromQuery(this.currentQuery.query);
+      this.yasr.setResponse(
+        {
+          data: json,
+          contentType: "application/sparql-results+json",
+        },
+        prefixes
+      );
+    },
 
     // TODO: Sharing of query results (maybe just the whole container?)
 
@@ -1100,6 +1127,8 @@ export default {
       );
       this.retrievedResults = toRaw(retrievedQuery);
       this.togglRetrievedResults();
+
+      this.resultsForYasr = this.retrievedResults;
     },
     // retrieves cached query for display
     async fetchQuery(hash: string) {
@@ -1160,51 +1189,64 @@ export default {
         this.cannotMakeAcl = true;
       }
     },
+    extractPrefixesFromQuery(query: string): { [key: string]: string } {
+      const prefixes: { [key: string]: string } = {};
+      const regex = /PREFIX\s+([a-zA-Z0-9_-]+):\s*<([^>]+)>/gi;
+      let match;
+      while ((match = regex.exec(query)) !== null) {
+        if (match[1] && match[2]) {
+          prefixes[match[1]] = match[2];
+        }
+      }
+      return prefixes;
+    },
+  },
+  watch: {
+    currentQuery: {
+      handler(newQuery) {
+        this.$nextTick(() => {
+          if (this.yasqe && this.yasqe.getValue() !== newQuery.query) {
+            this.yasqe.setValue(newQuery.query);
+          }
+        });
+      },
+      deep: true,
+    },
+    resultsForYasr: {
+      handler(newResults) {
+        if (newResults && newResults.results && !this.loading) {
+          this.$nextTick(() => {
+            this.renderYasrFromJson(newResults);
+          });
+        }
+      },
+      deep: true,
+    },
   },
   beforeUnmount() {
     if (this.worker) this.worker.terminate();
+    if (this.yasqe) this.yasqe.destroy();
+    if (this.yasr && (this.yasr as any).destroy) (this.yasr as any).destroy();
   },
   mounted() {
-    const textarea = this.$refs.codeEditor;
-
-    /* Small function that allows tab characters in the SPARQL query input box */
-    textarea.addEventListener("keydown", function (e) {
-      if (e.key === "Tab") {
-        e.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        // Insert tab (4 spaces in this case)
-        this.value =
-          this.value.substring(0, start) + "    " + this.value.substring(end);
-        // Place cursor after the tab
-        this.selectionStart = this.selectionEnd = start + 4;
-      }
+    this.loadExampleQueries();
+    this.yasqe = new Yasqe(document.getElementById("yasqe-container")!, {
+      showQueryButton: false,
     });
-    /* Small function that allows input box to grow for longer queries */
-    textarea.addEventListener("input", function () {
-      // Reset height to auto to calculate new height
-      this.style.height = "auto";
-      // Set the height to match the scrollHeight
-      this.style.height = this.scrollHeight + "px";
+    this.yasqe.setValue(this.currentQuery.query);
+
+    this.yasqe.on("change", (instance) => {
+      this.currentQuery.query = instance.getValue();
     });
 
     setTimeout(() => {
       this.loginCheck();
-    }, 500); // Delay of 2 seconds
+    }, 500);
     setTimeout(() => {
       this.handleDelay();
-    }, 520); // Delay of 2 seconds
-
-    //TODO: integrate yasgui
-    // const container = document.getElementById('yasgui-container');
-    // const yasguiInstance = new YASGUI(container, {
-    //   requestConfig: { endpoint: "http://example.com/sparql" },
-    //   copyEndpointOnNewTab: false,
-    // });
-    // Optionally, you can store or configure `yasguiInstance` further here.
+    }, 520);
   },
 };
-
 </script>
 
 <style scoped>
@@ -1326,13 +1368,14 @@ body {
 
 /* Query elements */
 .query-container {
-  padding: 10px 16px;
+  padding: 0.5rem 1rem;
   height: fit-content;
   width: 100%;
   font-family: "Oxanium", monospace;
 }
-#sample-queries {
-  align-items: right;
+
+.example-dropdown {
+  min-width: 20dvw;
 }
 .query-container ul {
   list-style-type: none;
@@ -1341,24 +1384,89 @@ body {
 }
 .query-container .top-container {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .example-queries {
   margin-left: auto;
-  max-width: 20dvw;
+  max-width: 40dvw;
+  margin: 0.5rem 0 1rem 0;
+}
+.example-queries :deep(.v-input__details) {
+  display: none;
 }
 .top-container {
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 .top-container .top-label span {
+  display: flex;
+  align-items: center;
   padding: 0;
 }
 .query-container .top-container span {
   font-size: 18pt;
   font-weight: bold;
-  padding: 0px 0.5rem 1rem 0.5rem;
+  padding: 0px 0.5rem 0rem 0.5rem;
   text-decoration: none;
 }
+/* Query Container Customizations */
+#yasqe-container {
+  border: 3px solid #1e1e1e;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+#yasqe-container :deep(.CodeMirror-gutters) {
+  background-color: #1e1e1e;
+}
+#yasqe-container :deep(.resizeWrapper) {
+  background-color: #1e1e1e;
+}
+#yasqe-container :deep(.CodeMirror) {
+  background-color: #28353e;
+  border: 1px solid #1e1e1e;
+  color: #ede7f6;
+}
+#yasqe-container :deep(.CodeMirror-linenumber) {
+  padding: 0;
+}
+
+/* TODO: Change colors to look nicer */
+#yasqe-container :deep(.cm-keyword) {
+  color: #c792ea; /* Example: purple for keywords like SELECT, WHERE */
+}
+#yasqe-container :deep(.cm-atom) {
+  color: #f78c6c; /* Example: orange for atoms like 'a' */
+}
+#yasqe-container :deep(.cm-variable-2) {
+  color: #82aaff; /* Example: blue for variables like ?s */
+}
+#yasqe-container :deep(.cm-string) {
+  color: #c3e88d; /* Example: green for string literals */
+}
+#yasqe-container :deep(.cm-string-2) {
+  color: #ff5370; /* Example: red for IRI's like <http://...> */
+}
+#yasqe-container :deep(.cm-comment) {
+  color: #546e7a; /* Example: grey for comments */
+}
+#yasqe-container :deep(.cm-operator) {
+  color: #89ddff; /* Example: light blue for operators */
+}
+#yasqe-container :deep(.cm-meta) {
+  color: #ffcb6b; /* Example: yellow for PREFIX */
+}
+#yasqe-container :deep(.cm-matchhighlight) {
+  background-color: #5f5f5f; /* Example: yellow for PREFIX */
+}
+#yasqe-container :deep(.CodeMirror-cursor) {
+  border-left: 1px solid #ffcc00; /* Example: yellow cursor */
+}
+#yasqe-container :deep(.CodeMirror-selected) {
+  background: #545454; /* Example: dark grey for selection */
+}
+
 /* source designation */
 .source-selection {
   display: flex;
@@ -1370,32 +1478,24 @@ body {
 .source-selection span {
   font-size: 16pt;
   font-weight: 600;
-  padding: 10px 8px 8px 4px;
+  padding: 4px 8px 4px 8px;
 }
 .source-selection .autocomplete {
-  padding: 0px 4px 12px 6px;
+  padding: 0;
 }
-/* Actual Query input */
-.input-box {
-  font-family: "Courier New", Courier, monospace;
-  font-size: 14pt;
-  font-weight: 700;
-  color: #ede7f6;
-  padding: 5px;
-  width: 100%;
-  border: 3px solid #28353e;
-  border-radius: 8px;
-  min-height: 200px;
+.source-selection :deep(.v-field__input) {
+  padding: 0 !important;
 }
-.valid-text {
-  display: flex;
-  justify-content: flex-end;
+.source-selection :deep(.v-field__clearable) {
+  padding: 0 !important;
+  margin: auto;
 }
-.text-green-600 {
-  color: #3dcc9f;
+.source-selection :deep(.v-field__append-inner) {
+  padding: 0 !important;
+  margin: auto;
 }
-.text-red-600 {
-  color: #ea7272;
+.source-selection :deep(.v-field__field label) {
+  display: none;
 }
 
 /* bottom row of query container */
@@ -1457,9 +1557,10 @@ body {
 }
 /* General Layout */
 .top-container {
+  display: flex;
   max-width: 100%;
-  padding: 20px;
-  text-align: center;
+  align-items: center;
+  justify-content: center;
 }
 .cached-container {
   width: 100%;
@@ -1634,7 +1735,7 @@ ul {
 /* Container for the Table */
 .results-container {
   max-height: 60rem;
-  min-height: 20rem;
+  min-height: 10rem;
   overflow-y: auto;
   border-radius: 6px;
   margin: 0 0.5rem 0.5rem 0.5rem;
@@ -1670,6 +1771,181 @@ ul {
 }
 
 /* Results */
+/* YASR Results Display Customizations */
+#yasr-container :deep(.yasr) {
+  font-family: "Oxanium", monospace;
+  background-color: #1e1e1e;
+  color: #ede7f6 !important;
+  border-radius: 8px;
+  padding: 0;
+  border: 2px solid #1e1e1e;
+}
+#yasr-container :deep(.grip-container) {
+  padding-top: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+/* TODO: Fix wrapping behavior here */
+#yasr-container :deep(.dataTable) {
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+/* Header with plugin tabs */
+#yasr-container :deep(.yasr_header) {
+  padding: 0 0.5rem;
+  border-bottom: none;
+}
+#yasr-container :deep(.yasr_header) {
+  padding: 0 0.5rem;
+  border-bottom: none;
+}
+#yasr-container :deep(.yasr_btn) {
+  color: #a9a7ad;
+}
+#yasr-container :deep(.yasr_btnGroup) {
+  color: #ede7f6 !important;
+}
+#yasr-container :deep(.yasr_download_control) {
+  margin-left: auto;
+}
+#yasr-container :deep(.tableControls div) {
+  padding: 0 1rem 0 1.5rem;
+  border-left: 1px solid #f8f8f8;
+}
+#yasr-container :deep(.yasr_plugin_control label span) {
+  margin: 0 0.5rem 0 0;;
+}
+#yasr-container :deep(.tableFilter) {
+  padding: 0 0.5rem 0 0.5rem;
+  margin-right: 0;
+  color: #ede7f6;
+  border-left: 1px solid #f8f8f8;
+  text-align: center !important;
+}
+#yasr-container :deep(.pageSizeWrapper) {
+  padding: 0 1rem 0 1.5rem !important;
+  text-align: center !important;
+  border-right: 1px solid #f8f8f8;
+}
+#yasr-container :deep(.pageSizeWrapper select) {
+  padding: 0;
+  text-align: center !important;
+  color: #ede7f6;
+}
+#yasr-container :deep(.yasr_external_ref_btn) {
+  display: none;
+}
+#yasr-container :deep(.yasr_btn) {
+  color: #a9a7ad;
+}
+#yasr-container :deep(.yasr_btnGroup) {
+  color: #ede7f6 !important;
+}
+#yasr-container :deep(.yasr_response_chip) {
+  display: none;
+}
+#yasr-container :deep(.space_element) {
+  display: none;
+}
+#yasr-container :deep(.yasr_downloadIcon) {
+  margin-left: auto;
+}
+
+
+#yasr-container :deep(ul.yasr_tabs) {
+  margin-bottom: 1rem;
+}
+#yasr-container :deep(ul.yasr_tabs li) {
+  background-color: #445560;
+  border: 1px solid #1e1e1e !important;
+  border-radius: 4px !important;
+  margin-right: 0.5rem;
+}
+#yasr-container :deep(ul.yasr_tabs li.active) {
+  background-color: #754ff6;
+}
+#yasr-container :deep(ul.yasr_tabs li span) {
+  color: #ede7f6 !important;
+}
+/* Table results */
+#yasr-container :deep(.yasr_results) {
+  border-radius: 6px;
+  overflow: hidden;
+}
+#yasr-container :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+#yasr-container :deep(thead tr th) {
+  background-color: #754ff6;
+  color: #ede7f6;
+  font-weight: bold;
+  padding: 12px 15px;
+  text-align: left;
+  border: none;
+  white-space: normal;
+}
+#yasr-container :deep(tbody tr:nth-child(even)) {
+  background-color: #445560;
+}
+#yasr-container :deep(tbody tr:nth-child(odd)) {
+  background-color: #2c363d;
+}
+#yasr-container :deep(tbody tr:hover) {
+  background-color: #201054;
+  cursor: pointer;
+}
+#yasr-container :deep(tbody tr td) {
+  padding: 12px 15px;
+  border: none;
+  border-top: 1px solid #4a4a4a;
+  white-space: normal; /* Allow cell content to wrap */
+  overflow-wrap: break-word; /* Break long words to prevent overflow */
+}
+#yasr-container :deep(tbody tr:first-child td) {
+  border-top: none;
+}
+#yasr-container :deep(tbody tr td .value) {
+  color: #90caf9;
+}
+#yasr-container :deep(tbody tr td .value.IRI) {
+  color: #ffab40;
+  text-decoration: none;
+}
+#yasr-container :deep(.CodeMirror-lines) {
+  background-color: #28353e;
+  text-decoration: none;
+}
+#yasr-container :deep(.CodeMirror-gutters) {
+  background-color: #1e1e1e;
+}
+#yasr-container :deep(.resizeWrapper) {
+  background-color: #1e1e1e;
+}
+#yasr-container :deep(.CodeMirror) {
+  background-color: #28353e;
+  border: 1px solid #1e1e1e;
+  color: #ede7f6;
+}
+#yasr-container :deep(.CodeMirror-linenumber) {
+  padding: 0;
+}
+#yasr-container :deep(.cm-string) {
+  color: #baa6fc; /* Example: green for string literals */
+}
+#yasr-container :deep(.cm-property) {
+  color: #ff5370; /* Example: red for IRI's like <http://...> */
+}
+
+
+#yasr-container :deep(.dataTables_info) {
+  padding-left: 0.5rem;
+  color: #a9a7ad;
+}
+#yasr-container :deep(.paginate_button) {
+  color: #a9a7ad !important;
+}
+
 .cache-header {
   font-family: "Oxanium", monospace;
   display: flex;
