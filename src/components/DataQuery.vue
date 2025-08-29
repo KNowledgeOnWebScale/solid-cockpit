@@ -46,7 +46,7 @@
 
     <!-- Main Content -->
     <div class="query-container">
-      <div v-if="currentView === 'newQuery'">
+      <div v-show="currentView === 'newQuery'">
         <ul>
           <div class="top-container">
             <span class="top-label">Input a New Query</span>
@@ -94,7 +94,7 @@
           <!-- execute query -->
           <div class="bottom-container">
             <button
-              v-if="!loading"
+              v-show="!loading"
               class="execute-button"
               @click="runExecuteQuery"
               :disabled="loading"
@@ -102,7 +102,7 @@
               Execute Query
             </button>
             <button
-              v-if="loading"
+              v-show="loading"
               class="execute-button"
               @click="cancelQuery"
               :disabled="!loading"
@@ -110,7 +110,7 @@
               Cancel Query
             </button>
 
-            <div class="save-query" v-if="currentPod !== ''">
+            <div class="save-query" v-show="currentPod !== ''">
               <v-checkbox
                 class="save-checkbox"
                 v-model="saveQuery"
@@ -125,6 +125,33 @@
                   results to your pod</v-tooltip
                 >
               </div>
+            </div>
+
+            <div class="sparql-guide">
+              <button
+                v-show="currentQuery.query != ''"
+                class="clear-button"
+                @click="clearQuery"
+                :disabled="loading"
+              >
+                Clear Query
+              </button>
+
+              <v-tooltip text="SPARQL query writing guide" location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    variant="text"
+                    aria-label="Open SPARQL query writing guide"
+                    href="https://www.wikidata.org/wiki/Wikidata:SPARQL_tutorial"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <v-icon>mdi-help-circle</v-icon>
+                  </v-btn>
+                </template>
+              </v-tooltip>
             </div>
           </div>
           <!-- TODO: an alert or something here if there is a [syntax] error -->
@@ -164,7 +191,7 @@
                   </button>
                 </div>
                 <!-- Shows individual query details -->
-                <div class="specific-query" v-if="showQueryIndex === index">
+                <div class="specific-query" v-show="showQueryIndex === index">
                   <!-- When query was executed -->
                   <div class="query-time">
                     <span class="user-tag">Date: <br /></span>
@@ -411,190 +438,122 @@
     </div>
   </div>
 
-  <div
-    class="results-container"
-    v-if="
-      loading ||
-      (currentQuery.output != null && typeof currentQuery.output !== 'string')
-    "
-  >
-    <!-- Loading Spinner -->
-    <div v-if="loading" class="spinner-container">
-      <div class="spinner"></div>
-      <p>Loading query results...</p>
-    </div>
-
-    <!-- Display Query Cache Informaton -->
+  <div v-show="currentView != 'previousQueries'">
     <div
-      class="cache-header"
+      class="results-container"
       v-if="
-        !loading &&
-        currentQuery.output != null &&
-        currentQuery.output.provenanceOutput != null
+        loading ||
+        (currentQuery.output != null && typeof currentQuery.output !== 'string')
       "
     >
-      <div class="cached-container">
-        <div class="folder-header">
-          <button
-            @click="toggleResultsQuery(currentCachedQueryHash)"
-            class="icon-button full-width"
-          >
-            <span
-              >Executed query is
-              <i>
-                {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
-              </i>
-              cached query:</span
-            >
-            <div class="query-hash">
-              <span>{{ currentCachedQueryHash }}</span>
-            </div>
-            <i class="querycache-icon material-icons not-colored info-icon">
-              {{
-                showResultQuery
-                  ? "keyboard_arrow_down info"
-                  : "chevron_right info"
-              }}</i
-            >
-          </button>
-        </div>
-        <div class="specific-query" v-if="showResultQuery">
-          <!-- When query was executed -->
-          <div class="query-time">
-            <span class="user-tag">Date Executed: <br /></span>
-            <span class="the-user"
-              ><i>{{ cachedQueries[cachedQueryIndex].created }}</i></span
-            >
-          </div>
+      <!-- Loading Spinner -->
+      <div v-if="loading" class="spinner-container">
+        <div class="spinner"></div>
+        <p>Loading query results...</p>
+      </div>
 
-          <!-- The SPARQL query that was executed -->
-          <div class="query-file-container">
-            <span class="user-tag">Query File: <br /></span>
+      <div class="results-text">
+        <span class="top-label" v-show="!loading">Query results</span>
+      </div>
+
+      <!-- Display Query Cache Informaton -->
+      <div
+        class="cache-header"
+        v-if="
+          !loading &&
+          currentQuery.output != null &&
+          currentQuery.output.provenanceOutput != null
+        "
+      >
+        <div class="cached-container">
+          <div class="folder-header">
             <button
-              @click="fetchQuery(currentCachedQueryHash)"
-              class="drop-down"
+              @click="toggleResultsQuery(currentCachedQueryHash)"
+              class="icon-button full-width"
             >
-              <div class="query-file-info">
-                <span class="the-user"
-                  ><i>{{ cachedQueries[cachedQueryIndex].queryFile }}</i></span
-                >
-                <i class="material-icons not-colored">{{
-                  showRetrievedQuery ? "keyboard_arrow_down" : "chevron_right"
-                }}</i>
-              </div>
-            </button>
-
-            <!-- Query text -->
-            <div
-              class="sparql-box"
-              v-if="showRetrievedQuery && retrievedQuery != null"
-            >
-              <pre><code>{{ retrievedQuery }}</code></pre>
-            </div>
-          </div>
-
-          <!-- Query sources -->
-          <div class="query-sources">
-            <span class="user-tag">Sources: <br /></span>
-            <ul>
-              <li
-                v-for="(source, i) in cachedQueries[cachedQueryIndex]
-                  .sourceUrls"
-                :key="i"
+              <span
+                >Executed query is
+                <i>
+                  {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
+                </i>
+                cached query:</span
               >
-                <a>{{ source }}</a>
-              </li>
-            </ul>
+              <div class="query-hash">
+                <span>{{ currentCachedQueryHash }}</span>
+              </div>
+              <i class="querycache-icon material-icons not-colored info-icon">
+                {{
+                  showResultQuery
+                    ? "keyboard_arrow_down info"
+                    : "chevron_right info"
+                }}</i
+              >
+            </button>
+          </div>
+          <div class="specific-query" v-if="showResultQuery">
+            <!-- When query was executed -->
+            <div class="query-time">
+              <span class="user-tag">Date Executed: <br /></span>
+              <span class="the-user"
+                ><i>{{ cachedQueries[cachedQueryIndex].created }}</i></span
+              >
+            </div>
+
+            <!-- The SPARQL query that was executed -->
+            <div class="query-file-container">
+              <span class="user-tag">Query File: <br /></span>
+              <button
+                @click="fetchQuery(currentCachedQueryHash)"
+                class="drop-down"
+              >
+                <div class="query-file-info">
+                  <span class="the-user"
+                    ><i>{{
+                      cachedQueries[cachedQueryIndex].queryFile
+                    }}</i></span
+                  >
+                  <i class="material-icons not-colored">{{
+                    showRetrievedQuery ? "keyboard_arrow_down" : "chevron_right"
+                  }}</i>
+                </div>
+              </button>
+
+              <!-- Query text -->
+              <div
+                class="sparql-box"
+                v-if="showRetrievedQuery && retrievedQuery != null"
+              >
+                <pre><code>{{ retrievedQuery }}</code></pre>
+              </div>
+            </div>
+
+            <!-- Query sources -->
+            <div class="query-sources">
+              <span class="user-tag">Sources: <br /></span>
+              <ul>
+                <li
+                  v-for="(source, i) in cachedQueries[cachedQueryIndex]
+                    .sourceUrls"
+                  :key="i"
+                >
+                  <a>{{ source }}</a>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Display Result Count -->
+      <!-- Display Result Count -->
 
-    <div class="table-container" v-if="!loading && resultsForYasr != null">
-      <div id="yasr-container"></div>
-    </div>
-    <!-- <div
-      class="results-header"
-      v-if="
-        !loading &&
-        currentQuery.output != null &&
-        typeof currentQuery.output !== 'string'
-      "
-    >
-      <span>Query Results</span>
-      <p class="result-count">
-        (n = {{ resolvedQueryResults.results.bindings.length }})
-      </p>
-    </div> -->
-
-    <!-- Table for Displaying Results -->
-    <!-- <div
-      class="table-container"
-      v-if="!loading && resolvedQueryResults.results != null"
-    >
-      <div class="scroll-wrapper">
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th
-                v-for="(varName, index) in resolvedQueryResults.head.vars"
-                :key="index"
-              >
-                {{ varName }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(binding, rowIndex) in resolvedQueryResults.results
-                .bindings"
-              :key="rowIndex"
-            >
-              <td
-                v-for="(varName, colIndex) in resolvedQueryResults.head.vars"
-                :key="colIndex"
-              >
-                {{ binding[varName]?.value || "0" }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="table-container" v-show="!loading && resultsForYasr != null">
+        <div id="yasr-container"></div>
       </div>
-    </div> -->
+    </div>
   </div>
-
   <!-- Guide for file uploading -->
   <div class="use-guide">
-    <div class="guide-container">
-      <h2 class="guide">Data Query Guide</h2>
-
-      <hr class="line" />
-
-      <ol class="list-container">
-        <li class="req">
-          <b>OPTIONAL:</b> Select a pod (if you want to save/share queries and
-          results)
-        </li>
-        <li class="req">
-          Select or input the URL(s) of the SPARQL Endpoint(s) and/or Solid
-          Pod(s) to query in <b>"Datasources"</b> (Solid pod querying not
-          available yet)
-        </li>
-        <li class="req">Enter a SPARQL query in the input box</li>
-        <li class="req">
-          Click the <b>"Save Query"</b> button if you wish to save the query and
-          results
-        </li>
-        <li class="req">
-          Click the <b>"Execute Query"</b> button to execute the query
-        </li>
-        <li class="req">
-          Results will be displayed below once the query has finished
-        </li>
-      </ol>
-    </div>
+    <DataQueryGuide />
   </div>
 </template>
 
@@ -636,19 +595,20 @@ import {
 } from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
-import { toRaw, shallowRef, ref } from "vue";
+import DataQueryGuide from "./Guides/DataQueryGuide.vue";
+import { toRaw, shallowRef } from "vue";
 
 export default {
   components: {
     PodLogin,
     PodRegistration,
+    DataQueryGuide,
   },
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
       yasqe: shallowRef<Yasqe | null>(null),
       yasr: shallowRef<Yasr | null>(null),
-      yasrEl: null as any,
       resultsForYasr: null as QueryResultJson | null,
       successfulLogin: false as boolean,
       currentPod: "" as string,
@@ -759,7 +719,8 @@ export default {
     // loads example queries from the demonstrator folder
     async loadExampleQueries() {
       const demonstratorFiles = import.meta.glob("../../demonstrator/*.rq", {
-        as: "raw",
+        query: "?raw",
+        import: "default",
       });
       const queries = [];
 
@@ -869,7 +830,10 @@ export default {
             };
           }
 
-          // If there is not an equivalent query in cache, then add it to cache
+          // pass found results to YASR (with save query selected)
+          this.resultsForYasr = this.currentQuery.output.resultsOutput;
+
+          // If there is NOT an equivalent query in cache, then add it to cache
           if (
             this.currentQuery.output.provenanceOutput.algorithm != "equivalence"
           ) {
@@ -936,11 +900,8 @@ export default {
               results: { bindings: [] },
             };
           }
-
-          this.resolvedQueryResults = toRaw(
-            this.currentQuery.output.resultsOutput
-          );
-          this.resultsForYasr = this.resolvedQueryResults;
+          // pass found results to YASR (if save query was not selected)
+          this.resultsForYasr = this.currentQuery.output.resultsOutput;
         }
       } catch (err) {
         if (this.cancelRequested) {
@@ -1060,12 +1021,26 @@ export default {
       //   this.abortController.abort();
       // }
     },
+    // Resets the currentQuery object to its initial state
+    clearQuery() {
+      this.currentQuery = {
+        name: "",
+        sources: [],
+        query: "",
+        output: null,
+      };
+      if (this.yasqe) {
+        this.yasqe.setValue("");
+      }
+      this.selectedExample = null;
+      this.resultsForYasr = null;
+    },
 
     // TODO: FIX THIS MESS -- Display Result using YASR
     // initializes the YASR instance
     initYasr() {
-      if (this.yasr) return;
       const parent = document.getElementById("yasr-container");
+      if (this.yasr) parent.replaceChildren();
       this.yasr = new Yasr(parent, {
         pluginOrder: ["table", "response"],
         defaultPlugin: "table",
@@ -1074,12 +1049,10 @@ export default {
     /**
      * Render any SPARQL JSON result (SELECT/ASK) into YASR
      * `json` must follow the SPARQL Results JSON spec (head/results/boolean).
-     * Optionally pass status/executionTime (ms) if you have them.
      */
     renderYasrFromJson(json: QueryResultJson) {
-      console.log(json);
-      if (!this.yasr) this.initYasr();
-      if (!this.yasr) return; // still not initialized
+      this.initYasr();
+      if (!this.yasr) return;
 
       const prefixes = this.extractPrefixesFromQuery(this.currentQuery.query);
       this.yasr.setResponse(
@@ -1122,13 +1095,11 @@ export default {
     },
     // retrieves cached results for display
     async fetchResults(hash: string) {
-      const retrievedQuery = await fetchSparqlJsonFileData(
+      const retrievedQueryResults = await fetchSparqlJsonFileData(
         `${this.currentPod}querycache/${hash}.json`
       );
-      this.retrievedResults = toRaw(retrievedQuery);
+      this.retrievedResults = toRaw(retrievedQueryResults);
       this.togglRetrievedResults();
-
-      this.resultsForYasr = this.retrievedResults;
     },
     // retrieves cached query for display
     async fetchQuery(hash: string) {
@@ -1281,7 +1252,7 @@ body {
   padding-right: 20px;
 }
 .login-container {
-  margin: 0 0.25rem 0.25rem 0.25rem;
+  margin: 0.5rem 0.25rem 0 0.25rem;
 }
 
 /* loading spinner for login-check */
@@ -1431,7 +1402,19 @@ body {
 #yasqe-container :deep(.CodeMirror-linenumber) {
   padding: 0;
 }
-
+#yasqe-container :deep(.notification.notif_property) {
+  background-color: #28353e;
+  padding: 0;
+  color: #a9a7ad;
+}
+#yasqe-container :deep(.notification.active) {
+  background-color: #28353e;
+  padding: 0;
+  color: #a9a7ad;
+}
+#yasqe-container :deep(.yasqe_buttons) {
+  display: none;
+}
 /* TODO: Change colors to look nicer */
 #yasqe-container :deep(.cm-keyword) {
   color: #c792ea; /* Example: purple for keywords like SELECT, WHERE */
@@ -1448,8 +1431,14 @@ body {
 #yasqe-container :deep(.cm-string-2) {
   color: #ff5370; /* Example: red for IRI's like <http://...> */
 }
+#yasqe-container :deep(.cm-variable-3) {
+  color: #a0fa87; /* Example: red for IRI's like <http://...> */
+}
+#yasqe-container :deep(.cm-number) {
+  color: #ede7f6; /* Example: red for IRI's like <http://...> */
+}
 #yasqe-container :deep(.cm-comment) {
-  color: #546e7a; /* Example: grey for comments */
+  color: #a9a7ad; /* Example: grey for comments */
 }
 #yasqe-container :deep(.cm-operator) {
   color: #89ddff; /* Example: light blue for operators */
@@ -1518,6 +1507,23 @@ body {
   background-color: #754ff6;
 }
 .query-container .execute-button:disabled {
+  background-color: #888;
+  cursor: not-allowed;
+}
+.sparql-guide {
+  padding-left: 0.5rem;
+  margin-left: auto;
+}
+.clear-button {
+  padding: 8px 14px;
+  margin-right: 1rem;
+  border: 2px solid #28353e;
+  border-radius: 8px;
+}
+.query-container .clear-button:hover {
+  background-color: #ff7f7fbb;
+}
+.query-container .clear-button:disabled {
   background-color: #888;
   cursor: not-allowed;
 }
@@ -1742,6 +1748,8 @@ ul {
   padding: 1rem;
   background-color: #28353e;
   color: #ede7f6;
+  scrollbar-color: #a9a7ad #1e1e1e;
+  scrollbar-width: thin;
 }
 /* Loading Spinner */
 .spinner-container {
@@ -1771,6 +1779,13 @@ ul {
 }
 
 /* Results */
+.results-container .results-text {
+  font-size: 18pt;
+  font-weight: bold;
+  font-family: "Oxanium", monospace;
+  padding: 0 0 0.5rem 0.5rem;
+}
+
 /* YASR Results Display Customizations */
 #yasr-container :deep(.yasr) {
   font-family: "Oxanium", monospace;
@@ -1778,6 +1793,7 @@ ul {
   color: #ede7f6 !important;
   border-radius: 8px;
   padding: 0;
+  margin-top: 0.5rem;
   border: 2px solid #1e1e1e;
 }
 #yasr-container :deep(.grip-container) {
@@ -1802,6 +1818,14 @@ ul {
 #yasr-container :deep(.yasr_btn) {
   color: #a9a7ad;
 }
+#yasr-container :deep(.yasr_btn.select_table.selected) {
+  color: #ede7f6 !important;
+  border-bottom: 3px solid #5728d9;
+}
+#yasr-container :deep(.yasr_btn.select_response.selected) {
+  color: #ede7f6 !important;
+  border-bottom: 3px solid #5728d9;
+}
 #yasr-container :deep(.yasr_btnGroup) {
   color: #ede7f6 !important;
 }
@@ -1813,7 +1837,7 @@ ul {
   border-left: 1px solid #f8f8f8;
 }
 #yasr-container :deep(.yasr_plugin_control label span) {
-  margin: 0 0.5rem 0 0;;
+  margin: 0 0.5rem 0 0;
 }
 #yasr-container :deep(.tableFilter) {
   padding: 0 0.5rem 0 0.5rem;
@@ -1831,6 +1855,7 @@ ul {
   padding: 0;
   text-align: center !important;
   color: #ede7f6;
+  background-color: #1e1e1e;
 }
 #yasr-container :deep(.yasr_external_ref_btn) {
   display: none;
@@ -1851,7 +1876,6 @@ ul {
   margin-left: auto;
 }
 
-
 #yasr-container :deep(ul.yasr_tabs) {
   margin-bottom: 1rem;
 }
@@ -1870,16 +1894,19 @@ ul {
 /* Table results */
 #yasr-container :deep(.yasr_results) {
   border-radius: 6px;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-color: #a9a7ad #1e1e1e;
+  scrollbar-width: thin;
 }
-#yasr-container :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
+#yasr-container :deep(.dataTable) {
+  max-width: fit-content;
+  min-width: 100%;
 }
 #yasr-container :deep(thead tr th) {
-  background-color: #754ff6;
+  background-color: #5728d9;
   color: #ede7f6;
   font-weight: bold;
+  font-size: 13pt;
   padding: 12px 15px;
   text-align: left;
   border: none;
@@ -1905,12 +1932,11 @@ ul {
 #yasr-container :deep(tbody tr:first-child td) {
   border-top: none;
 }
-#yasr-container :deep(tbody tr td .value) {
-  color: #90caf9;
+#yasr-container :deep(tbody tr td .nonIri) {
+  color: #ede7f6;
 }
-#yasr-container :deep(tbody tr td .value.IRI) {
+#yasr-container :deep(tbody tr td .iri) {
   color: #ffab40;
-  text-decoration: none;
 }
 #yasr-container :deep(.CodeMirror-lines) {
   background-color: #28353e;
@@ -1936,7 +1962,16 @@ ul {
 #yasr-container :deep(.cm-property) {
   color: #ff5370; /* Example: red for IRI's like <http://...> */
 }
-
+#yasr-container :deep(.overlay_content) {
+  border-radius: 6px;
+}
+#yasr-container :deep(.overlay_content button) {
+  border-radius: 6px;
+}
+#yasr-container ::selection {
+  background: #5f5f5f; /* highlight background */
+  color: #ede7f6; /* highlighted text color */
+}
 
 #yasr-container :deep(.dataTables_info) {
   padding-left: 0.5rem;
@@ -1977,7 +2012,7 @@ ul {
   margin-left: 3rem;
 }
 .scroll-wrapper {
-  overflow-x: auto; /* Enables horizontal scrolling if content overflows */
+  overflow-x: auto;
   width: 100%;
 }
 .result-table {

@@ -44,31 +44,6 @@ Issue reporting and other general feedback are welcome. Please use GitHub Issues
 
 - If weird things start to happen with athn issues, clear browser history and cookies and it should fix things.
 
-#### TO DO:
-
-**Data Upload:**
-
-1. Fix UI and Color Scheme
-2. Functionality to edit existing RDF stored in Pod
-
-**Data Browser:**
-
-3. Data display improvements
-4. Functionality to edit data (naming, metadata, etc.) and delete data
-
-**Data Query:**
-
-6. Integrate (SPARQL-Editor)[https://github.com/sib-swiss/sparql-editor] for query input, editing, and results display
-7. Methods to observe past query SPARQL and Results
-8. Methods for searching through Query Cache (a search bar)
-9. Methods for "sharing" queries and results (i.e. privacy editing)
-10. Methods for deleting past queries and results
-
-**Data Privacy:**
-
-10. Finish "SharedWithMe" and "SharedWithOthers" views
-11. Implement "notifications" view
-
 ---
 
 
