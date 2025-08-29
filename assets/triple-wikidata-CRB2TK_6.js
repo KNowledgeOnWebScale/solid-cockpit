@@ -1,0 +1,22 @@
+const t=`# Datasources: https://query.wikidata.org/sparql
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+
+SELECT DISTINCT ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number  ?cas_number (AVG(?ld50) AS ?avg_ld50) WHERE {
+  ?compound  wdt:P31 wd:Q113145171 ;
+    wdt:P232 ?ec_number ;
+    wdt:P231 ?cas_number ;
+    wdt:P2240 ?ld50 ; # toxicity level - NOTE: not many data points have this info (only 9 results in total)
+    wdt:P366 ?use_type .
+  ?use_type  wdt:P279* wd:Q131656 .
+  ?compound p:P2240 ?ref.
+  ?ref pq:P636 wd:Q285166 .
+  ?rats wdt:P279 wd:Q184224 .
+  ?ref  pq:P689|pq:P2352 ?rats .
+
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],mul,en". } # Helps get the label in your language, if not, then default for all languages, then en language
+} GROUP BY ?use_type ?use_typeLabel ?compound ?compoundLabel ?ec_number ?cas_number ORDER BY ?avg_ld50 # rank by toxicity`;export{t as default};

@@ -5,6 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <title>Solid Cockpit</title>
+
+    <!-- section to help make the Z3 solver work in a browser setting -->
+    <script src="./z3-built.js"></script>
+    <script>
+      globalThis.global = { initZ3: globalThis.initZ3 };
+    </script>
+    <!-- <script src="./coi-serviceworker.js"></script> -->
+
     <meta property="og:title" content="Solid Cockpit" />
     <meta 
       name="description" 
@@ -19,8 +27,8 @@
     <meta name="keywords" content="Solid, RDF, SPARQL Querying, Privacy Editing" />
     <link rel="icon" type="image/x-icon" href="./assets/favicon-Cmud3RjT.ico" />
 
-    <script type="module" crossorigin src="./assets/index-D5O3vml3.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-fQwWxYux.css">
+    <script type="module" crossorigin src="./assets/index-BdAuoIGc.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B9sCefBB.css">
   </head>
   <body>
     <noscript>
