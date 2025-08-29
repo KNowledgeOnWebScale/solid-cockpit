@@ -319,3 +319,54 @@ async function obtainACL(datasetWithAcl) {
           //       </v-menu>
           //     </div>
           //   </li>
+
+
+// The display of sparql-json query results in a table
+    //       <!-- <div
+    //   class="results-header"
+    //   v-if="
+    //     !loading &&
+    //     currentQuery.output != null &&
+    //     typeof currentQuery.output !== 'string'
+    //   "
+    // >
+    //   <span>Query Results</span>
+    //   <p class="result-count">
+    //     (n = {{ resolvedQueryResults.results.bindings.length }})
+    //   </p>
+    // </div> -->
+
+    // <!-- Table for Displaying Results -->
+    // <!-- <div
+    //   class="table-container"
+    //   v-if="!loading && resolvedQueryResults.results != null"
+    // >
+    //   <div class="scroll-wrapper">
+    //     <table class="result-table">
+    //       <thead>
+    //         <tr>
+    //           <th
+    //             v-for="(varName, index) in resolvedQueryResults.head.vars"
+    //             :key="index"
+    //           >
+    //             {{ varName }}
+    //           </th>
+    //         </tr>
+    //       </thead>
+    //       <tbody>
+    //         <tr
+    //           v-for="(binding, rowIndex) in resolvedQueryResults.results
+    //             .bindings"
+    //           :key="rowIndex"
+    //         >
+    //           <td
+    //             v-for="(varName, colIndex) in resolvedQueryResults.head.vars"
+    //             :key="colIndex"
+    //           >
+    //             {{ binding[varName]?.value || "0" }}
+    //           </td>
+    //         </tr>
+    //       </tbody>
+    //     </table>
+    //   </div>
+    // </div> -->

@@ -74,6 +74,7 @@
       </div>
 
       <!-- "My Pod" display -->
+      <!-- TODO: change the Resource to make the whole item a button -->
       <div class="pod-directories" v-if="navValue === 0">
         <div class="container-fluid">
           <div class="nav-container">
@@ -96,19 +97,19 @@
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
-                <i class="material-icons not-colored left">{{
-                  containerCheck(url) ? "folder" : "description"
-                }}</i>
-                {{ url }}
                 <button
                   @click="toggleShared(index), getSpecificAclData(url)"
-                  class="icon-button right"
+                  class="icon-button full-width"
                 >
-                  <i class="material-icons not-colored right">
+                  <i class="material-icons not-colored left">{{
+                    containerCheck(url) ? "folder" : "description"
+                  }}</i>
+                  <span class="resource-name">{{ url }}</span>
+                  <i class="material-icons not-colored info-icon">
                     {{
-                      showSharedIndex === null
-                        ? "chevron_right lock"
-                        : "keyboard_arrow_down lock"
+                      showSharedIndex === index
+                        ? "keyboard_arrow_down lock"
+                        : "chevron_right lock"
                     }}</i
                   >
                 </button>
@@ -131,7 +132,7 @@
                           <i class="material-icons not-colored right"
                             >refresh</i
                           >
-                          <v-tooltip activator="parent" location="end"
+                          <v-tooltip class="tool-tip" activator="parent" location="end"
                             >Refresh access rights
                           </v-tooltip>
                         </button></span
@@ -151,12 +152,15 @@
                             </span>
                           </div>
                           <button
-                            @click="copyText(inde)"
+                            @click="copyText(inde.toString())"
                             class="icon-button right"
                           >
                             <i class="material-icons not-colored right"
                               >content_copy</i
                             >
+                            <v-tooltip class="tool-tip" activator="parent" location="left"
+                              >Copy WebID to clipboard
+                            </v-tooltip>
                           </button>
                         </div>
                         <span class="permissions-tag">Permissions:<br /></span>
@@ -201,6 +205,7 @@
                         </i>
                         <v-tooltip
                           v-if="showFormIndex === index"
+                          class="tool-tip"
                           activator="parent"
                           location="end"
                           >Click to hide "Add access rights" field
@@ -223,7 +228,7 @@
                           <label>
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
-                            <v-tooltip activator="parent" location="top"
+                            <v-tooltip class="tool-tip" activator="parent" location="top"
                               >Observe existing content
                             </v-tooltip>
                           </label>
@@ -233,7 +238,7 @@
                               v-model="permissions.append"
                             />
                             <span>Append</span>
-                            <v-tooltip activator="parent" location="top"
+                            <v-tooltip class="tool-tip" activator="parent" location="top"
                               >Add to to existing content
                             </v-tooltip>
                           </label>
@@ -243,7 +248,7 @@
                               v-model="permissions.write"
                             />
                             <span>Write</span>
-                            <v-tooltip activator="parent" location="top"
+                            <v-tooltip class="tool-tip" activator="parent" location="top"
                               >Change existing content + create new content
                             </v-tooltip>
                           </label>
@@ -253,7 +258,7 @@
                               v-model="permissions.control"
                             />
                             <span>Control</span>
-                            <v-tooltip activator="parent" location="top"
+                            <v-tooltip class="tool-tip" activator="parent" location="top"
                               >Change .acl permissions for the resource
                             </v-tooltip>
                           </label>
@@ -269,7 +274,7 @@
                               :class="{ highlight: accessType === 'Agent' }"
                             >
                               Agent
-                              <v-tooltip activator="parent" location="top"
+                              <v-tooltip class="tool-tip" activator="parent" location="top"
                                 >Change access for a specific WebId
                               </v-tooltip>
                             </button>
@@ -281,7 +286,7 @@
                               :class="{ highlight: accessType === 'Public' }"
                             >
                               Public
-                              <v-tooltip activator="parent" location="top"
+                              <v-tooltip class="tool-tip" activator="parent" location="top"
                                 >Change access for anyone
                               </v-tooltip>
                             </button>
@@ -358,8 +363,13 @@
                             ><br />
                             Was given:
                             <i>{{ permissionsString }}</i> rights<br />
-                            To resources in the container: <i>{{ url }}</i><br />
-                            {{ recorded }}
+                            To resources in the container: <i>{{ url }}</i
+                            ><br />
+                            These changes were added to sharedWithOthers.ttl:
+                            <i>{{ recordedOthers }}</i>
+                            <br />
+                            These changes were added to their sharedWithMe.ttl:
+                            <i>{{ postedMe }}</i>
                           </v-alert>
 
                           <v-alert
@@ -419,13 +429,23 @@
       </div>
 
       <!-- "Shared with me" display -->
-      <!-- TODO: Make a document that displays BOTH docs shared with others and docs shared with me -->
-      <div class="shared-with-me" v-if="navValue === 1">
-        <div v-if="selectedPod"></div>
+      <!-- TODO: Fix this because emitted values are not working properly -->
+      <div class="shared-with" v-if="navValue === 1">
+        <SharedWith
+          :currentOperation="currentDisplay"
+          :currentPod="currentPod"
+          :currentWebId="webId"
+        />
       </div>
 
       <!-- "Shared with others" display -->
-      <div class="shared-with-others" v-if="navValue === 2"></div>
+      <div class="shared-with" v-if="navValue === 2">
+        <SharedWith
+          :currentOperation="currentDisplay"
+          :currentPod="currentPod"
+          :currentWebId="webId"
+        />
+      </div>
     </div>
   </div>
 
@@ -469,7 +489,7 @@ import {
   checkUrl,
   generateAcl,
   createInboxWithACL,
-  createSharedWithMe,
+  updateSharedWithMe,
   updateSharedWithOthers,
 } from "./privacyEdit";
 import { currentWebId } from "./login";
@@ -482,7 +502,8 @@ import {
 } from "./getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
-
+import SharedWith from "./Styling/SharedWith.vue";
+import { ref } from "vue";
 interface Permissions {
   read: boolean;
   append: boolean;
@@ -498,6 +519,7 @@ export default {
   components: {
     PodRegistration,
     ContainerNav,
+    SharedWith,
   },
   name: "PrivacyComponent",
   data(): {
@@ -510,7 +532,7 @@ export default {
     userUrl: string;
     userUrlInvalid: boolean;
     submissionDone: boolean;
-    recorded: string;
+    recordedOthers: boolean;
     permissions: Permissions;
     navValue: number;
     permissionsString: string;
@@ -528,10 +550,12 @@ export default {
     inContainer: WorkingData | null;
     newUrls: string[];
     aclUrl: string;
+    postedMe: boolean;
     hasAccess: AccessData;
     publicAccess: { [permission: string]: boolean };
     uploadedSharingDoc: string;
     container: string[];
+    currentDisplay: string;
   } {
     return {
       currentPod: "",
@@ -543,7 +567,7 @@ export default {
       userUrl: "",
       userUrlInvalid: false,
       submissionDone: false,
-      recorded: "",
+      recordedOthers: false,
       permissions: {
         read: false,
         append: false,
@@ -566,10 +590,12 @@ export default {
       inContainer: null,
       newUrls: [],
       aclUrl: "",
+      postedMe: false,
       hasAccess: {},
       publicAccess: {},
       uploadedSharingDoc: "",
       container: [],
+      currentDisplay: "default",
     };
   },
   methods: {
@@ -684,6 +710,13 @@ export default {
      */
     toggleNavValue(newValue: number) {
       this.navValue = newValue;
+      if (this.navValue === 1) {
+        this.currentDisplay = "sharedWithMe";
+      } else if (this.navValue === 2) {
+        this.currentDisplay = "sharedWithOthers";
+      } else if (this.navValue === 0) {
+        this.currentDisplay = "default";
+      }
     },
 
     /**
@@ -691,19 +724,6 @@ export default {
      */
     createInbox() {
       createInboxWithACL(this.currentPod, this.webId);
-    },
-    /**
-     * checks if the share tracking document exists and creates it if not
-     * @param docExists boolean that initicates is the doc exists
-     *
-     */
-    // TODO: write a new structured data creation algorithm to store the sharing status data
-    createSharingDoc(docExists: boolean) {
-      if (!docExists) {
-        console.log("make file");
-      } else {
-        // await this.uploadedSharingDoc = uploadToPod();
-      }
     },
 
     /**
@@ -738,20 +758,36 @@ export default {
           // add condition for different agents here ...
           // actual .acl changing
           await changeAclAgent(url, this.userUrl, this.permissions);
+          // write changes to specified user's sharedWithMe.ttl file
+          this.postedMe = await updateSharedWithMe(
+            this.userUrl,
+            this.webId,
+            url,
+            this.permissions
+          );
+
+          // write changes to current user's sharedWithOthers.ttl file
+          this.recordedOthers = await updateSharedWithOthers(
+            this.currentPod,
+            url,
+            this.userUrl,
+            this.permissions
+          );
         }
       }
 
       // for Public ACL changes
       if (this.accessType === "Public") {
         await changeAclPublic(url, this.permissions);
-      }
 
-      this.recorded = await updateSharedWithOthers(
-        this.currentPod,
-        url,
-        this.userUrl,
-        this.permissions
-      );
+        // write changes to current user's sharedWithOthers.ttl file
+        this.recordedOthers = await updateSharedWithOthers(
+          this.currentPod,
+          url,
+          "http://xmlns.com/foaf/0.1/Agent",
+          this.permissions
+        );
+      }
 
       // Message that tells the changes that have been made
       const ex = [
@@ -764,6 +800,8 @@ export default {
         .filter((char, index) => !ex.includes(index))
         .join("");
       this.submissionDone = true;
+
+      await this.getSpecificAclData(this.currentLocation);
     },
 
     /**
@@ -833,9 +871,9 @@ export default {
       this.hasAccess = await fetchAclAgents(path);
       this.publicAccess = await fetchPublicAccess(path);
       this.hasAccess = {
-          "Public": this.publicAccess,
-          ...this.hasAccess,
-        };
+        Public: this.publicAccess,
+        ...this.hasAccess,
+      };
     },
     /**
      * Obtains a list of agents that have access to the designated resource or container
@@ -848,7 +886,7 @@ export default {
         this.hasAccess = await fetchAclAgents(path);
         this.publicAccess = await fetchPublicAccess(path);
         this.hasAccess = {
-          "Public": this.publicAccess,
+          Public: this.publicAccess,
           ...this.hasAccess,
         };
         this.cannotMakeAcl = false;
@@ -874,12 +912,12 @@ export default {
       this.currentPod = selectedPod;
       this.currentLocation = this.currentPod;
       this.getGeneralData();
-      this.createStuff()
+      this.createStuff();
     },
     /* creates files and directories if not already present */
     async createStuff() {
       await createInboxWithACL(this.currentPod, this.webId);
-      await createSharedWithMe(this.currentPod);
+      this.$forceUpdate(); // Forces a re-render of the component
     },
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer: string) {
@@ -895,14 +933,12 @@ export default {
 </script>
 
 <style scoped>
-/* @import url('https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css'); */
 @import url("https://fonts.googleapis.com/icon?family=Material+Icons");
 
 /* general formatting */
 .content-container {
   display: flex;
   flex-direction: column;
-  margin: auto;
   border-radius: 6px;
 }
 .body-container {
@@ -912,6 +948,8 @@ export default {
   border-radius: 6px;
   background-color: #445560;
   margin: 0.5rem;
+  resize: vertical;
+  overflow: auto;
 }
 .side-nav {
   flex: 1 1 auto;
@@ -920,7 +958,6 @@ export default {
   flex: 1 1 auto;
   overflow-y: auto;
   scroll-behavior: smooth;
-  max-height: 40em;
 }
 .dir-nav {
   background-color: #445560;
@@ -954,11 +991,15 @@ export default {
   padding: 0 1rem;
   margin: 0 0.5rem 0 0.5rem;
 }
+.tool-tip {
+  font-family: "Oxanium", monospace;
+}
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
+  padding: 0rem 0 0 1rem;
   margin: 0rem 0.5rem;
   font-family: "Oxanium", monospace;
 }
@@ -976,9 +1017,6 @@ export default {
   min-width: fit-content;
   background-color: #445560;
   border: 2px solid #ede7f6;
-}
-.nav-container {
-  display: flex;
   align-items: center;
   width: 100%;
   position: sticky;
@@ -992,9 +1030,8 @@ export default {
   overflow: auto;
 }
 .container-fluid {
-  max-height: 500px; /* Set a maximum height */
-  overflow-y: auto;  /* Enable vertical scrolling when content overflows */
-  overflow-x: hidden; /* Prevent horizontal scrolling */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .path-selection {
   display: flex;
@@ -1023,7 +1060,7 @@ export default {
   margin-left: 0.5rem;
 }
 .container-choose {
-  margin-left: auto; /* Push the container selector to the right */
+  margin-left: auto;
   box-shadow: none;
 }
 .dir-nav {
@@ -1120,6 +1157,7 @@ export default {
   background-color: #28353e;
   border-radius: 4px;
   border: 0.5px solid #ede7f6;
+  min-height: max-content;
 }
 .folder i {
   color: rgba(0, 0, 0, 0.54);
@@ -1128,7 +1166,17 @@ export default {
 .card-panel .not-colored {
   color: #ede7f6;
 }
-
+.full-width {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+.resource-name {
+  font-family: "Oxanium", monospace;
+}
+.info-icon {
+  margin-left: auto;
+}
 /* Share Drop Downs */
 .icon-button {
   background: none;
@@ -1326,6 +1374,11 @@ label span {
 }
 .new-acl:hover {
   background-color: #a9a7ad;
+}
+
+/* Shared with displays */
+.shared-with {
+  width: 80%;
 }
 
 /* The how to use guide */

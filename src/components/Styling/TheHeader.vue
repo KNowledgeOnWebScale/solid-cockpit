@@ -24,7 +24,7 @@
                   <v-btn
                     icon
                     size="large"
-                    color="#445560"
+                    :color="loggedIn ? '#754ff6' : '#445560'"
                     justify="end"
                     v-bind="props"
                     @click="loginCheck"
@@ -39,17 +39,17 @@
                       title="Current WebID:"
                       :subtitle="user.webId"
                     ></v-list-item>
-                    <v-list-item v-else title="Not logged in"></v-list-item>
+                    <v-list-item v-else title="Not logged in" class="not-logged-in-item"></v-list-item>
                   </v-list>
 
                   <v-divider></v-divider>
 
-                  <!-- If logged out -->
                   <v-list class="text-right align-self-start">
+                    <!-- If logged out -->
                     <div v-if="!loggedIn">
                       <v-list-item>
                         <v-btn
-                          class="loginButton"
+                          class="loginButton styled-btn"
                           v-model="message"
                           color="blue"
                           label="Login"
@@ -63,28 +63,30 @@
                     <div v-if="loggedIn">
                       <v-list-item>
                         <v-btn
-                          class="loginButton"
+                          class="loginButton styled-btn logout-btn"
                           v-model="message"
                           color="red"
                           label="Logout"
                           @click="userLogout"
-                          >Logout</v-btn
+                        >Logout</v-btn
                         >
                       </v-list-item>
                     </div>
                   </v-list>
 
-                  <v-card-actions>
+                  <v-card-actions class="action-row">
                     <v-spacer></v-spacer>
-                    <v-btn
-                      class="text-right"
-                      height="30"
-                      min-width="40"
-                      variant="text"
-                      @click="menu = false"
-                    >
-                      Cancel
-                    </v-btn>
+                    <div class="action-btns">
+                      <v-btn
+                        class="text-right styled-btn cancel-btn"
+                        height="30"
+                        min-width="40"
+                        variant="text"
+                        @click="menu = false"
+                      >
+                        Cancel
+                      </v-btn>
+                    </div>
                   </v-card-actions>
                 </v-card>
               </v-menu>
@@ -133,6 +135,7 @@ export default {
   methods: {
     async userLogout(): Promise<void> {
       this.login_status = await logOut();
+      window.location.reload();
     },
     loginCheck(): void {
       this.loggedIn = isLoggedin();
@@ -188,5 +191,64 @@ export default {
   text-align: right;
   padding: 15px;
   margin-right: 25px;
+}
+
+.styled-btn {
+  border-radius: 8px;
+  font-family: "Oxanium", monospace;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(117, 79, 246, 0.10);
+  transition: background 0.2s, color 0.2s;
+  min-width: 100px;
+  text-transform: none;
+}
+.styled-btn:hover {
+  background-color: #445560 !important;
+  color: #fff !important;
+}
+.logout-btn {
+  background-color: #e53935 !important;
+  color: #fff !important;
+}
+.logout-btn:hover {
+  background-color: #ff6f60 !important;
+  color: #fff !important;
+}
+.cancel-btn {
+  margin-left: auto;
+  margin-right: 0;
+  font-family: "Oxanium", monospace;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 8px;
+  min-width: 100px;
+  text-transform: none;
+}
+.cancel-btn:hover {
+  background-color: #d1c4e9 !important;
+  color: #754ff6 !important;
+}
+.action-row {
+  padding-right: 25px;
+  padding-bottom: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.action-btns {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.cancel-btn, .logout-btn {
+  margin: 0;
+  min-width: 120px;
+}
+.v-list-item {
+  font-family: "Oxanium", monospace !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
 }
 </style>

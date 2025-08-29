@@ -333,7 +333,6 @@ body {
 .content-body {
   display: flex;
   flex-direction: column;
-  margin-top: 10px;
   border-radius: 6px;
 }
 
@@ -356,38 +355,31 @@ body {
   padding: 1rem 0.5rem;
   background-color: #445560;
   border-radius: 8px;
-  margin: 0rem 0.5rem 0rem 0.5rem;
+  margin: 0.25rem 0.5rem 0rem 0.5rem;
 }
 
 /* Container pod-chooser bar */
-.container-choose {
-  width: 100%;
-}
 .pod-chooseContainer {
   background: #445560;
   border-radius: 8px;
   margin: 0rem 0.5rem;
-}
-.container-location .nav-container {
-  display: flex;
-  border-radius: 8px;
-  font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  min-width: fit-content;
+  padding: 0.2rem 0 0 1rem;
 }
 
 /* Container for directory navigation */
 .nav-container {
   display: flex;
+  border-radius: 8px;
+  font-family: "Oxanium", monospace;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  
 }
 .nav-container ul {
   list-style-type: none;
   padding: 10px;
   height: 100%;
-  overflow: auto;
+  flex-wrap: wrap;
 }
 .path-selection {
   display: flex;
@@ -404,9 +396,11 @@ body {
   justify-content: space-between; /* Spread list items across full width */
   align-items: center;
 }
+/* TODO: Fix the wrapping of this non-sense */
 .path-selection li {
   margin-right: 10px; /* Add some spacing between list items */
-  white-space: nowrap; /* Prevent wrapping */
+  flex-wrap: wrap;
+  font-family: "Oxanium", monospace;
 }
 .path-selection span {
   font-size: 18pt;
@@ -420,6 +414,7 @@ body {
 }
 .dir-nav {
   background-color: #445560;
+  font-family: "Oxanium", monospace;
   border-radius: 6px;
   display: flex;
   align-items: center;

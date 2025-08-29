@@ -4,7 +4,9 @@
   <main id="app">
     <router-view></router-view>
   </main>
-  <the-footer />
+  <div id="footer">
+    <the-footer />
+  </div>
 </template>
 
 

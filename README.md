@@ -5,12 +5,11 @@
 ---
 
 ## Table of Contents
-- [Ways to Get a Solid Pod:](#solidpod)
+- [Ways to Get a Solid Pod](#ways-to-get-a-solid-pod)
 - [Contribute](#contribute)
-- [Development Notes](#devnotes)
-- [Features](#features)
-- [TRIPLE Guide](#triple)
-- [License](#license)
+- [Development Notes](#development-notes)
+- [TRIPLE Guide](#triple-guide)
+- [Solid Pod VoID File Generation Guide](#solid-pod-void-file-generation-guide)
 - [Contact](#contact)
 
 # Solid Cockpit
@@ -44,31 +43,6 @@ Issue reporting and other general feedback are welcome. Please use GitHub Issues
 #### General issues:
 
 - If weird things start to happen with athn issues, clear browser history and cookies and it should fix things.
-
-#### TO DO:
-
-**Data Upload:**
-
-1. Fix UI and Color Scheme
-2. Functionality to edit existing RDF stored in Pod
-
-**Data Browser:**
-
-3. Data display improvements
-4. Functionality to edit data (naming, metadata, etc.) and delete data
-
-**Data Query:**
-
-6. Integrate (SPARQL-Editor)[https://github.com/sib-swiss/sparql-editor] for query input, editing, and results display
-7. Methods to observe past query SPARQL and Results
-8. Methods for searching through Query Cache (a search bar)
-9. Methods for "sharing" queries and results (i.e. privacy editing)
-10. Methods for deleting past queries and results
-
-**Data Privacy:**
-
-10. Finish "SharedWithMe" and "SharedWithOthers" views
-11. Implement "notifications" view
 
 ---
 
@@ -150,9 +124,8 @@ The Solid Cockpit app provides several functionalities for managing and interact
 ### 🔮 In the Near Future
 
 - Improve the functionality of the Pod Browser for displaying pod contents effectively.
-- Create interface for querying pod(s) (and SPARQL endpoints).
-- Integrate example query catalogue for the querying functionality.
-- Enhance privacy management display
+- Ability to query using the SIB SPARQL Editor (with auto-complete + class visualization + example queries)
+- Enhance privacy management display ++ include sharedWithMe.ttl // sharedWithOthers.ttl
 
 > Stay tuned for future updates that will bring more features and improvements to the Solid Cockpit app, making it more powerful and easier to use.
 
@@ -163,8 +136,33 @@ The Solid Cockpit app provides several functionalities for managing and interact
 If you encounter issues during setup or usage, please consult our support resources or reach out to our support team for assistance.
 
 ---
+
+
+## Solid Pod VoID File Generation Guide
+
+### Tool Download
+
+Please navigate to https://github.com/JervenBolleman/void-generator/tree/solid-pod-support for more information about local dependencies and run guides.
+
+### Local command to execute
+
+```
+mvn package
+
+java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-solid-pod] --void-file void.ttl -i [URL-to-solid-pod]/void.ttl --repository [URL-to-solid-pod]
+```
+
+### After VoID File Generation
+
+- Upload the VoID file to your Solid Pod (to the root directory [i.e. www.yourwebid.com/pod]) via the `Data Upload` page of Solid Cockpit
+
+
+---
+
+## Contact
+
 🙏 We hope you find this guide helpful in setting up and exploring your Solid Pod. For questions or comments: [go here](https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions). To report bugs or problems: [try here](https://github.com/KNowledgeOnWebScale/solid-cockpit/issues).
 
 
 
-Enjoy piloting your Pod with Solid Cockpit!
+We hope you enjoy piloting your Solid Pod with Solid Cockpit!

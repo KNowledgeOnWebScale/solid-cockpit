@@ -3,7 +3,9 @@ import {
   getResourceAcl,
   hasAccessibleAcl,
   setAgentResourceAccess,
+  setAgentDefaultAccess,
   setPublicResourceAccess,
+  setPublicDefaultAccess,
   WithResourceInfo,
   AclDataset,
   SolidDataset,
@@ -13,18 +15,21 @@ import {
   createSolidDataset,
   getSourceUrl,
   UrlString,
-  createThing,
   getSolidDataset,
-  buildThing,
+  getThingAll,
   Thing,
   getThing,
   setThing,
   createContainerAt,
   addUrl,
+  getDatetime,
+  getUrl,
+  getIri,
+  getIriAll,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { WorkingData, fetchData, fetchPermissionsData } from "./getData";
-import { generateHash } from "./queryPod";
+import { generateHash, generateSeededHash } from "./queryPod";
 
 export type Permissions = {
   read: boolean;
@@ -34,6 +39,14 @@ export type Permissions = {
 };
 
 export const { freeze } = Object;
+
+/**
+ * Returns the current timestamp in RDF format,
+ * e.g. "2025-04-09T15:23:45Z"^^<http://www.w3.org/2001/XMLSchema#dateTime>
+ */
+export function getCurrentRdfDateTime(): string {
+  return new Date().toISOString();
+}
 
 /**
  * Function that checks if an input string is a valid URL
@@ -103,10 +116,23 @@ export async function changeAclAgent(
   user: string,
   accessLevel: Permissions
 ): Promise<void> {
+  // Changes access for the resource
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
   const resourceAcl = getResourceAcl(solidDataWAcl);
-  const updatedAcl = setAgentResourceAccess(resourceAcl, user, accessLevel);
+  let updatedAcl = setAgentResourceAccess(resourceAcl, user, accessLevel);
+  // If the URL is a container, set the default access for child resources
+  if (url.endsWith("/")) {
+    updatedAcl = setAgentDefaultAccess(updatedAcl, user, accessLevel);
+  }
   await saveAclFor(solidDataWAcl, updatedAcl);
+
+  // Changes access for all resources within the container (if the url is a container)
+  if (url.endsWith("/")) {
+    const asolidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+    const aresourceAcl = getResourceAcl(asolidDataWAcl);
+    const aupdatedAcl = setPublicDefaultAccess(aresourceAcl, accessLevel);
+    await saveAclFor(asolidDataWAcl, aupdatedAcl);
+  }
 }
 
 /**
@@ -121,10 +147,23 @@ export async function changeAclPublic(
   url: UrlString,
   accessLevel: Permissions
 ): Promise<void> {
+  // Changes access for the resource
   const solidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
   const resourceAcl = getResourceAcl(solidDataWAcl);
-  const updatedAcl = setPublicResourceAccess(resourceAcl, accessLevel);
+  let updatedAcl = setPublicResourceAccess(resourceAcl, accessLevel);
+  // If the URL is a container, set the default access for child resources
+  if (url.endsWith("/")) {
+    updatedAcl = setPublicDefaultAccess(updatedAcl, accessLevel);
+  }
   await saveAclFor(solidDataWAcl, updatedAcl);
+
+  // Changes access for all resources within the container (if the url is a container)
+  if (url.endsWith("/")) {
+    const asolidDataWAcl = await getSolidDatasetWithAcl(url, { fetch: fetch });
+    const aresourceAcl = getResourceAcl(asolidDataWAcl);
+    const aupdatedAcl = setPublicDefaultAccess(aresourceAcl, accessLevel);
+    await saveAclFor(asolidDataWAcl, aupdatedAcl);
+  }
 }
 
 /**
@@ -175,10 +214,11 @@ export async function generateAcl(
 
   // add that root ACL info to empty acl
   const updatedNewAcl = setAgentResourceAccess(newAcl, userWebId, userAccess);
+  const defUpdatedNewAcl = setAgentDefaultAccess(updatedNewAcl, userWebId, userAccess);
 
   const savedDataset = await saveSolidDatasetAt(
     location.internal_resourceInfo.aclUrl,
-    updatedNewAcl,
+    defUpdatedNewAcl,
     { fetch: fetch }
   );
 
@@ -245,14 +285,30 @@ export async function createInboxWithACL(
       fetch: fetch,
     });
     // // Apply the public append ACL rule
-    const updatedAclDataset = setPublicResourceAccess(aclDataset, {
+    const access = {
       read: false,
       append: true,
       write: false,
       control: false,
-    });
+    };
+    const updatedAclDataset = setPublicResourceAccess(aclDataset, access);
+    const aupdatedAcl = setPublicDefaultAccess(updatedAclDataset, access);
     // // Save the updated ACL dataset
-    await saveAclFor(solidDataWAcl, updatedAclDataset);
+    await saveAclFor(solidDataWAcl, aupdatedAcl);
+
+    // Initialize the sharedWithMe.ttl file
+    const mefileName = "sharedWithMe.ttl";
+    const medataset = createSolidDataset();
+    await saveSolidDatasetAt(inboxUrl + mefileName, medataset, { fetch });
+    console.log(`CREATED sharedWithMe.ttl`);
+
+    // Initialize the sharedWithOthers.ttl file
+    const othersfileName = "sharedWithOthers.ttl";
+    const otherdataset = createSolidDataset();
+    await saveSolidDatasetAt(inboxUrl + othersfileName, otherdataset, {
+      fetch,
+    });
+    console.log(`CREATED sharedWithOthers.ttl`);
 
     console.log(`ACL set: Public append access granted to ${inboxUrl}`);
   } catch (error) {
@@ -261,60 +317,89 @@ export async function createInboxWithACL(
 }
 
 /**
- * Creates and uploads a Turtle file (.ttl) that records resources/containers shared with this user in pod inbox/ container.
+ * Attempts to PATCH shared data information (triples) to another user's sharedWithMe.ttl file.
  *
  * Each shared resource is represented as an entry with the form:
  *
- *     <hash> a
+ *    <#hash>
+ *      a as:Offer ;
+        dct:creator <WebId> ;
+        dct:created "ISODateTime"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
+        acl:accessTo <ResourceURL> ;
+        acl:mode acl:Read, ... .
+      
+      <ResourceURL>
+        a ldp:Resource/Container .
  *
- * @param podUrl - The user's Solid Pod URL where sharedWithMe.ttl is stored
- * @param resourceUrl - The URL of the resource that was shared
- * @param sharedBy - The WebID of the person who shared the resource
+ * @param otherUserWebId - The user's Solid Pod URL (with which data is being shared)
+ * @param sharedBy - The WebID of the person who shared the resource (you)
+ * @param resourceUrl - The URL of the resource that was shared (your thing)
  * @param accessModes - Array of access modes (e.g., ['Read', 'Write'])
  */
-export async function createSharedWithMe(podUrl: string): Promise<void> {
-  const sharedWithMeUrl = `${podUrl}inbox/`;
-  const fileName = "sharedWithMe.ttl";
+export async function updateSharedWithMe(
+  otherUserWebId: string,
+  sharedBy: string,
+  resourceURL: string,
+  accessModes: Permissions
+): Promise<boolean> {
+  const otherUserBasePod =
+    otherUserWebId.split("/").slice(0, -2).join("/") + "/";
+  const otherSharedWithMeUrl = `${otherUserBasePod}inbox/sharedWithMe.ttl`;
+  const hash = generateSeededHash(resourceURL);
 
-  let dataset: SolidDataset;
-  try {
-    // Attempt to fetch the existing dataset
-    dataset = await getSolidDataset(sharedWithMeUrl + fileName, { fetch });
-    return;
-  } catch (error) {
-    console.log(`No ${fileName} found, creating a new one...`);
+  // Construct access modes string
+  let accessModesString = "";
+  for (const [key, value] of Object.entries(accessModes)) {
+    if (value) {
+      accessModesString += `acl:${
+        key.charAt(0).toUpperCase() + key.slice(1)
+      }, `;
+    }
+  }
+  // Remove the trailing comma and space
+  accessModesString = accessModesString.slice(0, -2);
+
+  // TODO: Add additional logic here for RDFSource / NonRDFSource / BasicContainer
+  let sharedThing = "";
+  if (resourceURL.endsWith("/")) {
+    sharedThing = "Container";
+  } else {
+    sharedThing = "Resource";
   }
 
-  // makes new sharedWithMe.ttl
+  // Attempt to update sharedWithMe.ttl with a PATCH SPARQL update
   try {
-    console.log("Creating new sharedWithMe.ttl file...");
-    dataset = createSolidDataset();
-    const hash = generateHash(10);
-    const subjectUri = `${sharedWithMeUrl}${fileName}#${hash}`;
-    let newDatasetThing: Thing = createThing({ url: subjectUri });
-    newDatasetThing = buildThing(newDatasetThing)
-      .addIri(
-        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        "http://www.w3.org/ns/iana/media-types/example"
-      )
-      .addStringNoLocale(
-        "http://www.w3.org/ns/iana/media-types/example#placeholder",
-        "empty"
-      ) // placeholder to say nothing is here yet...
-      .build();
-    dataset = setThing(dataset, newDatasetThing);
-    // Saves new sharedWithMe.ttl
-    await saveSolidDatasetAt(sharedWithMeUrl + fileName, dataset, { fetch });
-    console.log(`CREATED sharedWithMe.ttl with a placeholder message`);
+    const newTriples = `
+    <#${hash}>
+      a as:Offer ;
+      dct:creator <${sharedBy}> ;
+      dct:created "${getCurrentRdfDateTime()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
+      acl:accessTo <${resourceURL}> ;
+      acl:mode ${accessModesString} .
+    `;
+    await fetch(`${otherSharedWithMeUrl}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/sparql-update",
+      },
+      body: `
+        PREFIX dct: <http://purl.org/dc/terms/>
+        PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+        PREFIX as: <https://www.w3.org/ns/activitystreams#>
+        PREFIX ldp: <http://www.w3.org/ns/ldp#>
+        INSERT DATA {
+          ${newTriples}
+        }
+      `,
+    });
+    console.log(`Added triples to ${otherSharedWithMeUrl} ...`);
+    return true;
   } catch (error) {
-    console.error("Something went wrong ...");
-    return;
+    console.log(`Could not add triples to ${otherSharedWithMeUrl} ...`);
+    return false;
   }
 }
 
-// TODO: Figure out why 409 and 409 errors ??
-// TODO: Create methods to infer different content types and record them as such
-// TODO: Method to check if inbox of other user exists and POST data to them
 // TODO: Integrate this shring functionality in Query component
 
 /**
@@ -323,19 +408,18 @@ export async function createSharedWithMe(podUrl: string): Promise<void> {
  *
  * Each entry is recorded as an entry like:
  *
- *     <resourceUrl> DC:sharedBy <WebId>;
- *         {if a resource} a LDP:Resource ;
- *         {if a container} a LDP:Container ;
- *         {if container} LDP:contains <URL>, <URL> ;
- *         ACL:accessTo <URL> ;
- *         ACL:mode <access_mode>, <access_mode> ;
- *         TIME:date "date"^^dateformat .
+ *    <#resourceUrl>
+ *      as:target <WebID> ;
+ *      a ldp:container ;
+ *      dct:created "ISODateTime"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
+ *      acl:accessTo <ResourceURL> ;
+ *      acl:mode acl:Read, ... .
  *
- * @param podUrl - The user's Solid Pod URL where sharedWithMe.ttl is stored
- * @param resourceUrl - The URL of the resource that was shared
- * @param sharedWith - The WebID of the person who shared the resource
+ * @param podUrl - The user's Solid Pod URL where sharedWithOthers.ttl is stored
+ * @param resourceUrl - The URL of the resource/container that is being shared
+ * @param sharedWith - The WebID of the person who you are sharing the resource with
  * @param accessModes - Array of access modes (e.g., ['Read', 'Write'])
- * 
+ *
  * @return a string with a message representative of success or failure
  */
 export async function updateSharedWithOthers(
@@ -343,76 +427,238 @@ export async function updateSharedWithOthers(
   resourceUrl: string,
   sharedWith: string,
   accessModes: Permissions
-): Promise<string> {
-  const TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-  const ACL = "http://www.w3.org/ns/auth/acl#"; // Access Control
-  const DCTERMS = "http://purl.org/dc/terms/"; // Metadata Terms
-  const PIM = "http://www.w3.org/ns/pim/space#"; // Storage-related Vocabulary
-  const LDP = "http://www.w3.org/ns/ldp#"; // Linked Data Platform
-  const FOAF = "http://xmlns.com/foaf/0.1/"; // Friend-of-a-Friend (for social aspects)
-  const EX = "http://www.w3.org/ns/iana/media-types/example#placeholder"; // example placeholder content for initialization of sharedWithMe.ttl
-  const CREATED = "http://purl.org/dc/terms/created";
-
+): Promise<boolean> {
   const sharedWithMeUrl = `${podUrl}inbox/`;
   const fileName = "sharedWithOthers.ttl";
-  let exists = false;
+  const hash = generateSeededHash(resourceUrl+sharedWith);
 
-  let dataset: SolidDataset, newDatasetThing: Thing, message: string;
-  try {
-    // Attempt to fetch the existing dataset
-    dataset = await getSolidDataset(sharedWithMeUrl + fileName, { fetch });
-    exists = true;
-  } catch (error) {
-    console.log(`No ${fileName} found, creating a new one...`);
-  }
-
-  // acccess rights to be specified
-  const givenAccess:string[] = []
-  if (accessModes.read) {
-    givenAccess.push("Read");
-  }
-  if (accessModes.write) {
-    givenAccess.push("Write");
-  }
-  if (accessModes.append) {
-    givenAccess.push("Append");
-  }
-  if (accessModes.control) {
-    givenAccess.push("Control");
-  }
-
-  // Create new thing for shared resource
-  let newThingBuilder = buildThing(createThing({ url: resourceUrl }))
-      .addUrl(DCTERMS + "sharedWith", sharedWith) // Who shared it
-      .addIri(TYPE, LDP + 'Resource') // what it is
-      .addUrl(ACL + "accessTo", resourceUrl) // What was shared
-      .addDatetime(`${CREATED}`, new Date())
-      givenAccess.forEach((mode) => {
-        newThingBuilder = newThingBuilder.addIri(ACL + "mode", ACL + mode); // access modes
-      });
-      const newThing = newThingBuilder.build();
-
-  // if sharedWithOthers.ttl file already exists
-  if (exists) {
-    dataset = setThing(dataset, newThing);
-    try {
-      // Try to retrieve the dataset (container) and save updated dataset
-      dataset = await saveSolidDatasetAt(sharedWithMeUrl, dataset, { fetch });
-      message = `UPDATED sharedWithOthers.ttl which now includes: ${resourceUrl}`;
-    } catch (error) {
-      message = `Encountered an error ...`
+  // Construct access modes string
+  let accessModesString = "";
+  for (const [key, value] of Object.entries(accessModes)) {
+    if (value) {
+      accessModesString += `acl:${
+        key.charAt(0).toUpperCase() + key.slice(1)
+      }, `;
     }
+  }
+  // Remove the trailing comma and space
+  accessModesString = accessModesString.slice(0, -2);
+
+  // TODO: Add additional logic here for RDFSource / NonRDFSource / BasicContainer
+  let sharedThing = "";
+  if (resourceUrl.endsWith("/")) {
+    sharedThing = "Container";
   } else {
-    dataset = createSolidDataset();
-    try {
-      // Try to retrieve the dataset (container) and save updated dataset
-      dataset = await saveSolidDatasetAt(sharedWithMeUrl, dataset, { fetch });
-      message = `CREATED sharedWithOthers.ttl which now includes: ${resourceUrl}`;
-    } catch (error) {
-      message = `Encountered an error ...`
-    }
+    sharedThing = "Resource";
   }
-  return message;
+
+  // Attempt to update sharedWithOthers.ttl with a PATCH SPARQL update
+  try {
+    const newTriples = `
+    <#${resourceUrl}> 
+      a ldp:${sharedThing} ;
+      as:Offer <#${hash}> .
+    
+    <#${hash}> 
+      as:target <${sharedWith}> ;
+      acl:accessTo <${resourceUrl}> ;
+      acl:mode ${accessModesString} ;
+      dct:created "${getCurrentRdfDateTime()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+    `;
+    await fetch(`${sharedWithMeUrl}${fileName}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/sparql-update",
+      },
+      body: `
+        PREFIX dct: <http://purl.org/dc/terms/>
+        PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+        PREFIX as: <https://www.w3.org/ns/activitystreams#>
+        PREFIX ldp: <http://www.w3.org/ns/ldp#>
+        INSERT DATA {
+          ${newTriples}
+        }
+      `,
+    });
+    console.log(`Added triples to ${fileName} ...`);
+    return true;
+  } catch (error) {
+    console.log(`Could not add triples to ${fileName} ...`);
+    return false;
+  }
 }
 
-//TODO: The functions above should be triggered when altering an ACL file (and called within those functions probably...)
+export interface sharedSomething {
+  resourceHash: string;
+  usersSharedWith: userHash[];
+  owner: string;
+  whatKind: string;
+}
+
+export interface userHash {
+  sharedWith: string;
+  accessModes: string[];
+  resourceUrl: string;
+  created: string;
+}
+
+export interface indexedUserHash {
+  resourceHash: string;
+  sharedHashes: userHash;
+}
+
+/**
+ * Retrieves all shared data entries from a sharedWithOthers.ttl file.
+ *
+ * It loads the dataset, iterates over all Things, and for each Thing it displays additional data:
+ * it extracts:
+ *
+ *  The Resource/Container (URL)
+ *    WHO the resource is shared with <WebId>;
+ *    WHAT the URL is <LDP:Resource> ;
+ *    ACCESS CONTROLS offered <access_mode>, <access_mode> ;
+ *    TIME "date + time".
+ *
+ * @param rootPodUrl - The URL of the current user's Solid Pod URL
+ * @param currentUserWebId - The WebID of the current user
+ * @returns An array of sharedItems objects.
+ */
+export async function getSharedWithOthers(
+  rootPodUrl: string,
+  currentUserWebId: string,
+): Promise<sharedSomething[]> {
+  // Load the dataset from the TTL file.
+  const sharedWithOthersUrl = `${rootPodUrl}inbox/sharedWithOthers.ttl`;
+  const dataset: SolidDataset = await getSolidDataset(sharedWithOthersUrl, {
+    fetch,
+  });
+  const things: Thing[] = getThingAll(dataset);
+  const sharedItems: sharedSomething[] = [];
+
+  let i = 0;
+  things.forEach((thing) => {
+    // Extract the hash from the Thing’s URL fragment.
+    i += 1;
+    const thingUrl = thing.url;
+    const resourceHash = thingUrl.includes("#") ? `${thingUrl.split("#")[1]}` : "";
+    // Only consider resources
+    if (resourceHash.includes('/')) {
+      const whatKind = getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") || "N/A";
+      const sharedHashes = getIriAll(thing, "https://www.w3.org/ns/activitystreams#Offer") || ["N/A"];
+      const usersSharedWith = thingsUsersSharedWithParse(sharedHashes, things, i);
+      const owner = currentUserWebId;
+
+      sharedItems.push({
+        resourceHash,
+        usersSharedWith,
+        owner,
+        whatKind
+      });
+    } 
+  });
+  return sharedItems;
+}
+
+/**
+ * Iterates through sharedWithOthers.ttl and extracts the users a resource is shared with.
+ * @param userHashes The list of userHashes to get data from.
+ * @param things Array of RDF Things from the dataset.
+ * @param index The current index of the Things list (for dynamic parsing).
+ * @returns An array of Objects that represent the things shared.
+ */
+function thingsUsersSharedWithParse(
+  userHashes: string[],
+  things: Thing[],
+  index: number
+): userHash[] {
+
+  const usersSharedWith: userHash[] = [];
+
+  // Iterate through the Things array and extract the users a resource is shared with
+  let userIndex = 0
+  while (index < things.length && userIndex < userHashes.length) {
+    // See is the current thing is a user hash
+    if (userHashes[userIndex] === things[index].url) {
+      const created =
+        getDatetime(
+          things[index], "http://purl.org/dc/terms/created")?.toISOString() 
+          || "N/A";
+      const sharedWith =
+        getUrl(
+          things[index],
+          "https://www.w3.org/ns/activitystreams#target"
+        ) || "N/A";
+      const resourceUrl =
+        getUrl(
+          things[index],
+          "http://www.w3.org/ns/auth/acl#accessTo"
+        ) || "N/A";
+      const access = getIriAll(
+        things[index],
+        "http://www.w3.org/ns/auth/acl#mode"
+      ) || ["N/A"];
+
+      usersSharedWith.push({
+        sharedWith,
+        resourceUrl,
+        accessModes: access,
+        created,
+      });
+      userIndex += 1;
+      index += 1;
+    } else {
+      index += 1;
+    }
+  }
+  return usersSharedWith;
+}
+
+/**
+ * Retrieves all shared data entries from a sharedWithMe.ttl file.
+ *
+ * It loads the dataset, iterates over all Things, and for each Thing it displays additional data:
+ * it extracts:
+ *
+ *  The Resource/Container (URL)
+ *    WHO shared the resource <WebId>;
+ *    WHAT the URL is <LDP:Resource> ;
+ *    ACCESS CONTROLS offered <access_mode>, <access_mode> ;
+ *    TIME "date + time".
+ *
+ * @param rootPodUrl - The URL of the current user's Solid Pod URL
+ * @returns An array of sharedItems objects.
+ */
+export async function getSharedWithMe(rootPodUrl: string): Promise<sharedSomething[]> {
+  // Load the dataset from the TTL file.
+  const sharedWithMeUrl = `${rootPodUrl}inbox/sharedWithMe.ttl`;
+  const dataset = await getSolidDataset(sharedWithMeUrl, { fetch });
+  const things: Thing[] = getThingAll(dataset);
+  const sharedItems: sharedSomething[] = [];
+
+  things.forEach((thing) => {
+    const resourceHash = thing.url.includes("#") ? thing.url.split("#")[1] : "";
+    const creator = getUrl(thing, "http://purl.org/dc/terms/creator") || "N/A";
+    const created = getDatetime(thing, "http://purl.org/dc/terms/created")?.toISOString() || "N/A";
+    const accessTo = getUrl(thing, "http://www.w3.org/ns/auth/acl#accessTo") || "N/A";
+    const accessModes = getIriAll(thing, "http://www.w3.org/ns/auth/acl#mode") || ["N/A"];
+    const whatKind = getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") || "N/A";
+
+    const usersSharedWith: userHash[] = [
+      {
+        sharedWith: creator,
+        resourceUrl: accessTo,
+        accessModes: accessModes,
+        created: created,
+      },
+    ];
+
+    sharedItems.push({
+      resourceHash,
+      usersSharedWith,
+      owner: creator,
+      whatKind,
+    });
+  });
+
+  return sharedItems;
+}

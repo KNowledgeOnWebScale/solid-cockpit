@@ -1,5 +1,6 @@
-import { QueryEngine as QueryEngineSparql } from "@comunica/query-sparql";
-import { QueryEngine as QueryEngineSolid } from "@comunica/query-sparql-solid";
+import { QueryEngine as SparqlEngineCache } from "query-sparql-remote-cache";
+import { KeyRemoteCache } from "actor-query-process-remote-cache";
+import { createCoiFetch } from "./z3-headers";
 import { Bindings } from "@comunica/types";
 import {
   getSolidDataset,
@@ -12,38 +13,97 @@ import {
   setThing,
   Thing,
   getThingAll,
-  getStringNoLocale,
   SolidDataset,
   getFile,
-  getContainedResourceUrlAll,
   getUrl,
   getDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { Parser as SparqlParser } from "sparqljs";
 
-interface queryResultJson {
+export interface QueryResultJson {
   head: { vars: string[] };
   results: { bindings: any[] };
 }
+export interface ProvenanceData {
+  algorithm: string;
+  id: {
+    termType: string;
+    value: string;
+  };
+}
+export interface CacheOutput {
+  provenanceOutput: ProvenanceData | null;
+  resultsOutput: QueryResultJson;
+}
+export interface ComunicaSources {
+  value: string;
+  context?: Record<string, any>;
+}
+export interface CachedQuery {
+  hash: string;
+  queryFile: string;
+  resultsFile: string;
+  sourceUrls: string[];
+  created: string;
+}
+
+export type FetchLike = (
+  input: RequestInfo | URL,
+  init?: RequestInit
+) => Promise<Response>;
+
+export interface CoiFetchOptions {
+  /** Mimic SW behavior: for no-cors requests, drop credentials (except excluded URLs). Default: true */
+  coepCredentialless?: boolean;
+
+  /** Exclude certain URLs from the credentialless rewrite. Default: url.includes("sparql") */
+  excludeUrl?: (url: string) => boolean;
+
+  /** Optional logger for errors (mostly parity with SW's console.error on fetch failure). */
+  onError?: (e: unknown) => void;
+}
 
 /**
- * Cleans an array of source URLs by removing angle brackets ("<" and ">") 
- * from URLs that are enclosed in them.
+ * Stops an ongoing query by destroying a main thread binding stream.
+ * @param bindingStream - The Comunica bindings stream to destroy.
+ */
+export function stopQuery(bindingStream: any) {
+  if (bindingStream && typeof bindingStream.destroy === "function") {
+    // Destroy the main thread binding stream
+    bindingStream.destroy();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Cleans an array of source URLs by removing angle brackets ("<" and ">")
+ * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
  *
  * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
  * @returns A new array of cleaned source URLs without angle brackets.
  */
-export function cleanSourcesUrls(dirtySources: string[]): string[] {
+export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
   const betterSources: string[] = [];
+  const comunicasources: ComunicaSources[] = [];
+
   dirtySources.forEach((url) => {
+    // removes unwanted URI indicating characters
     if (url.startsWith("<") && url.endsWith(">")) {
       betterSources.push(url.slice(1, -1));
     } else {
       betterSources.push(url);
     }
   });
-  return betterSources;
+  betterSources.forEach((url) => {
+    if (url.includes("sparql")) {
+      comunicasources.push({ value: url });
+    } else {
+      comunicasources.push({ value: url, context: { fetch: fetch } });
+    }
+  });
+  return comunicasources;
 }
 
 /**
@@ -51,168 +111,126 @@ export function cleanSourcesUrls(dirtySources: string[]): string[] {
  *
  * @param query The string representation of a SPARQL query to be executed.
  * @param providedSources a string[] that provides the sources for executing the specified query
- * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+ * @param userCachePath a string designating the user's pod url
+ * @returns a CacheOutput object with either:
+ *  a) cache provenance + query results
+ *  b) provenance = null (if no cache was used) + query results
+ *  c) an error: if there was an error
  */
-export async function executeQuery(
+export async function executeQueryWithPodConnected(
   query: string,
-  providedSources: string[]
-): Promise<queryResultJson | null> {
-  // remove "<>" from Endpoint IRIs
+  providedSources: string[],
+  userCachePath: string
+): Promise<CacheOutput | string | null> {
   const cleanedSources = cleanSourcesUrls(providedSources);
-  const sparqlSources: string[] = [];
-  const solidSources: string[] = [];
-  let queryType = 0;
 
-  for (const sourceUrl of cleanedSources) {
-    if (sourceUrl.includes("sparql")) {
-      sparqlSources.push(sourceUrl);
-    } else {
-      solidSources.push(sourceUrl);
-    }
-  }
-  console.log("SPARQL Sources: ", sparqlSources);
-  console.log("Solid Sources: ", solidSources);
+  // TODO: z3-solver DOES NOT work on a Worker Thread... (maybe could fix?)
+  // First, try to perform the query using the cache worker.
+  // This worker attempts to find results in the user's cache (Solid Pod).
+  // const cacheWorker = new Worker(new URL("./queryWorkerCache.js", import.meta.url), {
+  //   type: "module",
+  // });
+  // cacheWorker.postMessage({
+  //   query,
+  //   sources: cleanedSources,
+  //   cachepath: userCachePath,
+  // });
 
-  let results = null;
+  // Create a promise that resolves when the cache worker returns a result.
+  // If the cache worker fails (no cache or error), start a regular worker to run the query without cache.
+  // return new Promise<CacheOutput | null>((resolve) => {
+  //   cacheWorker.onmessage = (e) => {
+  //     const { data: c } = e;
+  //     if (c.error) {
+  //       // Cache worker did not find results or encountered an error.
+  //       console.log("Cache search result:", c.error);
+  //       // Start a regular worker to run the query directly (no cache).
+  //       const regWorker = new Worker(
+  //         new URL("./queryWorkerCache.js", import.meta.url),
+  //         { type: "module" }
+  //       );
+  //       regWorker.postMessage({
+  //         query,
+  //         sources: cleanedSources,
+  //       });
+  //       // Listen for the result from the regular worker.
+  //       regWorker.onmessage = (ev) => {
+  //         const { data: r } = ev;
+  //         if (r.error) {
+  //           // Regular worker also failed.
+  //           console.log("Regular worker error:", r.error);
+  //           resolve(null);
+  //         } else {
+  //           // Regular worker succeeded, return results with no provenance.
+  //           resolve({
+  //             provenanceOutput: null,
+  //             resultsOutput: r,
+  //           });
+  //         }
+  //       };
+  //     } else {
+  //       // Cache worker succeeded, return cached results.
+  //       resolve(c);
+  //     }
+  //   };
+  // });
 
-  if (solidSources.length < 1) {
-    results = await sparqlEndpointQuery(query, sparqlSources);
-    queryType += 1;
-  }
-  if (solidSources.length > 0 && sparqlSources.length < 1) {
-    results = await mixedQuery(query, cleanedSources);
-    queryType += 10;
-  }
-  if (solidSources.length > 0 && sparqlSources.length > 0) {
-    results = await mixedQuery(query, cleanedSources);
-    queryType += 11;
-  }
-
-  // for just SPARQL sources
-  // TODO: Make this BOTH sources type work with data display (probably two different tables??)
-  if (queryType == 1) {
-    console.log("Results displayed are from ONLY SPARQL sources.");
-    return results;
-  } else {
-    // for just Solid sources
-    if (queryType == 10) {
-      console.log("Results displayed are from ONLY SOLID Pod sources.");
-      return results;
-    } else {
-      // for combination of Solid and SPARQL sources
-      console.log(
-        "Results displayed are from BOTH SPARQL and SOLID sources."
-      );
-      return results;
-    }
-  }
-}
-
-/**
- * Executes a SPARQL query over one or many SPARQL endpoints.
- *
- * @param inputQuery The string representation of a SPARQL query to be executed.
- * @param sparqlSources a string[] that provides the sources for executing the specified query
- * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
- */
-async function sparqlEndpointQuery(
-  inputQuery: string,
-  sparqlSources: string[]
-): Promise<queryResultJson | null> {
-  // execute query over SPARQL endpoint(s)
-  const mySparqlEngine = new QueryEngineSparql();
-  try {
-    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
-      sources: sparqlSources,
-    });
-
-    const bindingsArray: any[] = [];
-    let firstBinding: Bindings | undefined = undefined;
-
-    // Process each binding from the stream.
-    for await (const binding of bindingsStream) {
-      // Capture the variable names from the first binding.
-      if (!firstBinding) {
-        firstBinding = binding;
-      }
-      const bindingObj: Record<string, { type: string; value: string }> = {};
-      binding.forEach((term, variable) => {
-        let termType: string;
-        switch (term.termType) {
-          case "Literal":
-            termType = "literal";
-            break;
-          case "NamedNode":
-            termType = "uri";
-            break;
-          case "BlankNode":
-            termType = "bnode";
-            break;
-          default:
-            termType = term.termType.toLowerCase();
-        }
-        bindingObj[variable.value] = { type: termType, value: term.value };
-      });
-      bindingsArray.push(bindingObj);
-    }
-
-    // If there were no results, use an empty array of variables.
-    const vars = firstBinding
-      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
-      : [];
-
-    return {
-      head: { vars },
-      results: { bindings: bindingsArray },
-    };
-  } catch (err) {
-    return null;
-  }
+  const output = await sparqlQueryWithCache(
+    query,
+    cleanedSources,
+    userCachePath
+  );
+  // case where cache is not used
+  return output;
 }
 
 /**
  * Executes a SPARQL query over a list of provided Solid Pod URLs.
  *
  * @param inputQuery The string representation of a SPARQL query to be executed.
- * @param podSources a string[] that provides the Solid Pod sources for executing the specified query
- * @returns A Promise that resolves to a string of JSON results if results were found, or `null` if there were no results or an error.
+ * @param mixedSources a ComunicaSources[] that provides the Solid Pod or SPARQL Endpoint sources for executing the specified query.
+ * @param cachePath a string designating the user's query cache url
+ * @returns either:
+ *  a) a CacheOutput object (containing cache provenance + query results)
+ *  b) a string indicating no cache was used
+ *  c) null if there was an error
  */
-async function mixedQuery(
+async function sparqlQueryWithCache(
   inputQuery: string,
-  mixedSources: string[]
-): Promise<queryResultJson | null> {
-  const mySolidEngine = new QueryEngineSolid();
-  // const allSources: string[] = [];
+  mixedSources: ComunicaSources[],
+  cachePath: string
+): Promise<CacheOutput | string | null> {
+  const cacheLocation = { url: cachePath + "queries.ttl" };
+  const mySparqlEngine = new SparqlEngineCache();
 
-  // // Discover all sources the current user has access to
-  // for (const podUrl of mixedSources) {
-  //   try {
-  //     const dataset = await getSolidDataset(podUrl, { fetch });
-  //     const podResources = getContainedResourceUrlAll(dataset);
-  //     allSources.push(...podResources);
-  //   } catch (error) {
-  //     console.error(`Failed to access pod: ${podUrl}`, error);
-  //   }
-  // }
-
-  // Log discovered sources
-  // if (allSources.length === 0) {
-  //   console.log("No accessible RDF sources found in the provided Pods.");
-  //   return null;
-  // } else {
-  //   console.log(
-  //     `Found access to ${allSources.length} resources.\nQuerying the sources:`,
-  //     allSources
-  //   );
-  // }
-
-  // Execute query over discovered sources
   try {
-    const bindingsStream = await mySolidEngine.queryBindings(inputQuery, {
+    const fetchForCache = createCoiFetch(fetch, { coepCredentialless: true });
+
+    // Query executor using Comunica
+    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
+      lenient: true,
+      fetch: fetchForCache,
+      [KeyRemoteCache.location.name]: cacheLocation,
       sources: mixedSources,
-      fetch: fetch,
+      failOnCacheMiss: true,
     });
 
+    // extract provenance information
+    let provenance: ProvenanceData | null = null;
+    // Extract provenance information to display in the UI
+    bindingsStream.getProperty("provenance", (val) => {
+      if (val && typeof val === "object" && "algorithm" in val && "id" in val) {
+        provenance = {
+          algorithm: val.algorithm,
+          id: {
+            termType: val.id.termType,
+            value: val.id.value,
+          },
+        };
+      }
+    });
+
+    // Displays the results of the query
     const bindingsArray: any[] = [];
     let firstBinding: Bindings | undefined = undefined;
 
@@ -248,19 +266,25 @@ async function mixedQuery(
       ? Array.from(firstBinding.keys()).map((variable) => variable.value)
       : [];
 
-    return {
+    // results as an object
+    const resultsOutput: QueryResultJson = {
       head: { vars },
       results: { bindings: bindingsArray },
     };
+
+    const returnVal: CacheOutput = {
+      provenanceOutput: provenance,
+      resultsOutput: resultsOutput,
+    };
+    return returnVal;
   } catch (err) {
-    console.error("Error querying specified sources:", err);
-    return null;
+    return "no-cache";
   }
 }
 
 /**
  * Generates a unique 6-character hash using alphanumeric characters.
- * @param length - Optional length for the hash (default is 6)
+ * @param length - Length for the hash
  * @returns A string representing the hash.
  */
 export function generateHash(length: number): string {
@@ -275,6 +299,51 @@ export function generateHash(length: number): string {
 }
 
 /**
+ * Generates a deterministic alphanumeric hash of given length using a seed.
+ * @param seedValue - The string used to seed the hash generation
+ * @param length - Length of the output hash (default: 10)
+ * @returns A deterministic hash string
+ */
+export function generateSeededHash(seedValue: string, length = 10): string {
+  const charset =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const seed = stringToSeed(seedValue);
+  const random = mulberry32(seed);
+
+  let hash = "";
+  for (let i = 0; i < length; i++) {
+    const index = Math.floor(random() * charset.length);
+    hash += charset.charAt(index);
+  }
+  return hash;
+}
+
+/**
+ * Creates a seeded pseudorandom number generator.
+ * Mulberry32 is fast and well-suited for small tasks like this.
+ */
+function mulberry32(seed: number): () => number {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Converts a string into a numeric seed.
+ */
+function stringToSeed(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
+}
+
+/**
  * Ensures that a container exists at the given URL.
  * If the container does not exist, it creates one.
  *
@@ -286,7 +355,6 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
   try {
     // Try to retrieve the dataset (container)
     await getSolidDataset(cacheUrl, { fetch });
-    console.log(`Query Cache container exists at ${cacheUrl}`);
     return cacheUrl;
   } catch (error) {
     // If not found, create the container
@@ -378,10 +446,10 @@ export async function createQueriesTTL(
     "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
   const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint";
   const OWL = "http://www.w3.org/2002/07/owl#";
-  const SCHEMA = 'https://schema.org/';
+  const SCHEMA = "https://schema.org/";
   const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
 
-  let cleanedSources: string[] = cleanSourcesUrls(sources);
+  let cleanedSources: ComunicaSources[] = cleanSourcesUrls(sources);
   // parse input query string using SPARQLjs
   const serviceSources = parseSparqlQuery(query);
 
@@ -444,11 +512,13 @@ export async function createQueriesTTL(
     // Add date of query execution.
     .addDatetime(`${CREATED}`, new Date())
     .build();
-  
+
   // Adds any SERVICE description sources to query entry
   if (serviceSources.length > 0) {
     serviceSources.forEach((source) => {
-      newQueryThing = buildThing(newQueryThing).addUrl(`${SPEX}federatesWith`, source).build();
+      newQueryThing = buildThing(newQueryThing)
+        .addUrl(`${SPEX}federatesWith`, source)
+        .build();
     });
   }
 
@@ -601,13 +671,13 @@ export async function uploadResults(
 /**
  * Determines if there is are cached queries in the pod.
  *
- * @param containerUrl - The container URL (should end with a slash).
+ * @param containerUrl - The ttl URL
  * @returns boolean representing if a cache is present.
  */
-export async function getQueriesTtl(containerUrl: string): Promise<boolean> {
+export async function getStoredTtl(resourceUrl: string): Promise<boolean> {
   try {
-    // Try to retrieve the dataset (container) and save updated dataset
-    await getSolidDataset(containerUrl + "queries.ttl", { fetch });
+    // Try to retrieve the dataset and save updated dataset
+    await getSolidDataset(resourceUrl, { fetch });
     return true;
   } catch (error) {
     return false;
@@ -745,7 +815,7 @@ export async function fetchQueryFileData(fileUrl: string): Promise<string> {
  */
 export async function fetchSparqlJsonFileData(
   fileUrl: string
-): Promise<queryResultJson | null> {
+): Promise<QueryResultJson | null> {
   const file = await getFile(fileUrl, { fetch });
   const textContent = await file.text();
   try {

@@ -15,21 +15,28 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@comunica/query-sparql": "^3.0.1",
-    "@comunica/query-sparql-link-traversal-solid": "^0.3.0",
-    "@inrupt/solid-client": "^2.0.1",
-    "@inrupt/solid-client-authn-browser": "^2.1.0",
-    "@triply/yasgui": "^4.2.28",
+    "@comunica/context-entries": "^4.2.0",
+    "@comunica/logger-pretty": "^4.2.0",
+    "@comunica/query-sparql": "^4.3.0",
+    "@comunica/query-sparql-solid": "^4.0.2",
+    "@inrupt/solid-client": "2.1.2",
+    "@inrupt/solid-client-authn-browser": "3.1.0",
+    "@inrupt/solid-client-authn-node": "^3.1.0",
+    "@triply/yasqe": "^4.2.28",
+    "@triply/yasr": "^4.2.28",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/eslint-config-typescript": "^9.1.0",
+    "actor-query-process-remote-cache": "^0.1.0",
     "core-js": "^3.8.3",
     "fs": "^0.0.1-security",
     "pinia": "^2.2.6",
+    "query-sparql-remote-cache": "^0.0.8",
     "sparqljs": "^3.7.3",
     "vite": "^6.2.3",
     "vue": "^3.2.13",
-    "vue-router": "^4.0.13",
-    "vuetify": "^3.5.14"
+    "vue-router": "^4.5.1",
+    "vuetify": "^3.5.14",
+    "z3-solver": "^4.15.3"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.5",
@@ -41,6 +48,6 @@
     "eslint-plugin-vue": "^8.0.3",
     "gh-pages": "^5.0.0",
     "prettier": "^2.4.1",
-    "typescript": "~4.5.5"
+    "typescript": "^5.0.0"
   }
 }
