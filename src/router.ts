@@ -18,7 +18,7 @@ const router = createRouter({
   history: createWebHistory('/solid-cockpit/'),
   routes: [
     {
-      name: "root",
+      name: "Home",
       path: "/",
       components: { default: LandingPage },
     },
@@ -60,7 +60,7 @@ const router = createRouter({
  * The result is the routing of the web page flow from the login page to the functional parts of the app
  * (and returning to the login page if logged out at any point)
  */
-const publicPages = ["root", "Login Page", "Query"];
+const publicPages = ["Home", "Login Page", "Query"];
 setTimeout(() => {
   router.beforeEach(async (to, from, next) => {
     // make sure the user is authenticated
