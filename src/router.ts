@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import LandingPage from "./components/LandingPage.vue";
-// import TheFooter from './components/Styling/TheFooter.vue'
 
 import PodLogin from "./components/PodLogin.vue";
 import PodUpload from "./components/PodUpload.vue";
@@ -21,11 +20,6 @@ const router = createRouter({
     {
       name: "root",
       path: "/",
-      redirect: { name: "Home" }
-    },
-    {
-      name: "Home",
-      path: "/home",
       components: { default: LandingPage },
     },
     {
@@ -66,7 +60,7 @@ const router = createRouter({
  * The result is the routing of the web page flow from the login page to the functional parts of the app
  * (and returning to the login page if logged out at any point)
  */
-const publicPages = ["Home", "Login Page", "Query"];
+const publicPages = ["root", "Login Page", "Query"];
 setTimeout(() => {
   router.beforeEach(async (to, from, next) => {
     // make sure the user is authenticated
