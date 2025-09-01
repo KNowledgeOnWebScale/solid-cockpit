@@ -73,24 +73,5 @@ img {
   margin: 0 0.5rem 0.5rem 0.5rem;
   
 }
-.pod-reg {
-  background-color: #445560;
-  border-radius: 8px;
-  max-width: 100%;
-  margin: 0.5rem 1rem;
-  padding: 0.2rem 0 0 1rem;
-}
-.entry {
-  font-family: "Oxanium", monospace;
-  color: #28353e;
-  text-align: center;
-  margin-top: 10px;
-}
-.entry a {
-  text-decoration: none;
-  color: #28353e;
-}
-.entry span {
-  font-family: "Orbitron";
-}
+
 </style>

@@ -31,7 +31,7 @@
                     <v-icon
                       fab
                       v-bind="props"
-                      color="white"
+                      color="var(--text-muted)"
                       size="small"
                       icon="mdi-information"
                       >mdi-information</v-icon
@@ -45,7 +45,7 @@
               <template v-slot:append>
                 <v-btn
                   class="mx-right"
-                  color="#EDE7F6"
+                  color="var(--primary)"
                   name="btnLogin"
                   @click="handleLogin"
                   >Login</v-btn
@@ -68,7 +68,7 @@
       <!-- "Don't have a pod" button redirects to Pod Provider site -->
       <v-btn
         id="new-pod"
-        color="#EDE7F6"
+        class="new-pod-btn"
         text="Don't have a pod?"
         variant="flat"
         @click="newpodRedir"
@@ -157,7 +157,7 @@ export default {
 <style scoped>
 .login-container {
   padding: 1rem;
-  background-color: #445560;
+  background-color: var(--panel);
   font-family: "Oxanium", monospace;
   font-size: larger;
   border-radius: 6px;
@@ -165,6 +165,7 @@ export default {
 }
 .login-container h2 {
   margin: 0.5rem 1rem 1rem 1rem;
+  color: var(--text-primary);
 }
 .login-display {
   padding: 1rem;
@@ -211,10 +212,12 @@ export default {
   margin-left: 1.5rem;
   margin-bottom: 0.5rem;
 }
-button:hover {
-  background-color: #bda6fd;
+.new-pod-btn {
+  background-color: var(--panel-elev);
+  color: var(--text-secondary);
 }
-button:active {
-  background-color: #9b77ff;
+.new-pod-btn:hover {
+  background-color: var(--hover);
 }
+
 </style>

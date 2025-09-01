@@ -1,0 +1,142 @@
+:root {
+  --main: #445560;
+  --main-darker: #37474f;
+  --main-darker2: #28353e;
+  --main-gray: #bfbdc4;
+  --main-dark-gray: #1e1e1e;
+  --main-purple: #754ff6;
+  --main-purple-dark: #5728d9;
+  --main-purple-darker: #201054;
+  --main-white: #ede7f6;
+  --main-black: #000000;
+
+  --purple: hsl(262 92% 65%); /* #8a42f4 */
+  --teal: hsl(200 26% 26%); /* #344952 */
+  --ink: hsl(210 15% 12%); /* #1a1f21 */
+  --gray-50: hsl(260 20% 98%); /* #fafafc */
+  --gray-100: hsl(255 18% 96%); /* #f3f2f8 */
+  --gray-200: hsl(250 14% 90%); /* #e3e1e8 */
+  --gray-300: hsl(240 10% 84%); /* #d2d1d8 */
+  --gray-400: hsl(230 9% 70%); /* #adacb3 */
+  --gray-500: hsl(220 8% 56%); /* #888990 */
+  --gray-600: hsl(215 11% 40%); /* #5b6269 */
+  --gray-700: hsl(210 15% 30%); /* #414b52 */
+  --gray-800: hsl(205 18% 22%); /* #2d3a42 */
+  --gray-900: hsl(200 20% 12%); /* #181e21 */
+
+  /* radii & shadow */
+  --radius: 14px;
+  --shadow-1: 0 1px 2px hsl(0 0% 0% / 0.06), 0 1px 1px hsl(0 0% 0% / 0.04); /* #000000 */
+  --shadow-2: 0 8px 24px hsl(220 40% 2% / 0.22),
+    0 2px 8px hsl(220 40% 2% / 0.18); /* #040508 */
+}
+
+/* ---------------------------
+  Light theme (default)
+   --------------------------- */
+:root {
+  --bg: var(--gray-300); /* #d2d1d8 */
+  --bg-secondary: var(--gray-400); /* #adacb3 */
+  --panel: var(--main-gray); /* #ffffff */
+  --panel-elev: hsl(0 0% 100%); /* #ffffff */
+  --muted: hsl(250 14% 90%); /* #e3e1e8 */
+  --border: var(--main-white);
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--ink);
+  --text-muted: hsl(215 11% 40%); /* #5b6269 */
+  --primary: var(--main-purple);
+  --primary-600: hsl(262 92% 58%); /* #6f23ec */
+  --primary-700: hsl(262 92% 52%); /* #5b09e5 */
+  --primary-100: hsl(262 92% 95%); /* #f2ebfd */
+  --accent: hsl(195 85% 48%); /* #1ba9e0 */
+  --accent-100: hsl(195 85% 94%); /* #e4f6fc */
+  --accent-700: hsl(195 85% 36%); /* #107eab */
+
+  --success: hsl(160 72% 42%); /* #1fba74 */
+  --warning: hsl(35 92% 50%); /* #f7a611 */
+  --danger: #ff7f7fbb;
+  --info: hsl(195 85% 48%); /* #1ba9e0 */
+
+  --focus-ring: 2px solid hsl(262 92% 65% / 0.7); /* #8a42f4 */
+  --hover: #764ff633;
+  --active: hsl(210 15% 12% / 0.08); /* #1a1f21 */
+
+  --yasqe-bg: var(--main-white);
+  --yasqe-bg-2: var(--gray-200);
+  --yasqe-keyword: #5f3df1;
+  --yasqe-atom: #865700;
+  --yasqe-variable-2: #1f6feb;
+  --yasqe-string: #2e7d32;
+  --yasqe-string-2: #d32f45;
+  --yasqe-variable-3: #0e8a6a;
+  --yasqe-number: #6e56cf;
+  --yasqe-comment: #6b7280;
+  --yasqe-operator: #0b7fd3;
+  --yasqe-meta: #8a6d1a;
+  --yasqe-matchhighlight-bg: #fff2a8;
+  --yasqe-cursor: #7b61ff;
+  --yasqe-selected: #a0a0d8;
+}
+
+/* ---------------------------
+  Dark theme (stealth)
+   --------------------------- */
+:root[data-theme="dark"] {
+  --bg: hsl(200 26% 14%); /* #19262b */
+  --bg-secondary: var(--main-darker);
+  --panel: hsl(200 20% 18%); /* #242e33 */
+  --panel-elev: hsl(200 20% 22%); /* #2b3840 */
+  --muted: hsl(200 14% 28%); /* #3c474c */
+  --border: hsl(200 10% 34%); /* #4f585c */
+  --text-primary: var(--gray-300);
+  --text-secondary: var(--main-white);
+  --text-muted: hsl(260 14% 72%); /* #b3b0be */
+  --primary: var(--main-purple);
+  --primary-600: hsl(262 92% 58%); /* #6f23ec */
+  --primary-700: hsl(262 92% 50%); /* #5605e0 */
+  --primary-100: hsl(262 92% 20%); /* #1b023b */
+  --accent: hsl(195 85% 48%); /* #1ba9e0 */
+  --accent-100: hsl(195 85% 22%); /* #083a4d */
+  --accent-700: hsl(195 85% 60%); /* #4dc0ec */
+
+  --success: hsl(160 72% 46%); /* #26c980 */
+  --warning: hsl(35 92% 58%); /* #f8ad29 */
+  --danger: #ff7f7fbb;
+  --info: hsl(195 85% 54%); /* #34b8e6 */
+
+  --focus-ring: 2px solid hsl(262 92% 65% / 0.8); /* #8a42f4 */
+  --hover: hsl(0 0% 100% / 0.03); /* #ffffff */
+  --active: hsl(0 0% 100% / 0.06); /* #ffffff */
+
+  --yasqe-bg: var(--ink);
+  --yasqe-bg-2: var(--main-darker2);
+  --yasqe-keyword: #c792ea;
+  --yasqe-atom: #f78c6c;
+  --yasqe-variable-2: #82aaff;
+  --yasqe-string: #c3e88d;
+  --yasqe-string-2: #ff5370;
+  --yasqe-variable-3: #a0fa87;
+  --yasqe-number: #ede7f6;
+  --yasqe-comment: #a9a7ad;
+  --yasqe-operator: #89ddff;
+  --yasqe-meta: #ffcb6b;
+  --yasqe-matchhighlight: #5f5f5f;
+  --yasqe-cursor: #ffcc00;
+  --yasqe-selected: #292929;
+}
+
+/* sensible global defaults */
+:where(html, body) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* optional: smoothen transitions between themes */
+* {
+  transition: background-color 0.18s ease, color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+:root {
+  --v-font-family: "Oxanium", monospace;
+}

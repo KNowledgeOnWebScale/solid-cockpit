@@ -4,6 +4,7 @@ import {
   saveFileInContainer,
   createContainerAt,
   getSolidDataset,
+  getSourceUrl,
   getResourceInfo,
   getThing,
   deleteFile,

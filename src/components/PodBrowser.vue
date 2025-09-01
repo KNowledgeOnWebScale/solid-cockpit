@@ -31,10 +31,7 @@
               />
             </li>
             <li>
-              <button
-                @click="getItems(displayPath)"
-                class="icon-button right"
-              >
+              <button @click="getItems(displayPath)" class="icon-button right">
                 <i class="material-icons not-colored right">refresh</i>
                 <v-tooltip activator="parent" location="end"
                   >Refresh directory contents
@@ -45,6 +42,7 @@
         </div>
       </div>
 
+      <!-- TODO: add an RDF editor for RDF data ...  -->
       <div class="pod-directories">
         <div class="container-fluid">
           <div class="items-label">
@@ -54,34 +52,69 @@
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
-                <i class="material-icons not-colored left">{{
-                  containerCheck(url) ? "folder" : "description"
-                }}</i>
-                {{ url }}
                 <button
-                  @click="toggleInfo(index), getItemInfo(url)"
-                  class="icon-button right"
+                  @click="toggleInfo(index, url)"
+                  class="icon-button full-width"
                 >
-                  <i class="material-icons not-colored right">
+                  <div class="icon-hash">
+                    <i class="material-icons not-colored left">{{
+                      containerCheck(url) ? "folder" : "description"
+                    }}</i>
+                    {{ url }}
+                  </div>
+                  <div class="info-icon">
+                    <i class="material-icons not-colored info-icon">
                     {{
-                      showInfoIndex === null
-                        ? "chevron_right"
-                        : "keyboard_arrow_down"
+                      showInfoIndex === index
+                        ? "keyboard_arrow_down info"
+                        : "chevron_right info"
                     }}</i
                   >
+                  </div>
+                  
                 </button>
 
-                <!--TODO: Item Info -->
-                <div v-if="showInfoIndex === index" class="form-container">
-                  <!-- TODO: Edit Data (rename / delete) -->
-                  <!-- TODO: If RDF data: provide an RDF editor -->
-                  <div class="info-display">
-                    <li>Source IRI: {{ info.sourceIri }}</li>
-                    <li>Type: {{ info.linkedResources.type }}</li>
-                    <li>
-                      Described By: {{ info.linkedResources.describedby }}
-                    </li>
+                <!-- Item Info -->
+                <div v-if="showInfoIndex === index" class="item-info-container">
+                  <div class="info-row">
+                    <strong class="info-label">Source IRI:</strong>
+                    <div class="info-value-container">
+                      <span class="info-value iri" :title="info.sourceIri">{{
+                        info.sourceIri
+                      }}</span>
+                      <button
+                        @click="copyToClipboard(info.sourceIri)"
+                        class="copy-button"
+                      >
+                        <i class="material-icons">content_copy</i>
+                        <v-tooltip activator="parent" location="end"
+                          >Copy IRI</v-tooltip
+                        >
+                      </button>
+                    </div>
                   </div>
+                  <div class="info-row">
+                    <strong class="info-label">Type:</strong>
+                    <span class="info-value">{{
+                      containerCheck(url) ? "Container" : "Resource"
+                    }}</span>
+                  </div>
+                  <div
+                    class="info-row"
+                    v-if="info && info.linkedResources.describedby"
+                  >
+                    <strong class="info-label">Metadata:</strong>
+                    <div class="info-value-container">
+                      <a
+                        :href="info.linkedResources.describedby"
+                        target="_blank"
+                        class="info-value link"
+                        :title="info.linkedResources.describedby"
+                        >{{ info.linkedResources.describedby }}</a
+                      >
+                    </div>
+                  </div>
+                  <!-- TODO: figure out if this works and what edit does -->
                   <div class="edit-delete">
                     <button
                       @click="confirmAndDelete(info.sourceIri)"
@@ -90,8 +123,8 @@
                     >
                       Delete
                     </button>
-                    <button @click="toggleForm(index)" class="edit-button">
-                      Edit ...
+                    <button @click="toggleForm(index, url)" class="delete-button">
+                      Edit
                     </button>
                   </div>
                 </div>
@@ -103,30 +136,7 @@
     </div>
   </body>
 
-  <div class="use-guide">
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="guide-container">
-      <h2 class="guide">Pod Browser Guide</h2>
-
-      <hr class="line" />
-      <ol class="list-container">
-        <li class="req">Select the Pod you want to Browse.</li>
-
-        <li class="req">Navigate to the directory you want to browse.</li>
-
-        <li class="req">
-          Click the <i class="material-icons not-colored">chevron_right</i> to
-          see resource information.
-        </li>
-
-        <li class="req">
-          Future work: Graphical browser (as an interactive knowledge graph) /
-          Data Deletion / RDF data + Metadata editing (with syntax checking) /
-          View filtering / Search bar (for quick searching)
-        </li>
-      </ol>
-    </div>
-  </div>
+  <PodBrowserGuide />
 </template>
 
 <script lang="ts">
@@ -136,6 +146,7 @@ import { deleteFromPod, deleteContainer } from "./fileUpload";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
+import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 
 interface info {
   sourceIri: string;
@@ -149,6 +160,7 @@ export default {
   components: {
     ContainerNav,
     PodRegistration,
+    PodBrowserGuide,
   },
   data() {
     return {
@@ -169,6 +181,7 @@ export default {
       container: [] as string[],
       queryItems: null as WorkingData | null,
       deletionSuccess: false as boolean,
+      newName: "" as string,
     };
   },
   methods: {
@@ -204,9 +217,12 @@ export default {
      * @param fileUrl The URL of the resource to delete.
      */
     confirmAndDelete(fileUrl: string) {
-      const userConfirmed = window.confirm(
-        "Are you sure you want to delete this resource? This action cannot be undone."
-      );
+      const isContainer = fileUrl.endsWith("/");
+      const message = isContainer
+        ? "Are you sure you want to delete this container and all its contents? This action cannot be undone."
+        : "Are you sure you want to delete this resource? This action cannot be undone.";
+
+      const userConfirmed = window.confirm(message);
 
       if (userConfirmed) {
         this.deleteResource(fileUrl);
@@ -244,6 +260,43 @@ export default {
       } finally {
         this.deletionSuccess = false;
       }
+    },
+
+    // TODO: Strategy -->
+    // Copy existing resource to an object
+    // Delete existing resource
+    // Upload resource object using new name / dir path
+    async handleRename(sourceUrl: string) {
+      if (!this.newName || this.newName.trim() === "") {
+        alert("Please provide a new name.");
+        return;
+      }
+
+      const isContainer = sourceUrl.endsWith("/");
+      const url = new URL(sourceUrl);
+      const path = url.pathname;
+      const lastSlash = path.endsWith("/")
+        ? path.slice(0, -1).lastIndexOf("/")
+        : path.lastIndexOf("/");
+      const parentPath = path.substring(0, lastSlash + 1);
+      const destinationUrl =
+        url.origin + parentPath + this.newName.trim() + (isContainer ? "/" : "");
+
+      if (sourceUrl === destinationUrl) {
+        this.showEditIndex = null;
+        return; // Name hasn't changed
+      }
+
+      // try {
+      //   await moveFile(sourceUrl, destinationUrl);
+      //   alert("Resource renamed successfully!");
+      //   this.showEditIndex = null;
+      //   this.newName = "";
+      //   await this.getItems(this.displayPath);
+      // } catch (error) {
+      //   console.error("Error renaming resource:", error);
+      //   alert(`Failed to rename resource. See console for details: ${error}`);
+      // }
     },
 
     async getItems(path: string) {
@@ -290,20 +343,32 @@ export default {
     },
 
     /*
+    Copies text to the clipboard
+    */
+    copyToClipboard(text: string) {
+      navigator.clipboard.writeText(text).catch((err) => {
+        console.error("Failed to copy: ", err);
+      });
+    },
+
+    /*
     Two methods for controlling the UI
     */
-    toggleForm(index: number) {
+    toggleForm(index: number, url: string) {
       if (this.showEditIndex === index) {
         this.showEditIndex = null; // Hide the form if it's already shown
       } else {
         this.showEditIndex = index; // Show the form for the clicked item
+        const name = url.split("/").filter(Boolean).pop() || "";
+        this.newName = name;
       }
     },
-    toggleInfo(index: number) {
+    toggleInfo(index: number, url: string) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
       } else {
         this.showInfoIndex = index; // Show the form for the clicked item
+        this.getItemInfo(url);
       }
     },
     /* Takes in the emitted value from PodRegistration.vue */
@@ -325,8 +390,12 @@ export default {
 </script>
 
 <style scoped>
+button:focus {
+  background-color: transparent !important;
+}
+
 body {
-  background-color: #a9a7ad;
+  background-color: var(--bg);
   font-size: 13px;
   border-radius: 6px;
 }
@@ -338,7 +407,7 @@ body {
 
 /* Title bar */
 .title-container {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin: 0.5rem 0.5rem;
 }
@@ -348,19 +417,20 @@ body {
   font-weight: 500;
   padding-left: 20px;
   padding-right: 20px;
+  color: var(--text-primary);
 }
 
 /* General container */
 .container-location {
   padding: 1rem 0.5rem;
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin: 0.25rem 0.5rem 0rem 0.5rem;
 }
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
+  background: var(--panel);
   border-radius: 8px;
   margin: 0rem 0.5rem;
   padding: 0.2rem 0 0 1rem;
@@ -373,7 +443,6 @@ body {
   font-family: "Oxanium", monospace;
   justify-content: space-between;
   align-items: center;
-  
 }
 .nav-container ul {
   list-style-type: none;
@@ -386,6 +455,7 @@ body {
   align-items: center;
   list-style-type: none;
   width: 100%;
+  color: var(--text-primary);
 }
 .path-selection ul {
   display: flex;
@@ -413,7 +483,8 @@ body {
   box-shadow: none;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--panel);
+  color: var(--text-secondary);
   font-family: "Oxanium", monospace;
   border-radius: 6px;
   display: flex;
@@ -427,24 +498,28 @@ body {
   font-weight: 400;
   font-size: 18pt;
   margin-left: 0.5rem;
+  color: var(--text-primary);
 }
 .pod-directories {
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow: auto;
   scroll-behavior: smooth;
-  max-height: 40em;
+  scrollbar-width: thin;
+  height: 40em;
+  min-height: 20em;
+  resize: vertical;
 }
 .card-panel {
-  background-color: #28353e;
+  background-color: var(--muted);
   margin: 0.2rem;
   padding: 1.7rem;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   border-radius: 6px;
-  outline: 0.5px solid #ede7f6;
+  outline: 0.5px solid var(--text-muted);
 }
 .card-panel:hover {
-  outline: 0.1px solid #754ff6;
+  outline: 0.1px solid var(--primary);
 }
 .delete-button:hover {
   background-color: #555;
@@ -457,7 +532,87 @@ body {
   margin-top: -2px;
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-muted);
+}
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+.icon-hash {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+}
+.info-icon {
+  margin-left: auto;
+}
+
+.item-info-container {
+  background-color: var(--bg);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 12pt;
+}
+
+.info-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 1rem;
+  min-width: 100px;
+}
+
+.info-value-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.info-value {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-value.link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.info-value.link:hover {
+  text-decoration: underline;
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.copy-button .material-icons {
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.copy-button:hover .material-icons {
+  color: var(--primary);
 }
 
 /* Delete button */
@@ -465,8 +620,8 @@ body {
   font-family: "Oxanium", monospace;
   padding: 0.75rem;
   margin: 0.5rem 0.5rem 0 0.5rem;
-  color: #28353e;
-  background-color: #ede7f6;
+  color: var(--panel-elev);
+  background-color: var(--text-muted);
   border-radius: 5px;
 }
 
@@ -501,5 +656,32 @@ body {
   font-size: 14pt;
   list-style-type: upper-roman;
   align-items: Left;
+}
+
+.edit-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.edit-input {
+  flex-grow: 1;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text-primary);
+}
+.edit-button {
+  font-family: "Oxanium", monospace;
+  padding: 0.5rem 1rem;
+  color: var(--panel-elev);
+  background-color: var(--primary);
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+.edit-button.cancel {
+  background-color: var(--text-muted);
 }
 </style>

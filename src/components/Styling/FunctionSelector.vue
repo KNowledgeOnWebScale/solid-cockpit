@@ -1,12 +1,12 @@
 <template>
-  <v-card>
+  <v-card class="function-selector">
     <nav class="nav-nav">
       <v-tabs
         class="nav-bar"
         v-model="tab"
         align-tabs="center"
-        color="deep-purple-lighten-5"
-        bg-color="#445560"
+        color="var(--text-muted)"
+        bg-color="var(--muted)"
         fixed-tabs>
         <v-tab class="specific-tab" border="sm" v-for="tabName in items" :key="tabName" :to="{ name: tabName }">
           {{ tabName }}
@@ -30,6 +30,7 @@ export default {
 .nav-nav {
   all: unset;
   margin: 10px 0 10px 0;
+  color: var(--text-secondary);
 }
 
 .nav-bar {

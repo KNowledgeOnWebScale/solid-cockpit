@@ -934,6 +934,9 @@ export default {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+button:focus {
+  background-color: transparent !important;
+}
 
 /* general formatting */
 .content-container {

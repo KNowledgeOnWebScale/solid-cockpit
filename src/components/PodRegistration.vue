@@ -251,6 +251,7 @@ export default {
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.5px;
+  color: var(--text-primary);
 }
 .spinner {
   border: 4px solid rgba(63, 1, 117, 0.3);
@@ -277,6 +278,7 @@ export default {
   list-style-type: none;
   padding: 0;
   margin: 0;
+  color: var(--text-primary);
 }
 .select-pod span {
   margin-bottom: 20px;
