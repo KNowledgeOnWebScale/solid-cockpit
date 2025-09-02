@@ -24,7 +24,6 @@ const vuetify = createVuetify({
     },
   },
   theme: {
-    defaultTheme: 'dark', // or 'light'
     themes: {
       dark: {
         colors: {
@@ -49,4 +48,20 @@ const vuetify = createVuetify({
 const app = createApp(App).use(vuetify);
 app.use(router);
 app.use(pinia);
+
+// Set theme based on data-theme attribute
+const observer = new MutationObserver(() => {
+  const newTheme = document.documentElement.getAttribute('data-theme');
+  if (newTheme) {
+    vuetify.theme.global.name.value = newTheme;
+  }
+});
+observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// Set initial theme
+const initialTheme = document.documentElement.getAttribute('data-theme');
+if (initialTheme) {
+  vuetify.theme.global.name.value = initialTheme;
+}
+
 app.mount('#app');

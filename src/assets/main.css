@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
+
 body {
   background-color: var(--bg);
   margin: 0;
@@ -15,4 +17,8 @@ body {
   display: flex;
   flex-direction: column;
   margin-top: auto;
+}
+
+.v-application, .v-overlay-container {
+  font-family: 'Oxanium', monospace;
 }

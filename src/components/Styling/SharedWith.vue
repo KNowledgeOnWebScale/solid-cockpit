@@ -160,9 +160,7 @@
                         <i class="material-icons not-colored left">{{
                           "schedule"
                         }}</i>
-                        <span class="the-user"
-                          ><i>{{ mode.created }}</i></span
-                        >
+                        <span class="the-user">{{ mode.created }}</span>
                       </div>
                     </div>
                   </div>
@@ -279,7 +277,7 @@ export default {
 .shared-title {
   font-size: 24px;
   font-weight: bold;
-  color: #ede7f6;
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 /* Query List Items */
@@ -292,14 +290,15 @@ ul {
   display: flex;
   flex-direction: column;
   width: 100%;
-  background-color: #28353e;
+  background-color: var(--panel-elev);
+  border: 2px solid var(--border);
   border-radius: 8px;
   padding: 16px;
   margin: 10px 0;
   transition: all 0.3s ease-in-out;
 }
 .folder:hover {
-  background-color: #37474f;
+  background-color: var(--hover);
   cursor: pointer;
 }
 /* Folder Header */
@@ -325,7 +324,7 @@ ul {
   font-family: "Oxanium", monospace;
   font-size: large;
   font-weight: 600;
-  color: white;
+  color: var(--text-secondary);
   transition: background 0.3s ease-in-out;
 }
 .user-icon-button {
@@ -341,7 +340,7 @@ ul {
   font-family: "Oxanium", monospace;
   font-size: large;
   font-weight: 600;
-  color: white;
+  color: var(--text-secondary);
   transition: background 0.3s ease-in-out;
 }
 /* Ensure full-width coverage */
@@ -370,20 +369,20 @@ ul {
   flex-grow: 1;
   text-align: left;
   padding-left: 10px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 /* Item Details (Hidden by Default) */
 .specific-access {
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: var(--panel);
   padding: 0.8rem;
   margin: 1rem 0;
   border-radius: 5px;
-  color: white;
+  color: var(--text-secondary);
 }
 /* Users Details Spacing */
 .specific-access div {
@@ -398,11 +397,12 @@ ul {
 /* Query Labels */
 .user-tag {
   font-weight: bold;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 /* File Data */
 .the-user {
-  color: #90caf9;
+  color: var(--yasqe-keyword);
+  font-weight: 600;
   font-style: italic;
 }
 .shared-with-item {
@@ -429,9 +429,10 @@ ul {
   font-weight: bold;
   font-size: 12pt;
   margin-top: 1rem;
+  color: var(--text-secondary);
 }
 .shared-with a {
-  color: #ffab40;
+  color: var(--accent-700);
   text-decoration: none;
 }
 .shared-with a:hover {

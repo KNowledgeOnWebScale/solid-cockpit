@@ -8,8 +8,7 @@ const current = ref<Theme>("dark"); // default to dark
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  if (theme === "dark") root.setAttribute("data-theme", "dark");
-  else root.removeAttribute("data-theme");
+  root.setAttribute("data-theme", theme);
   localStorage.setItem(THEME_KEY, theme);
 }
 

@@ -10,7 +10,7 @@
     <PodRegistration @pod-selected="handlePodSelected" />
   </div>
 
-  <div class="path-container">
+  <div class="path-container" v-show="currentPod !== ''">
     <!-- Container location bar -->
     <div class="container-location" v-show="currentPod !== ''">
       <!-- Left Navigation Bar -->
@@ -104,7 +104,7 @@
   <div class="upload-container">
     <div v-if="currentPod !== '' && currentPod !== undefined">
       <!-- Card that contains the data upload field
-       TODO: clear files from upload box once uploaded -->
+      TODO: clear files from upload box once uploaded -->
       <div class="upload-section">
         <span class="upload-title">Add Files to Pod</span>
         <!-- The file input section -->

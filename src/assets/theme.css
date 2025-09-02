@@ -38,7 +38,7 @@
   --bg: var(--gray-300); /* #d2d1d8 */
   --bg-secondary: var(--gray-400); /* #adacb3 */
   --panel: var(--main-gray); /* #ffffff */
-  --panel-elev: hsl(0 0% 100%); /* #ffffff */
+  --panel-elev: var(--gray-200);
   --muted: hsl(250 14% 90%); /* #e3e1e8 */
   --border: var(--main-white);
   --text-primary: var(--gray-900);

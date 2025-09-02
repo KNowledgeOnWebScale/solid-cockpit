@@ -132,7 +132,10 @@
                           <i class="material-icons not-colored right"
                             >refresh</i
                           >
-                          <v-tooltip class="tool-tip" activator="parent" location="end"
+                          <v-tooltip
+                            class="tool-tip"
+                            activator="parent"
+                            location="end"
                             >Refresh access rights
                           </v-tooltip>
                         </button></span
@@ -158,7 +161,10 @@
                             <i class="material-icons not-colored right"
                               >content_copy</i
                             >
-                            <v-tooltip class="tool-tip" activator="parent" location="left"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="left"
                               >Copy WebID to clipboard
                             </v-tooltip>
                           </button>
@@ -228,7 +234,10 @@
                           <label>
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Observe existing content
                             </v-tooltip>
                           </label>
@@ -238,7 +247,10 @@
                               v-model="permissions.append"
                             />
                             <span>Append</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Add to to existing content
                             </v-tooltip>
                           </label>
@@ -248,7 +260,10 @@
                               v-model="permissions.write"
                             />
                             <span>Write</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Change existing content + create new content
                             </v-tooltip>
                           </label>
@@ -258,7 +273,10 @@
                               v-model="permissions.control"
                             />
                             <span>Control</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Change .acl permissions for the resource
                             </v-tooltip>
                           </label>
@@ -274,7 +292,10 @@
                               :class="{ highlight: accessType === 'Agent' }"
                             >
                               Agent
-                              <v-tooltip class="tool-tip" activator="parent" location="top"
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="top"
                                 >Change access for a specific WebId
                               </v-tooltip>
                             </button>
@@ -286,7 +307,10 @@
                               :class="{ highlight: accessType === 'Public' }"
                             >
                               Public
-                              <v-tooltip class="tool-tip" activator="parent" location="top"
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="top"
                                 >Change access for anyone
                               </v-tooltip>
                             </button>
@@ -451,37 +475,12 @@
 
   <!-- Use guide -->
   <div class="use-guide">
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="guide-container">
-      <h2 class="guide">Privacy Editing Guide</h2>
-
-      <hr class="line" />
-      <ol class="list-container">
-        <li class="req">Select the Pod you want to Browse.</li>
-
-        <li class="req">
-          Use the nav bar above the container/resource list to navigate between
-          containers
-        </li>
-
-        <li class="req">
-          Click the <i class="material-icons">lock</i> next to a container or
-          resource to see current access rights
-        </li>
-        <li class="req">
-          Select the <b>"Add access rights +"</b> section to adjust access for a
-          provided WebID
-        </li>
-        <li class="req">
-          Future work: The left nav bar pages, add filter functionality, and
-          functionality to the info/notifications icons
-        </li>
-      </ol>
-    </div>
+    <PrivacyEditingGuide />
   </div>
 </template>
 
 <script lang="ts">
+import PrivacyEditingGuide from "./Guides/PrivacyEditingGuide.vue";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import {
   changeAclAgent,
@@ -520,6 +519,7 @@ export default {
     PodRegistration,
     ContainerNav,
     SharedWith,
+    PrivacyEditingGuide,
   },
   name: "PrivacyComponent",
   data(): {
@@ -947,9 +947,9 @@ button:focus {
 .body-container {
   display: flex;
   flex: 1 1 auto;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--v-shadow-2);
   border-radius: 6px;
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   margin: 0.5rem;
   resize: vertical;
   overflow: auto;
@@ -963,7 +963,7 @@ button:focus {
   scroll-behavior: smooth;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 6px;
 }
 
@@ -983,16 +983,19 @@ button:focus {
   font-size: 30pt;
   font-family: "Oxanium", monospace;
   font-weight: 500;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .dir-nav nav {
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--v-shadow-2);
 }
 .nav-wrapper {
-  background-color: #445560;
   border-radius: 6px;
   padding: 0 1rem;
   margin: 0 0.5rem 0 0.5rem;
+  background-color: var(--panel);
+}
+.nav-wrapper .material-icons {
+  color: var(--text-secondary);
 }
 .tool-tip {
   font-family: "Oxanium", monospace;
@@ -1000,7 +1003,7 @@ button:focus {
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
+  background: var(--panel);
   border-radius: 8px;
   padding: 0rem 0 0 1rem;
   margin: 0rem 0.5rem;
@@ -1014,12 +1017,12 @@ button:focus {
 /* Choose location in MyPod */
 .nav-container {
   display: flex;
-  border-radius: 8px;
+  border-radius: 4px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   min-width: fit-content;
-  background-color: #445560;
-  border: 2px solid #ede7f6;
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border);
   align-items: center;
   width: 100%;
   position: sticky;
@@ -1050,6 +1053,7 @@ button:focus {
   margin: 0.5rem 0 0.3rem 0;
   width: 100%;
   align-items: center;
+  color: var(--text-secondary);
 }
 .path-selection li {
   margin: 0 0 0 1rem;
@@ -1067,7 +1071,7 @@ button:focus {
   box-shadow: none;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -1107,7 +1111,7 @@ button:focus {
   margin-top: 0;
   padding-top: 2px;
   border-radius: 2px;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 8px VAR(--v-shadow-2);
 }
 .side-nav .divider {
   margin: 2px 0;
@@ -1136,15 +1140,16 @@ button:focus {
   padding: 5px;
   width: 100%;
   text-decoration: none;
+  color: var(--text-secondary);
 }
-.highlight {
-  background-color: #754ff6;
-  color: #ede7f6;
+.side-nav li button.highlight {
+  background-color: VAR(--primary) !important;
+  color: var(--main-white);
   border-radius: 6px;
 }
 .side-nav li button:hover {
-  background-color: #555;
-  color: white;
+  background-color: var(--text-muted);
+  color: var(--main-white);
   width: 100%;
 }
 .side-nav li a {
@@ -1157,9 +1162,9 @@ button:focus {
   font-weight: 600;
   font-size: large;
   font-family: "Oxanium", monospace;
-  background-color: #28353e;
+  background-color: var(--panel);
   border-radius: 4px;
-  border: 0.5px solid #ede7f6;
+  border: 0.5px solid var(--border);
   min-height: max-content;
 }
 .folder i {
@@ -1167,7 +1172,7 @@ button:focus {
   margin-top: -2px;
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .full-width {
   width: 100%;
@@ -1176,6 +1181,7 @@ button:focus {
 }
 .resource-name {
   font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
 }
 .info-icon {
   margin-left: auto;
@@ -1198,15 +1204,16 @@ button:focus {
 /* Current permissions display */
 #permissionsInstructions {
   font-weight: bold;
+  color: var(--text-secondary);
 }
 .access-item {
-  color: #ede7f6;
-  border-top: 1px dashed #000;
+  color: var(--text-secondary);
+  border-top: 1px dashed var(--text-secondary);
   padding-top: 10px;
   margin-top: 10px;
 }
 .access-item:nth-last-child(2) {
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid var(--text-secondary);
   padding-bottom: 10px;
   margin-bottom: 10px;
 }
@@ -1226,7 +1233,7 @@ button:focus {
   gap: 5rem;
 }
 .user-tag {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .user-id button {
   padding: 3px;
@@ -1241,7 +1248,7 @@ button:focus {
 }
 .the-user i {
   font-size: large;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .permissions-tag {
   font-size: large;
@@ -1257,16 +1264,16 @@ button:focus {
   justify-content: flex-end;
 }
 .true-color {
-  color: #77dd76;
+  color: var(--yasqe-string);
 }
 .true-color i {
-  color: #77dd76;
+  color: var(--yasqe-string);
 }
 .false-color {
-  color: #ff6962;
+  color: var(--yasqe-string-2);
 }
 .false-color i {
-  color: #ff6962;
+  color: var(--yasqe-string-2);
 }
 
 #sharebox {
@@ -1279,11 +1286,14 @@ label {
 #checkBoxes {
   margin-bottom: 10px;
 }
+#checkBoxes span {
+  color: var(--text-secondary);
+}
 input[type="checkbox"] {
   appearance: none; /* Hide default checkbox */
   width: 18px;
   height: 18px;
-  border: 2px solid #ede7f6; /* Default border */
+  border: 2px solid var(--border); /* Default border */
   border-radius: 3px;
   background-color: transparent;
   position: relative;
@@ -1291,18 +1301,21 @@ input[type="checkbox"] {
   outline: none;
 }
 input[type="checkbox"]:checked {
-  background-color: #77dd76; /* Green color when checked */
-  border-color: #77dd76; /* Match the border */
+  background-color: var(--success); /* Green color when checked */
+  border-color: var(--success); /* Match the border */
 }
 input[type="checkbox"]:checked::before {
   content: "✔";
-  color: white;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: bold;
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+}
+.icon-button span {
+  color: var(--text-secondary);
 }
 /* Access rights Agent + Public buttons */
 .access-choose {
@@ -1315,23 +1328,30 @@ input[type="checkbox"]:checked::before {
   width: 100%;
   border-radius: 5px;
 }
+.access-choose button:focus {
+  background-color: var(--primary) !important;
+  color: var(--main-white);
+}
 form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
-  border: 1px solid #ede7f6 !important;
+  border: 1px solid var(--text-secondary) !important;
+  border-radius: 4px;;
   font-family: "Courier New", Courier, monospace;
   font-size: large;
   max-width: 100%;
-  color: #ede7f6;
+  color: var(--text-secondary);
+  box-shadow: none !important;
 }
 form input::placeholder {
-  color: rgba(255, 255, 255, 0.7); /* Slight transparency */
+  padding-left: 0.5rem;
+  color: var(--text-muted); /* Slight transparency */
 }
-form button {
+.agent-button, .public-button {
   padding: 10px;
   margin-top: 5px;
-  background-color: #ede7f6;
-  color: #445560;
+  background-color: var(--border);
+  color: var(--text-secondary);
   border: none;
   cursor: pointer;
   font-size: large;
@@ -1340,14 +1360,21 @@ form button {
   font-family: "Oxanium", monospace;
   font-weight: 600;
   border-radius: 6px;
+  margin-top: 0.25rem;;
+  padding: 0.75rem;
+  background-color: var(--primary);
+  color: var(--main-white);
 }
 form button:hover {
-  background-color: #a9a7ad;
+  background-color: var(--hover);
+}
+#submitButton button:hover {
+  background-color: var(--text-muted);
 }
 label span {
   font-family: "Oxanium", monospace;
   font-size: 14px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 #errorIndicator {
   margin-top: 10px;
@@ -1367,8 +1394,8 @@ label span {
 .new-acl {
   padding: 10px;
   margin-top: 5px;
-  background-color: #ede7f6;
-  color: #445560;
+  background-color: var(--text-secondary);
+  color: var(--text-muted);
   border: none;
   cursor: pointer;
   font-family: "Oxanium", monospace;
@@ -1376,7 +1403,7 @@ label span {
   border-radius: 6px;
 }
 .new-acl:hover {
-  background-color: #a9a7ad;
+  background-color: var(--hover);
 }
 
 /* Shared with displays */
@@ -1384,36 +1411,18 @@ label span {
   width: 80%;
 }
 
-/* The how to use guide */
-.use-guide {
-  margin: 0.5rem;
-}
-.guide-container {
+#resetButton button {
   font-family: "Oxanium", monospace;
-  font-size: 16pt;
-  width: 100%;
-  margin: auto;
-  padding: 0.5rem 0rem 0.5rem 0.5rem;
-  background: #445560;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-.guide {
-  text-align: Left;
-  font-size: 18pt;
-  margin: 0.5rem;
-  font-weight: 600;
-}
-.line {
-  margin-right: 0.5rem;
-}
-.list-container {
-  margin: 0 1.5rem;
-}
-.req {
-  margin: 1rem 0.5rem;
   font-size: 14pt;
-  list-style-type: upper-roman;
-  align-items: Left;
+  background-color: var(--muted);
+  color: var(--text-secondary);
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.25rem;
 }
+#resetButton button:hover {
+  background-color: var(--hover);
+}
+
+
 </style>
