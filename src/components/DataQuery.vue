@@ -578,6 +578,8 @@ import {
   CacheOutput,
   cleanSourcesUrls,
   QueryResultJson,
+  ComunicaSources,
+  executeQueryInMainThread,
 } from "./queryPod";
 import {
   fetchPermissionsData,
@@ -668,6 +670,7 @@ export default {
       showResultQuery: false as boolean,
       cachedQueryIndex: null as number | null,
       worker: null as Worker | null,
+      containsSolidSources: false as boolean,
     };
   },
   methods: {
@@ -779,6 +782,12 @@ export default {
       this.possibleSources.unshift(`<${this.currentPod}>`);
     },
 
+    /* Determines whether sources contain a Solid source and reflects this in boolean */
+    checkSolidSources(querySources: ComunicaSources[]) {
+      this.containsSolidSources = querySources.some(
+        (source) => source.context != null
+      );
+    },
     // Executes user provided query and saves it to querycache if specified
     async runExecuteQuery() {
       this.loading = true;
@@ -789,22 +798,35 @@ export default {
         return;
       }
 
+      // make sources into a ComunicaSources[]
+      const cleanedSources = cleanSourcesUrls(this.currentQuery.sources);
+      this.checkSolidSources(cleanedSources);
+      
       try {
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
           this.cachePath = await ensureCacheContainer(this.currentPod);
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
-            this.currentQuery.sources,
+            cleanedSources,
             this.cachePath
           );
 
           // If the output is a string, it means there was no matching entry in the cache
           if (typeof this.currentQuery.output === "string") {
-            this.currentQuery.output = await this.executeQuery(
-              this.currentQuery.query,
-              this.currentQuery.sources
-            );
+            // if there are NOT solid sources use the Worker
+            if (!this.containsSolidSources) {
+              this.currentQuery.output = await this.executeQuery(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            } else {
+              // if there are Solid sources, use custom execution in main thread
+              this.currentQuery.output = await executeQueryInMainThread(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            }
           }
 
           // obtaining query cache hash if the cache contains a similar query
@@ -833,8 +855,10 @@ export default {
           // pass found results to YASR (with save query selected)
           this.resultsForYasr = this.currentQuery.output.resultsOutput;
 
+          this.currentQuery.output = toRaw(this.currentQuery.output);
           // If there is NOT an equivalent query in cache, then add it to cache
           if (
+            this.currentQuery.output.provenanceOutput === null ||
             this.currentQuery.output.provenanceOutput.algorithm != "equivalence"
           ) {
             this.currHash = await createQueriesTTL(
@@ -860,23 +884,41 @@ export default {
             this.cachePath = await ensureCacheContainer(this.currentPod);
             this.currentQuery.output = await executeQueryWithPodConnected(
               this.currentQuery.query,
-              this.currentQuery.sources,
+              cleanedSources,
               this.cachePath
             );
 
             // If the output is a string, it means there was no matching entry in the cache
             if (typeof this.currentQuery.output === "string") {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                this.currentQuery.sources
-              );
+              // if there are NOT solid sources use the Worker
+              if (!this.containsSolidSources) {
+                this.currentQuery.output = await this.executeQuery(
+                  this.currentQuery.query,
+                  cleanedSources
+                );
+              } else {
+                // if there are Solid sources, use custom execution in main thread
+                this.currentQuery.output = await executeQueryInMainThread(
+                  this.currentQuery.query,
+                  cleanedSources
+                );
+              }
             }
           } else {
             // if there is no pod connected, use the default query execution
-            this.currentQuery.output = await this.executeQuery(
-              this.currentQuery.query,
-              this.currentQuery.sources
-            );
+            // if there are NOT solid sources use the Worker
+            if (!this.containsSolidSources) {
+              this.currentQuery.output = await this.executeQuery(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            } else {
+              // if there are Solid sources, use custom execution in main thread
+              this.currentQuery.output = await executeQueryInMainThread(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            }
           }
 
           // try to obtain cache hash if the cache contains a similar query
@@ -922,10 +964,9 @@ export default {
      */
     async executeQuery(
       query: string,
-      providedSources: string[]
+      providedSources: ComunicaSources[]
     ): Promise<CacheOutput | null> {
       this.cancelRequested = false;
-      const cleanedSources = cleanSourcesUrls(providedSources);
 
       this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
         type: "module",
@@ -966,7 +1007,7 @@ export default {
         this.worker.postMessage({
           type: "run",
           query,
-          sources: cleanedSources,
+          sources: providedSources,
         });
       });
     },
@@ -1426,7 +1467,9 @@ body {
 }
 /* TODO: Change colors to look nicer */
 #yasqe-container :deep(.cm-keyword) {
-  color: var(--yasqe-keyword); /* Example: purple for keywords like SELECT, WHERE */
+  color: var(
+    --yasqe-keyword
+  ); /* Example: purple for keywords like SELECT, WHERE */
 }
 #yasqe-container :deep(.cm-atom) {
   color: var(--yasqe-atom); /* Example: orange for atoms like 'a' */
@@ -1459,7 +1502,9 @@ body {
   color: var(--text-primary); /* Example: yellow for PREFIX */
 }
 #yasqe-container :deep(.cm-matchhighlight) {
-  background-color: var(--yasqe-matchhighlight); /* Example: yellow for PREFIX */
+  background-color: var(
+    --yasqe-matchhighlight
+  ); /* Example: yellow for PREFIX */
 }
 #yasqe-container :deep(.CodeMirror-cursor) {
   border-left: 1px solid var(--yasqe-cursor); /* Example: yellow cursor */

@@ -1,4 +1,4 @@
-# Datasources: https://triple.ilabt.imec.be/test/chist-era-annex-1-chemicals.ttl
+# Datasources: http://localhost:3000/test/Uploads/nbn-chist-era-annex-1-chemicals-alt.ttl
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rh: <http://rdf.rhea-db.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>

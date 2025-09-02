@@ -1,4 +1,5 @@
 import { QueryEngine as SparqlEngineCache } from "query-sparql-remote-cache";
+import { QueryEngine as SolidQueryEngine } from "@comunica/query-sparql";
 import { KeyRemoteCache } from "actor-query-process-remote-cache";
 import { createCoiFetch } from "./z3-headers";
 import { Bindings } from "@comunica/types";
@@ -20,6 +21,7 @@ import {
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { Parser as SparqlParser } from "sparqljs";
+import { fetchAclAgents } from "./getData";
 
 export interface QueryResultJson {
   head: { vars: string[] };
@@ -97,13 +99,35 @@ export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
     }
   });
   betterSources.forEach((url) => {
-    if (url.includes("sparql")) {
+    // TODO: fix --> currently very dumb way of doing this
+    if (url.includes("sparql") || url.includes("endpoint")) {
       comunicasources.push({ value: url });
     } else {
       comunicasources.push({ value: url, context: { fetch: fetch } });
     }
   });
   return comunicasources;
+}
+
+/**
+ * Cleans an array of source URLs by removing angle brackets ("<" and ">")
+ * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
+ *
+ * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
+ * @returns A new array of cleaned source URLs without angle brackets.
+ */
+export function cleanSourcesUrlsForCache(dirtySources: string[]): string[] {
+  const betterSourcesCache: string[] = [];
+
+  dirtySources.forEach((url) => {
+    // removes unwanted URI indicating characters
+    if (url.startsWith("<") && url.endsWith(">")) {
+      betterSourcesCache.push(url.slice(1, -1));
+    } else {
+      betterSourcesCache.push(url);
+    }
+  });
+  return betterSourcesCache;
 }
 
 /**
@@ -119,10 +143,9 @@ export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
  */
 export async function executeQueryWithPodConnected(
   query: string,
-  providedSources: string[],
+  providedSources: ComunicaSources[],
   userCachePath: string
 ): Promise<CacheOutput | string | null> {
-  const cleanedSources = cleanSourcesUrls(providedSources);
 
   // TODO: z3-solver DOES NOT work on a Worker Thread... (maybe could fix?)
   // First, try to perform the query using the cache worker.
@@ -177,7 +200,7 @@ export async function executeQueryWithPodConnected(
 
   const output = await sparqlQueryWithCache(
     query,
-    cleanedSources,
+    providedSources,
     userCachePath
   );
   // case where cache is not used
@@ -204,7 +227,7 @@ async function sparqlQueryWithCache(
   const mySparqlEngine = new SparqlEngineCache();
 
   try {
-    const fetchForCache = createCoiFetch(fetch, { coepCredentialless: true });
+    const fetchForCache = createCoiFetch(fetch, { coepCredentialless: false, passthroughOpaque: true, noCors: false });
 
     // Query executor using Comunica
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
@@ -281,6 +304,80 @@ async function sparqlQueryWithCache(
     return "no-cache";
   }
 }
+
+/**
+ * Executes a SPARQL query over a list of provided Solid Pod URLs.
+ *
+ * @param inputQuery The string representation of a SPARQL query to be executed.
+ * @param mixedSources a ComunicaSources[] that provides the Solid Pod or SPARQL Endpoint sources for executing the specified query.
+ * @returns a CacheOutput object (containing cache provenance + query results)
+ */
+export async function executeQueryInMainThread(
+  inputQuery: string,
+  mixedSources: ComunicaSources[],
+): Promise<CacheOutput | null> {
+  const mySparqlEngine = new SolidQueryEngine();
+
+  const fetchForCache = createCoiFetch(fetch, { coepCredentialless: false, passthroughOpaque: true, noCors: true });
+  try {
+    // Query executor using Comunica
+    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
+      lenient: true,
+      sources: mixedSources,
+    });
+
+    // Displays the results of the query
+    const bindingsArray: any[] = [];
+    let firstBinding: Bindings | undefined = undefined;
+
+    // Process each binding from the stream.
+    for await (const binding of bindingsStream) {
+      // Capture the variable names from the first binding.
+      if (!firstBinding) {
+        firstBinding = binding;
+      }
+      const bindingObj: Record<string, { type: string; value: string }> = {};
+      binding.forEach((term, variable) => {
+        let termType: string;
+        switch (term.termType) {
+          case "Literal":
+            termType = "literal";
+            break;
+          case "NamedNode":
+            termType = "uri";
+            break;
+          case "BlankNode":
+            termType = "bnode";
+            break;
+          default:
+            termType = term.termType.toLowerCase();
+        }
+        bindingObj[variable.value] = { type: termType, value: term.value };
+      });
+      bindingsArray.push(bindingObj);
+    }
+
+    // If there were no results, use an empty array of variables.
+    const vars = firstBinding
+      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
+      : [];
+
+    // results as an object
+    const resultsOutput: QueryResultJson = {
+      head: { vars },
+      results: { bindings: bindingsArray },
+    };
+
+    const returnVal: CacheOutput = {
+      provenanceOutput: null,
+      resultsOutput: resultsOutput,
+    };
+    return returnVal;
+  } catch (err) {
+    return err;
+  }
+}
+
 
 /**
  * Generates a unique 6-character hash using alphanumeric characters.
@@ -449,7 +546,8 @@ export async function createQueriesTTL(
   const SCHEMA = "https://schema.org/";
   const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
 
-  let cleanedSources: ComunicaSources[] = cleanSourcesUrls(sources);
+  const cleanedSources: string[] = cleanSourcesUrlsForCache(sources);
+  console.log(cleanedSources);
   // parse input query string using SPARQLjs
   const serviceSources = parseSparqlQuery(query);
 

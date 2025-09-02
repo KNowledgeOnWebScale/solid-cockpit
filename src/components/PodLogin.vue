@@ -176,18 +176,21 @@ export default {
 #errorIndicator {
   margin-bottom: 1rem;
   padding: 0.2rem 0.2rem;
-  border: 2px solid #d72920;
+  border: 2px solid var(--border);
   border-radius: 5px;
   font-size: 14px;
   font-style: italic;
-  background-color: #ffcccc;
+  background-color: var(--error);
 }
 .input-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
+  color: var(--text-secondary);
   gap: 10px;
+}
+.input-row :deep(v-input__control) {
+  color: var(--text-secondary)
 }
 .form-row {
   width: 100%;
@@ -201,11 +204,11 @@ export default {
 }
 .logged-in {
   padding: 0.2rem 0.2rem;
-  border: 2px solid #307104;
+  border: 2px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
   font-style: italic;
-  background-color: #9fe8b7; /* Highlighted background color */
+  background-color: var(--success);
   margin: 0;
 }
 #new-pod {
