@@ -53,8 +53,9 @@
   --accent-700: hsl(195 85% 36%); /* #107eab */
 
   --success: hsl(160 72% 42%); /* #1fba74 */
-  --warning: hsl(35 92% 50%); /* #f7a611 */
+  --warning: #ffd904; /* #f7a611 */
   --danger: #ff7f7fbb;
+  --error: #ff1e00c2;
   --info: hsl(195 85% 48%); /* #1ba9e0 */
 
   --focus-ring: 2px solid hsl(262 92% 65% / 0.7); /* #8a42f4 */
@@ -100,8 +101,9 @@
   --accent-700: hsl(195 85% 60%); /* #4dc0ec */
 
   --success: hsl(160 72% 46%); /* #26c980 */
-  --warning: hsl(35 92% 58%); /* #f8ad29 */
+  --warning: #ffd700;
   --danger: #ff7f7fbb;
+  --error: #ff1e00;
   --info: hsl(195 85% 54%); /* #34b8e6 */
 
   --focus-ring: 2px solid hsl(262 92% 65% / 0.8); /* #8a42f4 */

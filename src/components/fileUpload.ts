@@ -8,7 +8,8 @@ import {
   getResourceInfo,
   getThing,
   deleteFile,
-  deleteSolidDataset
+  deleteSolidDataset,
+  getContainedResourceUrlAll,
 } from "@inrupt/solid-client";
 import { fetchData } from "./getData"; 
 import { fetch } from "@inrupt/solid-client-authn-browser";
@@ -99,7 +100,7 @@ async function overwriteToPod(
 export async function deleteFromPod(fileUrl: string): Promise<boolean> {
   try {
     await deleteFile(fileUrl, { fetch });
-    console.log(`${fileUrl} deleted successfully`);
+    // console.log(`${fileUrl} deleted successfully`);
     return true;
   } catch (error) {
     console.error(`Error deleting ${fileUrl}:`, error);
@@ -116,8 +117,14 @@ export async function deleteFromPod(fileUrl: string): Promise<boolean> {
  */
 export async function deleteContainer(containerUrl: string): Promise<boolean> {
   try {
+    const containerDataset = await getSolidDataset(containerUrl, { fetch });
+    const containedResources = getContainedResourceUrlAll(containerDataset);
+
+    for (const resourceUrl of containedResources) {
+      await deleteFile(resourceUrl, { fetch });
+    }
+
     await deleteSolidDataset(containerUrl, { fetch });
-    console.log(`${containerUrl} deleted successfully`);
     return true;
   } catch (error) {
     console.error(`Error deleting ${containerUrl}:`, error);
@@ -158,7 +165,7 @@ async function uploadToPod(
     // console.log(savedFile); // Type of this file is <File & WithResourceInfo>
     return savedFile.internal_resourceInfo.sourceIri;
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     return "error";
   }
 }
@@ -196,7 +203,7 @@ async function ensureDirectoriesExist(
       const result = await getResourceInfo(`${currentUrl}${directories[i]}/`, { fetch: fetch });
     } catch (error) {
       if (error.statusCode === 404) {
-        console.log(`Creating directory: ${directories[i]}`);
+        // console.log(`Creating directory: ${directories[i]}`);
         await createContainerAt(`${currentUrl}${directories[i]}/`, { fetch: fetch });
       } else {
         console.error(`Error creating directory ${directories[i]}:`, error);
@@ -219,10 +226,10 @@ export async function alreadyExists(file: File, uploadUrl: string): Promise<bool
   try {
     const containerContents = await getSolidDataset(uploadUrl, {fetch});
     const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`)
-    console.log(`The file ${allegedFile.url} already exists...`)
+    // console.log(`The file ${allegedFile.url} already exists...`)
     return true;
   } catch (e) {
-    console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
+    // console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
     return false;
   }
 }

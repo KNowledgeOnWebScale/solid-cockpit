@@ -163,8 +163,15 @@
           >Please connect your pod if you wish to look at your Query Cache...
           <br />(simply click the "select pod" button above.)</span
         >
+        <span class="no-pod" v-if="currentPod !== '' && !queriesCacheExists"
+          >No query cache found in your pod. To create a query cache, simply
+          execute a query with the <b>"Save Query?"</b> checkbox checked.</span
+        >
         <ul>
-          <div class="cached-container" v-if="currentPod != ''">
+          <div
+            class="cached-container"
+            v-if="currentPod != '' && queriesCacheExists"
+          >
             <span class="cached-title">Cached Queries</span>
 
             <!-- Iterates over list queries in Query Cache -->
@@ -544,10 +551,39 @@
         </div>
       </div>
 
-      <!-- Display Result Count -->
-
-      <div class="table-container" v-show="!loading && resultsForYasr != null">
+      <!-- Display results of query -->
+      <div
+        class="table-container"
+        v-show="
+          !loading &&
+          resultsForYasr != null &&
+          resultsForYasr.results.bindings.length > 0
+        "
+      >
         <div id="yasr-container"></div>
+      </div>
+      <!-- Display message if there were no results -->
+      <div
+        class="null-results"
+        v-show="
+          !loading &&
+          resultsForYasr != null &&
+          resultsForYasr.results.bindings.length === 0
+        "
+      >
+        <span>This query produced no results 🙃</span>
+      </div>
+
+      <!-- Display error if there was an error -->
+      <div class="null-results" v-show="!loading && queryError != null">
+        <span
+          >There was a(n)
+          <b
+            ><i>{{ queryError }}</i></b
+          >
+          error when executing this query <br />(open the browser console to see
+          more details.)</span
+        >
       </div>
     </div>
   </div>
@@ -562,7 +598,7 @@ import Yasqe from "@triply/yasqe";
 import "@triply/yasqe/build/yasqe.min.css";
 import Yasr from "@triply/yasr";
 import "@triply/yasr/build/yasr.min.css";
-import { isLoggedin } from "./login";
+import { isLoggedin, currentWebId } from "./login";
 import {
   ensureCacheContainer,
   createQueriesTTL,
@@ -609,9 +645,11 @@ export default {
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
+      webid: "" as string,
       yasqe: shallowRef<Yasqe | null>(null),
       yasr: shallowRef<Yasr | null>(null),
       resultsForYasr: null as QueryResultJson | null,
+      queryError: null as Error | null,
       successfulLogin: false as boolean,
       currentPod: "" as string,
       currentView: "newQuery" as "newQuery" | "previousQueries",
@@ -801,11 +839,17 @@ export default {
       // make sources into a ComunicaSources[]
       const cleanedSources = cleanSourcesUrls(this.currentQuery.sources);
       this.checkSolidSources(cleanedSources);
-      
+
       try {
+        // reset query error
+        this.queryError = null;
+
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
-          this.cachePath = await ensureCacheContainer(this.currentPod);
+          this.cachePath = await ensureCacheContainer(
+            this.currentPod,
+            this.webid
+          );
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
             cleanedSources,
@@ -841,17 +885,6 @@ export default {
             );
           }
 
-          // if the result of the query was null
-          if (
-            !this.currentQuery.output.resultsOutput ||
-            !this.currentQuery.output.resultsOutput.results
-          ) {
-            this.currentQuery.output.resultsOutput = {
-              head: { vars: [] },
-              results: { bindings: [] },
-            };
-          }
-
           // pass found results to YASR (with save query selected)
           this.resultsForYasr = this.currentQuery.output.resultsOutput;
 
@@ -878,10 +911,13 @@ export default {
             );
           }
         } else {
-          // If the Save Query button was not selected
+          // If the Save Query button was not selected (pod is connected)
           if (this.currentPod !== "") {
             // if there is a pod connected, try to use cache
-            this.cachePath = await ensureCacheContainer(this.currentPod);
+            this.cachePath = await ensureCacheContainer(
+              this.currentPod,
+              this.webid
+            );
             this.currentQuery.output = await executeQueryWithPodConnected(
               this.currentQuery.query,
               cleanedSources,
@@ -905,8 +941,8 @@ export default {
               }
             }
           } else {
-            // if there is no pod connected, use the default query execution
-            // if there are NOT solid sources use the Worker
+            // if there is NO pod connected, use the default query execution
+            // if there are NOT solid sources --> use the Worker
             if (!this.containsSolidSources) {
               this.currentQuery.output = await this.executeQuery(
                 this.currentQuery.query,
@@ -932,7 +968,12 @@ export default {
               this.currentQuery.output.provenanceOutput.id.value
             );
           }
-
+        }
+        // if there was an error report it here
+        if (this.currentQuery.output instanceof Error) {
+          this.queryError = this.currentQuery.output.message;
+        } else {
+          // if the query was empty assign it empty bindings
           if (
             !this.currentQuery.output.resultsOutput ||
             !this.currentQuery.output.resultsOutput.results
@@ -942,9 +983,10 @@ export default {
               results: { bindings: [] },
             };
           }
-          // pass found results to YASR (if save query was not selected)
-          this.resultsForYasr = this.currentQuery.output.resultsOutput;
         }
+        // pass found results to YASR (if save query was not selected)
+        this.resultsForYasr = this.currentQuery.output.resultsOutput;
+
       } catch (err) {
         if (this.cancelRequested) {
           console.log("Query canceled by user.");
@@ -965,14 +1007,14 @@ export default {
     async executeQuery(
       query: string,
       providedSources: ComunicaSources[]
-    ): Promise<CacheOutput | null> {
+    ): Promise<CacheOutput | null | Error> {
       this.cancelRequested = false;
 
       this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
         type: "module",
       });
 
-      return new Promise<CacheOutput | null>((resolve, reject) => {
+      return new Promise<CacheOutput | null | Error>((resolve, reject) => {
         this.worker!.onmessage = (e: MessageEvent) => {
           const { data } = e as { data: any };
           switch (data?.type) {
@@ -984,9 +1026,8 @@ export default {
               });
               break;
             case "error":
-              console.log("Worker error:", data.error);
               this.cleanupWorker();
-              resolve(null); // or reject(data.error) if you prefer
+              resolve(new Error(data.error.message)); // or reject(data.error) if you prefer
               break;
             case "cancelled":
               this.cleanupWorker();
@@ -999,9 +1040,8 @@ export default {
         };
         // for an error or cancellation
         this.worker!.onerror = (err) => {
-          console.log("Worker error:", err);
           this.cancelQuery();
-          reject(err);
+          resolve(err as any);
         };
         // starts a run
         this.worker.postMessage({
@@ -1253,6 +1293,7 @@ export default {
 
     setTimeout(() => {
       this.loginCheck();
+      this.webid = currentWebId();
     }, 500);
     setTimeout(() => {
       this.handleDelay();
@@ -1843,6 +1884,18 @@ ul {
   }
 }
 
+/* No results */
+.null-results {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+  font-size: 14pt;
+  padding: 0.25rem;
+  text-align: center;
+}
+.null-results b {
+  color: var(--error);
+}
+
 /* Results */
 .results-container .results-text {
   font-size: 18pt;
@@ -1968,7 +2021,7 @@ ul {
   min-width: 100%;
 }
 #yasr-container :deep(thead tr th) {
-  background-color: var(--primary-600);
+  background-color: var(--primary);
   color: var(--main-white);
   font-weight: bold;
   font-size: 13pt;

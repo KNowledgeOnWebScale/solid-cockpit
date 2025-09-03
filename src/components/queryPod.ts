@@ -21,7 +21,8 @@ import {
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { Parser as SparqlParser } from "sparqljs";
-import { fetchAclAgents } from "./getData";
+import { changeAclPublic, generateAcl, Permissions } from "./privacyEdit";
+import { fetchPermissionsData } from "./getData";
 
 export interface QueryResultJson {
   head: { vars: string[] };
@@ -315,7 +316,7 @@ async function sparqlQueryWithCache(
 export async function executeQueryInMainThread(
   inputQuery: string,
   mixedSources: ComunicaSources[],
-): Promise<CacheOutput | null> {
+): Promise<CacheOutput | Error> {
   const mySparqlEngine = new SolidQueryEngine();
 
   const fetchForCache = createCoiFetch(fetch, { coepCredentialless: false, passthroughOpaque: true, noCors: true });
@@ -447,7 +448,7 @@ function stringToSeed(str: string): number {
  * @param podUrl - The URL of the container (should end with a slash, e.g., "https://pod.example.com/").
  * @returns the query cache directory path.
  */
-export async function ensureCacheContainer(podUrl: string): Promise<string> {
+export async function ensureCacheContainer(podUrl: string, webId: string): Promise<string> {
   const cacheUrl = podUrl + "querycache/";
   try {
     // Try to retrieve the dataset (container)
@@ -456,6 +457,24 @@ export async function ensureCacheContainer(podUrl: string): Promise<string> {
   } catch (error) {
     // If not found, create the container
     await createContainerAt(cacheUrl, { fetch });
+
+    // TODO: Change this to just initialize acl with default permissions
+    // Set public read permissions for the cache container
+    const publicRead: Permissions = {
+      read: true,
+      append: false,
+      write: false,
+      control: false,
+    };
+    let aclDataset = await fetchPermissionsData(cacheUrl);
+    if (aclDataset == null) {
+      console.warn("Initializing an ACL for your inbox/ container...");
+      await generateAcl(cacheUrl, webId);
+      await changeAclPublic(cacheUrl, publicRead);
+    } else {
+      await changeAclPublic(cacheUrl, publicRead);
+    }
+
     console.log(`Query Cache container was created at ${cacheUrl}`);
     return cacheUrl;
   }

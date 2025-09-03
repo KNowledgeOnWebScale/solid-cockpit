@@ -1,6 +1,4 @@
 <template>
-  <!-- The data upload card is only shown after login -->
-
   <!-- Title bar -->
   <div class="title-container">
     <span>Data Upload</span>
@@ -103,14 +101,14 @@
   </div>
   <div class="upload-container">
     <div v-if="currentPod !== '' && currentPod !== undefined">
-      <!-- Card that contains the data upload field
-      TODO: clear files from upload box once uploaded -->
+      <!-- Card that contains the data upload field -->
       <div class="upload-section">
         <span class="upload-title">Add Files to Pod</span>
+        
         <!-- The file input section -->
-
         <form id="writeForm">
           <v-file-input
+            :key="inputKey"
             class="input-box"
             clearable
             label="Click to select file(s) OR drag and drop file(s) here"
@@ -201,30 +199,30 @@
                     <span>
                       The file
                       <i
-                        ><b>{{ files[index].name }}</b></i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
                       >
-                      already exists in the container <b>{{ uploadPath }}</b>
+                      <u> already exists</u> in the container <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
                   <div
-                    v-else-if="uploadSuccessful"
+                    v-else-if="!uploadSuccessful"
                     class="result-message error-message"
                   >
                     <span>
-                      There was an error uploading file
+                      There was an <u>error</u> uploading file
                       <i
-                        ><b>{{ files[index].name }}</b></i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
                       >
-                      to <b>{{ uploadPath }}</b>
+                      to <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
                   <div v-else class="result-message success-message">
                     <span>
                       The file
                       <i
-                        ><b>{{ files[index].name }}</b></i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
                       >
-                      can be found in your pod at <b>{{ uploadPath }}</b>
+                      can be found in your pod at <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
                 </li>
@@ -260,7 +258,9 @@ export default {
       currentPod: "" as string,
       uploadPath: "" as string,
       filesUploaded: [],
-      files: FileList,
+      uploadedFiles: [] as File[],
+      uploadedPath: "" as string,
+      files: [] as File[],
       uploadSuccessful: false,
       alreadyPresent: false,
       uploading: false,
@@ -278,6 +278,7 @@ export default {
         },
       ],
       vaildURL: null as boolean | null,
+      inputKey: 0,
     };
   },
   methods: {
@@ -339,6 +340,8 @@ export default {
         alert("Please select a file to upload.");
         return;
       }
+      this.uploadedFiles = [...this.files];
+      this.uploadedPath = this.uploadPath;
       this.uploading = true;
       this.filesUploaded = await handleFiles(
         this.files,
@@ -347,6 +350,13 @@ export default {
       );
       this.uploadSuccessful = uploadSuccess(this.filesUploaded);
       this.uploading = false;
+
+      this.clearFiles();
+    },
+
+    clearFiles() {
+      this.files = [];
+      this.$nextTick(() => { this.inputKey++; });
     },
 
     /* Takes in the emitted value from PodRegistration.vue */
@@ -531,7 +541,7 @@ export default {
   margin: auto;
   padding: 20px;
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-1);
 }
 .upload-section {
   font-family: "Oxanium", monospace;
@@ -595,7 +605,6 @@ export default {
     transform: rotate(360deg);
   }
 }
-
 .upload-location-label {
   padding-left: 5px;
   display: inline-block;
@@ -613,21 +622,27 @@ export default {
   gap: 18px;
   margin-left: 10px;
 }
+.upload-result-row b {
+  color: var(--yasqe-operator);
+}
 .result-message {
   display: flex;
   align-items: center;
   font-size: 1rem;
   font-family: "Oxanium", monospace;
   margin-right: 10px;
+  padding: 0.5rem;
+  border-radius: 6px;
+  color: var(--text-secondary);
 }
 .error-message {
-  color: #ea7272;
+  border: 3px solid var(--error);
 }
 .duplicate-message {
-  color: #ffd700;
+  border: 3px solid var(--warning);
 }
 .success-message {
-  color: #3dcc9f;
+  border: 3px solid var(--yasqe-string);
 }
 /* Spinner styles */
 .spinner-container {

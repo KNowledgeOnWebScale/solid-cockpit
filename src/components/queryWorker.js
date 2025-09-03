@@ -20,7 +20,6 @@ self.onmessage = async (e) => {
     controller = new AbortController();
     const { signal } = controller;
     const engine = new QueryEngineSparql();
-    // console.log(query, sources);
     try {
       // execute query using Comunica engine
       const bindingsStream = await engine.queryBindings(query, {

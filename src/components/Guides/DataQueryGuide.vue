@@ -37,7 +37,7 @@
 <script lang="ts">
 export default {
   data: () => ({
-    guideDropdownOpen: true as boolean,
+    guideDropdownOpen: false as boolean,
   }),
   methods: {
     toggleGuideDropdown() {

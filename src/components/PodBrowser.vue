@@ -8,6 +8,13 @@
     <span>Pod Data Browser</span>
   </div>
 
+  <div v-if="deletionSuccess" class="success-popup">
+    <span>{{ deletedItemType }} deleted successfully!</span>
+    <button @click="deletionSuccess = false" class="close-popup-button">
+      <i class="material-icons">close</i>
+    </button>
+  </div>
+
   <div class="pod-chooseContainer">
     <PodRegistration @pod-selected="handlePodSelected" />
   </div>
@@ -42,9 +49,8 @@
         </div>
       </div>
 
-      <!-- TODO: add an RDF editor for RDF data ...  -->
       <div class="pod-directories">
-        <div class="container-fluid">
+        <div class="container-fluid" :key="renderKey">
           <div class="items-label">
             <span><b>Items:</b></span>
           </div>
@@ -64,14 +70,13 @@
                   </div>
                   <div class="info-icon">
                     <i class="material-icons not-colored info-icon">
-                    {{
-                      showInfoIndex === index
-                        ? "keyboard_arrow_down info"
-                        : "chevron_right info"
-                    }}</i
-                  >
+                      {{
+                        showInfoIndex === index
+                          ? "keyboard_arrow_down info"
+                          : "chevron_right info"
+                      }}</i
+                    >
                   </div>
-                  
                 </button>
 
                 <!-- Item Info -->
@@ -119,13 +124,18 @@
                     <button
                       @click="confirmAndDelete(info.sourceIri)"
                       class="delete-button"
-                      :disabled="deletionSuccess"
                     >
                       Delete
                     </button>
-                    <button @click="toggleForm(index, url)" class="delete-button">
+                    <!-- TODO: Add an edit button for renaming / moving item -->
+                    <!-- <button
+                      @click="toggleForm(index, url)"
+                      class="delete-button"
+                    >
                       Edit
-                    </button>
+                    </button> -->
+
+                    <!-- TODO: add an RDF editor for RDF data ...  -->
                   </div>
                 </div>
               </div>
@@ -143,7 +153,7 @@
 import { currentWebId } from "./login";
 import { fetchData, WorkingData } from "./getData";
 import { deleteFromPod, deleteContainer } from "./fileUpload";
-import { getContainedResourceUrlAll } from "@inrupt/solid-client";
+import { getContainedResourceUrlAll, internal_AclRule } from "@inrupt/solid-client";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
@@ -180,8 +190,10 @@ export default {
       resourceUrls: [] as string[],
       container: [] as string[],
       queryItems: null as WorkingData | null,
-      deletionSuccess: false as boolean,
       newName: "" as string,
+      renderKey: 0 as number,
+      deletionSuccess: false,
+      deletedItemType: "" as "Resource" | "Container" | "",
     };
   },
   methods: {
@@ -233,32 +245,30 @@ export default {
 
     /*
     Deleted the resource at the given URL.
-    TODO: Add protections/recursion for deleting containers ...
+    TODO: Add capability to delete containers that contain containers ...
+
     */
     async deleteResource(fileUrl: string) {
-      this.deletionSuccess = true;
       try {
-        // for container deletion
-        if (fileUrl.endsWith("/")) {
-          this.deletionSuccess = await deleteContainer(fileUrl);
-          this.urls = this.urls.filter((url) => url !== fileUrl);
-          await this.getItems(this.displayPath);
-        } else {
-          this.deletionSuccess = await deleteFromPod(fileUrl);
-        }
+        const success = fileUrl.endsWith("/")
+          ? await deleteContainer(fileUrl)
+          : await deleteFromPod(fileUrl);
 
-        if (this.deletionSuccess) {
-          this.urls = this.urls.filter((url) => url !== fileUrl);
+        // 2) Refetch with cache-busting to avoid stale SolidDataset
+        if (success) {
+          this.deletedItemType = fileUrl.endsWith("/") ? "Container" : "Resource";
+          this.deletionSuccess = true;
+          this.showInfoIndex = null;
           await this.getItems(this.displayPath);
+          this.urls = [...this.urls.filter((url) => url !== fileUrl)];
+          this.separateUrls();
+          this.renderKey += 1; // Force re-render
         } else {
           this.deletionSuccess = false;
-          console.error(`Failed to delete resource: ${fileUrl}`);
         }
-      } catch (error) {
-        this.deletionSuccess = false;
-        console.error(`Error deleting resource: ${fileUrl}`, error);
-      } finally {
-        this.deletionSuccess = false;
+      } catch (err) {
+        console.error(`Error deleting resource: ${fileUrl}`, err);
+        alert(`An error occurred while deleting resource: ${fileUrl}`);
       }
     },
 
@@ -280,7 +290,10 @@ export default {
         : path.lastIndexOf("/");
       const parentPath = path.substring(0, lastSlash + 1);
       const destinationUrl =
-        url.origin + parentPath + this.newName.trim() + (isContainer ? "/" : "");
+        url.origin +
+        parentPath +
+        this.newName.trim() +
+        (isContainer ? "/" : "");
 
       if (sourceUrl === destinationUrl) {
         this.showEditIndex = null;
@@ -302,7 +315,8 @@ export default {
     async getItems(path: string) {
       try {
         this.dirContents = await fetchData(path); // value is SolidDataset
-        this.urls = getContainedResourceUrlAll(this.dirContents);
+        const urls = getContainedResourceUrlAll(this.dirContents);
+        this.urls = [...urls];
         this.separateUrls();
       } catch (e) {
         console.error("Could not fetch data info from the URL provided...");
@@ -512,7 +526,7 @@ body {
 .card-panel {
   background-color: var(--muted);
   margin: 0.2rem;
-  padding: 1.7rem;
+  padding: 1rem;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   border-radius: 6px;
@@ -683,5 +697,29 @@ body {
 }
 .edit-button.cancel {
   background-color: var(--text-muted);
+}
+
+.success-popup {
+  font-family: "Oxanium", monospace;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: var(--success);
+  color: var(--main-white);
+  padding: 1rem;
+  border-radius: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-1);
+}
+
+.close-popup-button {
+  background: none;
+  border: none;
+  color: var(--main-white);
+  cursor: pointer;
+  margin-left: 1rem;
 }
 </style>

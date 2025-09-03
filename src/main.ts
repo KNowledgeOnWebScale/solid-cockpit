@@ -53,7 +53,7 @@ app.use(pinia);
 const observer = new MutationObserver(() => {
   const newTheme = document.documentElement.getAttribute('data-theme');
   if (newTheme) {
-    vuetify.theme.global.name.value = newTheme;
+    vuetify.theme.change(newTheme);
   }
 });
 observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
