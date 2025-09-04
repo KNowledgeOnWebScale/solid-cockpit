@@ -1,14 +1,26 @@
 <template>
   <div class="pod-register" v-if="loggedIn">
     <!-- delay div prevents yellow flashing of pod selection box -->
+    <h2>Pod Selection</h2>
     <div class="loading-spinner-container" v-if="delay">
       <div class="spinner"></div>
       <span class="loading-text">Checking login status ...</span>
     </div>
 
     <div class="delay-placeholder" v-if="!delay">
+      <!-- Display current selected pod if selectedPodUrl is not empty -->
+      <div v-if="podSuccess" class="current-pod">
+        <p>Current Selected Pod: <strong>{{ authStore.selectedPodUrl }}</strong></p>
+        <button
+          class="change-pod-btn styled-button"
+          @click="clearSelectedPod"
+        >
+          Change Pod
+        </button>
+      </div>
+
       <!-- Pod Selection dropdown -->
-      <div class="select-pod" v-if="podAccess">
+      <div class="select-pod" v-else>
         <ul class="horizontal-list">
           <li>
             <span>Select Pod:</span>
@@ -39,7 +51,7 @@
         </ul>
       </div>
 
-      <div class="add-webid" v-else>
+      <div class="add-webid" v-if="!podAccess">
         <v-alert
           density="compact"
           title="No Pod Registered to your WebId"
@@ -79,17 +91,13 @@
                   :rules="rules"
                 ></v-text-field>
               </div>
-              <v-btn
-                class="pod-registerButton"
-                variant="tonal"
-                rounded="xs"
+              <button
+                class="pod-registerButton styled-button"
                 type="submit"
               >
                 Register Pod
-                <v-tooltip class="tool-tip" activator="parent" location="end"
-                  >Click to add your pod to your WebId card
-                </v-tooltip>
-              </v-btn>
+                <span class="tooltip">Click to add your pod to your WebId card</span>
+              </button>
             </div>
           </form>
         </v-alert>
@@ -101,12 +109,12 @@
 <script lang="ts">
 import { webIdDataset } from "./getData";
 import { checkUrl } from "./privacyEdit";
-import { isLoggedin, currentWebId, getPodURLs } from "./login";
+import { currentWebId, getPodURLs } from "./login";
+import { useAuthStore } from "../stores/auth"; // Import the auth store
 
 export default {
   name: "PodRegistration",
   data: () => ({
-    loggedIn: false,
     menu: false,
     message: false,
     podAccess: false,
@@ -115,7 +123,6 @@ export default {
     customPodUrl: "",
     currentPod: "",
     showFormIndex: false,
-    podSuccess: false,
     user: {
       webId: "",
       fullName: "John Doe", // TODO: Should pull this data from #card (and integrate to pop up)
@@ -127,14 +134,24 @@ export default {
       },
     ],
   }),
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the auth store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    podSuccess() {
+      return this.authStore.selectedPodUrl !== ""; // Check if selectedPodUrl is not empty
+    },
+  },
   methods: {
     // delays the loading div so there is no yellow flash from async fetching
     toggleDelay() {
       this.delay = false;
-    },
-    logIn() {
-      this.loggedIn = isLoggedin();
-      this.user.webId = currentWebId();
     },
     /**
      * Method for adding a pod to a user's webId card
@@ -142,12 +159,12 @@ export default {
     async addToWebIdData() {
       /* For TRIPLE consortium */
       if (this.customPodUrl === "") {
-        await webIdDataset(this.user.webId, this.customPodUrl);
+        await webIdDataset(currentWebId(), this.customPodUrl);
         this.$forceUpdate(); // Forces a re-render of the component
       } else {
         /* For provided URL */
         if (!checkUrl(this.customPodUrl, this.currentPod)) {
-          await webIdDataset(this.user.webId, this.customPodUrl);
+          await webIdDataset(currentWebId(), this.customPodUrl);
           this.$forceUpdate(); // Forces a re-render of the component
         } else {
           /* For invalid URL 
@@ -164,6 +181,7 @@ export default {
       this.podList = await getPodURLs();
       if (this.podList !== null) {
         this.currentPod = this.podList[0];
+        //TODO: make this error display in DOM
         try {
           this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
         } catch (err) {
@@ -175,28 +193,24 @@ export default {
     toggleForm() {
       this.showFormIndex = !this.showFormIndex;
     },
-
-    successfulSelection() {
-      this.podSuccess = true;
-    },
-    /* Emits selected pod to Parent component (LandingPage.vue) */
     selectPod() {
       const selectedPod = this.currentPod;
+      const authStore = useAuthStore(); // Access the auth store
+      authStore.setSelectedPodUrl(selectedPod); // Set the selected Pod URL in the store
       this.$emit("pod-selected", selectedPod);
-      // console.log("Selected pod: " + selectedPod);
-      this.successfulSelection();
+    },
+    clearSelectedPod() {
+      const authStore = useAuthStore(); // Access the auth store
+      authStore.setSelectedPodUrl(""); // Clear the selected Pod URL
     },
   },
   mounted() {
     setTimeout(() => {
-      this.logIn();
+      this.findPodList();
     }, 200);
     setTimeout(() => {
-      this.findPodList();
-    }, 400);
-    setTimeout(() => {
       this.toggleDelay();
-    }, 450);
+    }, 250);
   },
 };
 </script>
@@ -204,6 +218,13 @@ export default {
 <style scoped>
 .pod-register {
   font-family: "Oxanium", monospace;
+  padding: 1rem;
+}
+.pod-register h2 {
+  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
+  font-size: 20pt;
+  font-weight: 600;
 }
 .add-webid {
   padding: 0.5rem;
@@ -281,8 +302,8 @@ export default {
   color: var(--text-primary);
 }
 .select-pod span {
-  margin-bottom: 20px;
-  font-size: 24px;
+  margin: 0 0 0 1rem;
+  font-size: 22px;
   font-weight: 700;
 }
 .pod-selectButton {
@@ -297,19 +318,61 @@ button:focus {
   margin-left: 15px;
   gap: 20px;
 }
-.sel-pod .v-btn {
-  margin-bottom: 5px;
-}
 .sel-pod .v-select {
   min-width: 150px;
-  margin-top: 15px;
   font-family: "Oxanium", monospace;
 }
 .sel-pod .check-mark {
   margin-bottom: 5px;
 }
+.sel-pod :deep(.v-input__details) {
+  display: none;
+}
 
 .delay-placeholder {
   background-color: transparent;
+}
+
+.current-pod {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0rem 0 0 1rem;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+}
+.current-pod p {
+  margin-top: 0.3rem;
+}
+.current-pod strong {
+  padding-left: 0.5rem;
+  font-style: italic;
+  color: var(--yasqe-keyword);
+}
+.change-pod-btn {
+  margin-right: 2rem;
+  background-color: var(--muted);
+}
+
+.styled-button {
+  display: inline-block;
+  padding: 0.5rem 1.5rem; /* Increased padding */
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary); /* High contrast text color */
+  background-color: var(--muted); /* High contrast background color */
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.styled-button:hover {
+  background-color: var(--hover); /* Darker shade on hover */
+}
+.tooltip {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-left: 8px;
 }
 </style>

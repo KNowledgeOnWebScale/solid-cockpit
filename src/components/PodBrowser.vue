@@ -16,11 +16,11 @@
   </div>
 
   <div class="pod-chooseContainer">
-    <PodRegistration @pod-selected="handlePodSelected" />
+    <PodRegistration />
   </div>
 
   <body class="content-body">
-    <div class="container-location" v-if="currentPod !== ''">
+    <div class="container-location" v-if="selectedPodUrl !== ''">
       <div class="nav-container">
         <div class="path-selection">
           <ul>
@@ -33,7 +33,7 @@
             <!-- Browse existing path -->
             <li class="container-choose">
               <container-nav
-                :currentPod="currentPod"
+                :currentPod="selectedPodUrl"
                 @path-selected="handleSelectedContainer"
               />
             </li>
@@ -150,13 +150,16 @@
 </template>
 
 <script lang="ts">
-import { currentWebId } from "./login";
 import { fetchData, WorkingData } from "./getData";
 import { deleteFromPod, deleteContainer } from "./fileUpload";
-import { getContainedResourceUrlAll, internal_AclRule } from "@inrupt/solid-client";
+import {
+  getContainedResourceUrlAll,
+  internal_AclRule,
+} from "@inrupt/solid-client";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
+import { useAuthStore } from "../stores/auth";
 
 interface info {
   sourceIri: string;
@@ -174,11 +177,8 @@ export default {
   },
   data() {
     return {
-      loggedIn: false,
-      webId: "",
-      currentPod: "",
-      displayPath: "",
-      currentLocation: "",
+      displayPath: "" as string,
+      currentLocation: "" as string,
       showInfoIndex: null as number | null,
       showEditIndex: null as number | null,
       podData: null,
@@ -196,15 +196,21 @@ export default {
       deletedItemType: "" as "Resource" | "Container" | "",
     };
   },
-  methods: {
-    /*
-    Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-    Obtains 'pod' variable (URL path to user's Pod).
-    */
-    async getPodURL() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
     },
-
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
+  },
+  methods: {
     /*
     Calls executeQuery from queryPod.ts to obtain all data from logged-in user's Pod.
     Obtains items variable (IRIs of all Pod data).
@@ -213,7 +219,6 @@ export default {
     async podContentsQuery() {
       this.queryItems = null;
     },
-
     /*
     TODO: Filters the binding stream to show only useful stuff...
     */
@@ -256,7 +261,9 @@ export default {
 
         // 2) Refetch with cache-busting to avoid stale SolidDataset
         if (success) {
-          this.deletedItemType = fileUrl.endsWith("/") ? "Container" : "Resource";
+          this.deletedItemType = fileUrl.endsWith("/")
+            ? "Container"
+            : "Resource";
           this.deletionSuccess = true;
           this.showInfoIndex = null;
           await this.getItems(this.displayPath);
@@ -341,11 +348,11 @@ export default {
       this.containerUrls = this.urls.filter((url: string) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url: string) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.currentPod &&
-        !this.urls.includes(this.currentPod)
+        this.currentLocation === this.selectedPodUrl() &&
+        !this.urls.includes(this.selectedPodUrl())
       ) {
-        this.urls.push(this.currentPod);
-        this.containerUrls.push(this.currentPod);
+        this.urls.push(this.selectedPodUrl());
+        this.containerUrls.push(this.selectedPodUrl());
       }
       this.urls = this.urls.sort((a: string, b: string) => a.length - b.length);
       this.container = this.urls.sort(
@@ -385,19 +392,17 @@ export default {
         this.getItemInfo(url);
       }
     },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.displayPath = this.currentPod;
-      this.getItems(this.displayPath);
-    },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer: string) {
+    async handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
-      this.getItems(this.displayPath);
+      await this.getItems(this.displayPath);
     },
   },
   mounted() {
+    if (this.selectedPodUrl) {
+      this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
+      this.getItems(this.displayPath); // Fetch items for the initial path
+    }
     // Delays the execution of these functions on page reload (to avoid async-related errors)
   },
 };
@@ -447,7 +452,7 @@ body {
   background: var(--panel);
   border-radius: 8px;
   margin: 0rem 0.5rem;
-  padding: 0.2rem 0 0 1rem;
+  padding: 0.2rem 0 0 0;
 }
 
 /* Container for directory navigation */

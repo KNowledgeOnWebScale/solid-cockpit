@@ -47,7 +47,7 @@ const vuetify = createVuetify({
 
 const app = createApp(App).use(vuetify);
 app.use(router);
-app.use(pinia);
+app.use(createPinia());
 
 // Set theme based on data-theme attribute
 const observer = new MutationObserver(() => {

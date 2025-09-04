@@ -29,11 +29,11 @@
 
     <!-- Choose Pod -->
     <div class="pod-chooseContainer">
-      <PodRegistration @pod-selected="handlePodSelected" />
+      <PodRegistration @pod-selected="handlePodSelected"/>
     </div>
 
     <!-- the side nav -->
-    <div class="body-container" v-if="currentPod !== ''">
+    <div class="body-container" v-if="selectedPodUrl !== ''">
       <div>
         <ul class="side-nav fixed floating #28353e z-depth-0">
           <li>
@@ -86,7 +86,7 @@
                 <!-- Browse existing path -->
                 <li class="container-choose">
                   <container-nav
-                    :currentPod="currentPod"
+                    :currentPod="selectedPodUrl"
                     @path-selected="handleSelectedContainer"
                   />
                 </li>
@@ -457,7 +457,7 @@
       <div class="shared-with" v-if="navValue === 1">
         <SharedWith
           :currentOperation="currentDisplay"
-          :currentPod="currentPod"
+          :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
       </div>
@@ -466,7 +466,7 @@
       <div class="shared-with" v-if="navValue === 2">
         <SharedWith
           :currentOperation="currentDisplay"
-          :currentPod="currentPod"
+          :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
       </div>
@@ -491,7 +491,6 @@ import {
   updateSharedWithMe,
   updateSharedWithOthers,
 } from "./privacyEdit";
-import { currentWebId } from "./login";
 import {
   fetchPermissionsData,
   fetchData,
@@ -503,6 +502,9 @@ import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import SharedWith from "./Styling/SharedWith.vue";
 import { ref } from "vue";
+import { useAuthStore } from "../stores/auth";
+
+
 interface Permissions {
   read: boolean;
   append: boolean;
@@ -522,81 +524,59 @@ export default {
     PrivacyEditingGuide,
   },
   name: "PrivacyComponent",
-  data(): {
-    currentPod: string;
-    filters: string[];
-    filterValues: boolean[];
-    filterMenuOpen: boolean;
-    showSharedIndex: number | null;
-    showFormIndex: number | null;
-    userUrl: string;
-    userUrlInvalid: boolean;
-    submissionDone: boolean;
-    recordedOthers: boolean;
-    permissions: Permissions;
-    navValue: number;
-    permissionsString: string;
-    webId: string;
-    dirContents: WorkingData | null;
-    containerContents: WorkingData | null;
-    hasAcl: any; // Replace with a more specific type if available
-    cannotMakeAcl: boolean;
-    accessType: string;
-    currentLocation: string;
-    currentUrl: string | null;
-    urls: string[];
-    containerUrls: string[];
-    resourceUrls: string[];
-    inContainer: WorkingData | null;
-    newUrls: string[];
-    aclUrl: string;
-    postedMe: boolean;
-    hasAccess: AccessData;
-    publicAccess: { [permission: string]: boolean };
-    uploadedSharingDoc: string;
-    container: string[];
-    currentDisplay: string;
-  } {
+  data() {
     return {
-      currentPod: "",
-      filters: ["containers", "resources"],
-      filterValues: [true, true],
-      filterMenuOpen: false,
-      showSharedIndex: null,
-      showFormIndex: null,
-      userUrl: "",
-      userUrlInvalid: false,
-      submissionDone: false,
-      recordedOthers: false,
+      filters: ["containers", "resources"] as string[],
+      filterValues: [true, true] as boolean[],
+      filterMenuOpen: false as boolean,
+      showSharedIndex: null as number | null,
+      showFormIndex: null as number | null,
+      userUrl: "" as string,
+      userUrlInvalid: false as boolean,
+      submissionDone: false as boolean,
+      recordedOthers: false as boolean,
       permissions: {
         read: false,
         append: false,
         write: false,
         control: false,
-      },
-      navValue: 0,
-      permissionsString: "",
-      webId: "",
-      dirContents: null,
-      containerContents: null,
-      hasAcl: null,
-      cannotMakeAcl: false,
-      accessType: "Agent",
-      currentLocation: "",
-      currentUrl: null,
-      urls: [],
-      containerUrls: [],
-      resourceUrls: [],
-      inContainer: null,
-      newUrls: [],
-      aclUrl: "",
-      postedMe: false,
-      hasAccess: {},
-      publicAccess: {},
-      uploadedSharingDoc: "",
-      container: [],
-      currentDisplay: "default",
+      } as Permissions,
+      navValue: 0 as number,
+      permissionsString: "" as string,
+      dirContents: null as WorkingData | null,
+      containerContents: null as WorkingData | null,
+      hasAcl: null as any, // Replace with a more specific type if available
+      cannotMakeAcl: false as boolean,
+      accessType: "Agent" as string,
+      currentLocation: "" as string,
+      currentUrl: null as string | null,
+      urls: [] as string[],
+      containerUrls: [] as string[],
+      resourceUrls: [] as string[],
+      inContainer: null as WorkingData | null,
+      newUrls: [] as string[],
+      aclUrl: "" as string,
+      postedMe: false as boolean,
+      hasAccess: {} as AccessData,
+      publicAccess: {} as { [permission: string]: boolean },
+      uploadedSharingDoc: "" as string,
+      container: [] as string[],
+      currentDisplay: "default" as string,
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
   },
   methods: {
     /*
@@ -626,7 +606,7 @@ export default {
           return segments[segments.length - 1] + "/";
         });
       // for navigating up a directory path (not possible when in root directory)
-      if (currentDir !== this.currentPod) {
+      if (currentDir !== this.selectedPodUrl()) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
@@ -723,7 +703,7 @@ export default {
      * Method for creating an inbox/ container in a Pod if it does not already exist
      */
     createInbox() {
-      createInboxWithACL(this.currentPod, this.webId);
+      createInboxWithACL(this.selectedPodUrl(), this.webId());
     },
 
     /**
@@ -753,7 +733,7 @@ export default {
 
       // for Agent ACL changes
       if (this.accessType === "Agent") {
-        this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
+        this.userUrlInvalid = checkUrl(this.userUrl, this.webId());
         if (!this.userUrlInvalid) {
           // add condition for different agents here ...
           // actual .acl changing
@@ -761,14 +741,14 @@ export default {
           // write changes to specified user's sharedWithMe.ttl file
           this.postedMe = await updateSharedWithMe(
             this.userUrl,
-            this.webId,
+            this.webId(),
             url,
             this.permissions
           );
 
           // write changes to current user's sharedWithOthers.ttl file
           this.recordedOthers = await updateSharedWithOthers(
-            this.currentPod,
+            this.selectedPodUrl(),
             url,
             this.userUrl,
             this.permissions
@@ -782,7 +762,7 @@ export default {
 
         // write changes to current user's sharedWithOthers.ttl file
         this.recordedOthers = await updateSharedWithOthers(
-          this.currentPod,
+          this.selectedPodUrl(),
           url,
           "http://xmlns.com/foaf/0.1/Agent",
           this.permissions
@@ -830,23 +810,15 @@ export default {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.currentPod &&
-        !this.urls.includes(this.currentPod)
+        this.currentLocation === this.selectedPodUrl() &&
+        !this.urls.includes(this.selectedPodUrl())
       ) {
-        this.urls.push(this.currentPod);
-        this.containerUrls.push(this.currentPod);
+        this.urls.push(this.selectedPodUrl());
+        this.containerUrls.push(this.selectedPodUrl());
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
       this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
-    },
-
-    /**
-     * Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-     * Obtains 'pod' variable (URL path to user's Pod).
-     */
-    async podURL() {
-      this.webId = currentWebId();
     },
 
     /**
@@ -855,7 +827,7 @@ export default {
      * then sorts the array to reflect heirarchy
      */
     async getGeneralData() {
-      this.dirContents = await fetchData(this.currentPod);
+      this.dirContents = await fetchData(this.selectedPodUrl());
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
@@ -900,23 +872,24 @@ export default {
      */
     async makeNewAcl(path: string) {
       try {
-        await generateAcl(path, this.webId);
+        await generateAcl(path, this.webId());
         await this.getSpecificAclData(path);
       } catch (err) {
         console.error(err);
         this.cannotMakeAcl = true;
       }
     },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.currentLocation = this.currentPod;
-      this.getGeneralData();
-      this.createStuff();
+    async initialLoad() {
+      if (this.selectedPodUrl() != "") {
+        this.currentLocation = this.selectedPodUrl();
+        await this.getGeneralData();
+        await this.createStuff();
+      }
     },
+
     /* creates files and directories if not already present */
     async createStuff() {
-      await createInboxWithACL(this.currentPod, this.webId);
+      await createInboxWithACL(this.selectedPodUrl(), this.webId());
       this.$forceUpdate(); // Forces a re-render of the component
     },
     /* Takes in the emitted value from ContainerNav.vue */
@@ -926,8 +899,15 @@ export default {
     },
   },
   mounted() {
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
-    this.podURL();
+    try {
+      if (this.selectedPodUrl() != "") {
+        this.currentLocation = this.selectedPodUrl();
+        this.getGeneralData();
+        this.createStuff();
+      }
+    } catch (error) {
+      console.error("Error during component mount:", error);
+    }
   },
 };
 </script>
@@ -1336,7 +1316,7 @@ form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
   border: 1px solid var(--text-secondary) !important;
-  border-radius: 4px;;
+  border-radius: 4px;
   font-family: "Courier New", Courier, monospace;
   font-size: large;
   max-width: 100%;
@@ -1347,7 +1327,8 @@ form input::placeholder {
   padding-left: 0.5rem;
   color: var(--text-muted); /* Slight transparency */
 }
-.agent-button, .public-button {
+.agent-button,
+.public-button {
   padding: 10px;
   margin-top: 5px;
   background-color: var(--border);
@@ -1360,7 +1341,7 @@ form input::placeholder {
   font-family: "Oxanium", monospace;
   font-weight: 600;
   border-radius: 6px;
-  margin-top: 0.25rem;;
+  margin-top: 0.25rem;
   padding: 0.75rem;
   background-color: var(--primary);
   color: var(--main-white);
@@ -1423,6 +1404,4 @@ label span {
 #resetButton button:hover {
   background-color: var(--hover);
 }
-
-
 </style>

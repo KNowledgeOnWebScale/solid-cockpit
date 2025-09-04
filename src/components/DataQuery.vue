@@ -15,7 +15,7 @@
     </div>
 
     <div v-if="successfulLogin" class="pod-chooseContainer">
-      <PodRegistration @pod-selected="handlePodSelected" />
+      <PodRegistration />
     </div>
   </div>
   <div class="general-container">
@@ -623,13 +623,7 @@ import {
   fetchPublicAccess,
 } from "./getData";
 import {
-  changeAclAgent,
-  changeAclPublic,
-  checkUrl,
-  generateAcl,
-  createInboxWithACL,
-  updateSharedWithMe,
-  updateSharedWithOthers,
+  generateAcl
 } from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";

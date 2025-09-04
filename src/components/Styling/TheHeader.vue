@@ -22,17 +22,13 @@
                 location="end"
               >
                 <template v-slot:activator="{ props }">
-                  <v-btn
-                    icon
-                    size="large"
-                    :color="loggedIn ? 'var(--primary)' : 'var(--main)'"
-                    justify="end"
+                  <button
+                    class="icon-button"
+                    :style="{ 'background-color': loggedIn ? 'var(--main-purple-dark)' : 'var(--gray-500)' }"
                     v-bind="props"
-                    @click="loginCheck"
-                    ><v-icon size="36px" color="var(--main-white)"
-                      >mdi-account</v-icon
-                    ></v-btn
                   >
+                    <v-icon size="36px" color="var(--main-white)">mdi-account</v-icon>
+                  </button>
                 </template>
 
                 <!-- Current session info -->
@@ -41,7 +37,7 @@
                     <v-list-item
                       v-if="loggedIn"
                       title="Current WebID:"
-                      :subtitle="user.webId"
+                      :subtitle="webId"
                     ></v-list-item>
                     <v-list-item
                       v-else
@@ -108,19 +104,12 @@
 
 <script lang="ts">
 import ThemeSwitch from "./ThemeSwitch.vue";
+import { useAuthStore } from "../../stores/auth"; // Import the store
 import {
-  isLoggedin,
-  currentWebId,
   redirectToHomepage,
   redirectToLogin,
   logOut,
 } from "./../login";
-
-interface User {
-  webId: string;
-  fullName: string;
-  email: string;
-}
 
 export default {
   components: {
@@ -130,29 +119,31 @@ export default {
     return {
       logoUrl: new URL("../../assets/solid-cockpit-logo.png", import.meta.url)
         .href as string,
-      loggedIn: false as boolean,
-      login_status: null as boolean | null,
       menu: false as boolean,
       message: false as boolean,
-      podAccess: false as boolean,
-      podList: null as string[] | null,
-      customPodUrl: null as string | null,
-      currentPod: "" as string,
-      user: {
-        webId: "" as string,
-        fullName: "John Doe" as string,
-        email: "john.doe@doe.com" as string,
-      } as User,
+      notloggedOut: false as boolean,
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
   },
   methods: {
     async userLogout(): Promise<void> {
-      this.login_status = await logOut();
+      const authStore = useAuthStore();
+      authStore.clearAuth();
+      this.notloggedOut = await logOut();
       window.location.reload();
-    },
-    loginCheck(): void {
-      this.loggedIn = isLoggedin();
-      this.user.webId = currentWebId();
     },
     homepageRedir(): void {
       redirectToHomepage();
@@ -160,14 +151,6 @@ export default {
     LoginpageRedir(): void {
       redirectToLogin();
     },
-  },
-  mounted(): void {
-    setTimeout(() => {
-      this.loginCheck();
-    }, 200);
-    setTimeout(() => {
-      //this.findPodList();
-    }, 500);
   },
 };
 </script>
@@ -276,13 +259,18 @@ export default {
   font-size: 1.1rem;
   letter-spacing: 0.5px;
 }
-
 .account-menu-card {
   background-color: var(--muted) !important;
   color: var(--text-secondary);
 }
-
 .account-menu-card .v-list {
   background-color: transparent !important;
+}
+/* Login sttatus button icon */
+.icon-button {
+  padding: 0.6rem;
+  border-radius: 999px;
+  border: 2px solid var(--main-white);
+  cursor: pointer;
 }
 </style>

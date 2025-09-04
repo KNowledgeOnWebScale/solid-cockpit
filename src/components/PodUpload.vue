@@ -5,12 +5,12 @@
   </div>
 
   <div class="pod-chooseContainer">
-    <PodRegistration @pod-selected="handlePodSelected" />
+    <PodRegistration />
   </div>
 
-  <div class="path-container" v-show="currentPod !== ''">
+  <div class="path-container" v-show="selectedPodUrl !== ''">
     <!-- Container location bar -->
-    <div class="container-location" v-show="currentPod !== ''">
+    <div class="container-location" v-show="selectedPodUrl !== ''">
       <!-- Left Navigation Bar -->
       <div class="nav-container">
         <ul>
@@ -56,7 +56,7 @@
         <!-- Browse existing path -->
         <li class="existing-list" v-if="inputType == 'existingPath'">
           <container-nav
-            :currentPod="currentPod"
+            :currentPod="selectedPodUrl"
             @path-selected="handleSelectedContainer"
           />
         </li>
@@ -88,7 +88,7 @@
         </li>
       </ul>
     </div>
-    <div class="displayPath-container" v-if="currentPod !== ''">
+    <div class="displayPath-container" v-if="selectedPodUrl !== ''">
       <ul>
         <li>
           <span>Current upload path:</span>
@@ -100,7 +100,7 @@
     </div>
   </div>
   <div class="upload-container">
-    <div v-if="currentPod !== '' && currentPod !== undefined">
+    <div v-if="selectedPodUrl !== '' && selectedPodUrl !== undefined">
       <!-- Card that contains the data upload field -->
       <div class="upload-section">
         <span class="upload-title">Add Files to Pod</span>
@@ -158,9 +158,9 @@
               <div class="spinner"></div>
             </div>
             <div v-if="!uploading" class="upload-result-row">
-              <!-- Session timeout error -->
+              <!-- TODO: Fix this Session timeout error -->
               <div
-                v-if="currentPod === 'Error: probably not logged in'"
+                v-if="selectedPodUrl === 'Error: probably not logged in'"
                 class="result-message error-message"
               >
                 <span>
@@ -241,10 +241,10 @@
 
 <script lang="ts">
 import { handleFiles, uploadSuccess, alreadyExistsCheck } from "./fileUpload";
-import { currentWebId } from "./login";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataUploadGuide from "./Guides/DataUploadGuide.vue";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   components: {
@@ -254,8 +254,6 @@ export default {
   },
   data() {
     return {
-      webId: "" as string,
-      currentPod: "" as string,
       uploadPath: "" as string,
       filesUploaded: [],
       uploadedFiles: [] as File[],
@@ -281,15 +279,21 @@ export default {
       inputKey: 0,
     };
   },
-  methods: {
-    /*
-    Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-    Obtains 'pod' variable (URL path to user's Pod).
-    */
-    async getWebId() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
     },
-
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
+  },
+  methods: {
     /*
     checks if the value 'already exists' is present in this.fileUploaded
     */
@@ -346,7 +350,7 @@ export default {
       this.filesUploaded = await handleFiles(
         this.files,
         this.uploadPath,
-        this.currentPod
+        this.selectedPodUrl()
       );
       this.uploadSuccessful = uploadSuccess(this.filesUploaded);
       this.uploading = false;
@@ -359,22 +363,17 @@ export default {
       this.$nextTick(() => { this.inputKey++; });
     },
 
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.uploadPath = this.currentPod;
-    },
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer: string) {
       this.uploadPath = selectedContainer;
     },
   },
   mounted() {
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
-    setTimeout(() => {
-      this.getWebId();
-    }, 200);
-  },
+    // Set initial upload path to the selected Pod URL
+    if (this.selectedPodUrl !== "") {
+      this.uploadPath = this.selectedPodUrl;
+    }
+  }
 };
 </script>
 

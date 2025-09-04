@@ -90,7 +90,8 @@
 
 <script lang="ts">
 import { startLogin, isLoggedin, currentWebId, session } from "./login";
-import { provide } from "vue";
+import { provide, watch } from "vue";
+import { useAuthStore } from "../stores/auth"; // Import the store
 
 export default {
   name: "LoginComponent",
@@ -99,7 +100,7 @@ export default {
   },
   data() {
     return {
-      userUrl: "", // sets default url (if nothing is entered)
+      userUrl: "",
       loggedIn: false,
       isError: false,
       error: "",
@@ -109,33 +110,32 @@ export default {
     };
   },
   methods: {
-    /* 
+    /*
     For the login to a Solid pod, calls startLogin from login.ts
     */
     async handleLogin() {
       const stat = await startLogin(this.userUrl);
       if (stat === "error") {
         this.error = "Cannot login properly...";
+      } else {
+        const authStore = useAuthStore(); // Access the store
+        authStore.setAuth(true, currentWebId()); // Update the store
+        this.loggedIn = isLoggedin();
+        this.webId = currentWebId();
       }
-      this.loginSuccess();
     },
-    /* 
+    /*
     Checks if user's current session is logged-in and displays the active webID.
     Obtains the loggedIn boolean and webId string.
     */
     loginCheck() {
+      const authStore = useAuthStore(); // Access the store
       this.loggedIn = isLoggedin();
       this.webId = currentWebId();
+      authStore.setAuth(this.loggedIn, this.webId); // Regularly update the store
+
     },
-    /* 
-    Emits when login is successful.
-    */
-    loginSuccess() {
-      const loginStatus = this.loggedIn;
-      this.$emit("login-success", loginStatus);
-      // console.log("Selected pod: " + selectedPod);
-    },
-    /* 
+    /*
     Redirects user to page with Pod Providers
     */
     newpodRedir() {
@@ -146,10 +146,22 @@ export default {
     },
   },
   mounted() {
-    // Delays the execution loginCheck() on page reload (to avoid async-related errors)
-    setTimeout(() => {
+    const authStore = useAuthStore();
+
+    // Watch for changes in auth variables and update accordingly
+    watch(
+      () => ({ loggedIn: authStore.loggedIn, webId: authStore.webId }),
+      (newVal) => {
+        this.loggedIn = newVal.loggedIn;
+        this.webId = newVal.webId;
+      },
+      { immediate: true, deep: true }
+    );
+
+    // Regularly check login status
+    setInterval(() => {
       this.loginCheck();
-    }, 400); // Delay of 2 seconds
+    }, 30000); // Check every 30 seconds
   },
 };
 </script>
@@ -164,7 +176,7 @@ export default {
   margin-top: 0.5rem;
 }
 .login-container h2 {
-  margin: 0.5rem 1rem 1rem 1rem;
+  margin: 0 0 0.25rem 0;
   color: var(--text-primary);
 }
 .login-display {
@@ -190,7 +202,7 @@ export default {
   gap: 10px;
 }
 .input-row :deep(v-input__control) {
-  color: var(--text-secondary)
+  color: var(--text-secondary);
 }
 .form-row {
   width: 100%;
@@ -222,5 +234,4 @@ export default {
 .new-pod-btn:hover {
   background-color: var(--hover);
 }
-
 </style>
