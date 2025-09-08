@@ -326,7 +326,7 @@ export default {
         this.urls = [...urls];
         this.separateUrls();
       } catch (e) {
-        console.error("Could not fetch data info from the URL provided...");
+        // console.error("Could not fetch data info from the URL provided...");
       }
     },
 
@@ -404,6 +404,13 @@ export default {
       this.getItems(this.displayPath); // Fetch items for the initial path
     }
     // Delays the execution of these functions on page reload (to avoid async-related errors)
+  },
+  watch: {
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        window.location.reload();
+      }
+    },
   },
 };
 </script>
@@ -540,6 +547,9 @@ body {
 .card-panel:hover {
   outline: 0.1px solid var(--primary);
 }
+.delete-button {
+  padding: 0.5rem 0.75rem !important;
+}
 .delete-button:hover {
   background-color: #555;
   color: white;
@@ -620,7 +630,7 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 0 0 0 1rem;
   display: flex;
   align-items: center;
 }
@@ -704,6 +714,7 @@ body {
   background-color: var(--text-muted);
 }
 
+/* Deletion success pop-up */
 .success-popup {
   font-family: "Oxanium", monospace;
   position: fixed;
@@ -719,7 +730,6 @@ body {
   justify-content: space-between;
   box-shadow: var(--shadow-1);
 }
-
 .close-popup-button {
   background: none;
   border: none;

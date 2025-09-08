@@ -193,6 +193,7 @@ export default defineComponent({
 .navigate-btn {
   font-family: "Oxanium", monospace;
   background-color: var(--primary);
+  color: var(--main-white);
 }
 .navigate-btn:hover {
   background-color: var(--primary-700);

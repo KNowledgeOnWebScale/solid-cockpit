@@ -10,14 +10,52 @@
   </div>
 
   <div class="delay-placeholder" v-if="!delay">
-    <div v-if="!successfulLogin" class="login-container">
-      <pod-login @login-success="handleLoginStatus" />
+    <div v-if="!loggedIn" class="login-container">
+      <pod-login />
     </div>
 
-    <div v-if="successfulLogin" class="pod-chooseContainer">
+    <div v-if="loggedIn" class="pod-chooseContainer">
       <PodRegistration />
     </div>
+
+    <!-- Input field for custom cache path -->
+    <div class="custom-cache-container">
+      <div class="custom-cache-path">
+        <div class="custom-cache-guide">
+          <v-icon>mdi-help-circle</v-icon>
+          <v-tooltip class="tool-tip" activator="parent" location="top"
+            >Provide a custom query cache URL to use (defaults to the connected
+            pod)
+          </v-tooltip>
+        </div>
+        <div class="custom-cache-checkbox">
+          <v-checkbox
+            v-model="useCustomCachePath"
+            label="Use Custom Cache Path"
+            hide-details
+          ></v-checkbox>
+        </div>
+        <div class="custom-cache-input">
+          <v-text-field
+            id="cachePathInput"
+            v-show="useCustomCachePath"
+            v-model="customCachePath"
+            label="Cache URL"
+            placeholder="Enter custom cache location (optional)"
+            :disabled="!useCustomCachePath"
+            variant="outlined"
+            dense
+            hide-details
+            @blur="validateCustomCachePath"
+          ></v-text-field>
+        </div>
+      </div>
+      <div v-if="cacheError != null" class="custom-cache-error">
+        <span>{{ cacheError }}</span>
+      </div>
+    </div>
   </div>
+
   <div class="general-container">
     <!-- Left Navigation Bar -->
     <div class="nav-container">
@@ -110,7 +148,7 @@
               Cancel Query
             </button>
 
-            <div class="save-query" v-show="currentPod !== ''">
+            <div class="save-query" v-show="selectedPodUrl !== ''">
               <v-checkbox
                 class="save-checkbox"
                 v-model="saveQuery"
@@ -158,23 +196,35 @@
         </ul>
       </div>
 
+      <div v-if="deletionSuccess" class="success-popup">
+        <span>Cached record: {{ deletedQuery }} was deleted successfully!</span>
+        <button @click="deletionSuccess = false" class="close-popup-button">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+
       <div v-if="currentView === 'previousQueries'">
-        <span class="no-pod" v-if="currentPod == ''"
+        <span class="no-pod" v-if="selectedPodUrl == ''"
           >Please connect your pod if you wish to look at your Query Cache...
           <br />(simply click the "select pod" button above.)</span
         >
-        <span class="no-pod" v-if="currentPod !== '' && !queriesCacheExists"
+        <span class="no-pod" v-if="selectedPodUrl !== '' && !queriesCacheExists"
           >No query cache found in your pod. To create a query cache, simply
           execute a query with the <b>"Save Query?"</b> checkbox checked.</span
         >
         <ul>
           <div
             class="cached-container"
-            v-if="currentPod != '' && queriesCacheExists"
+            v-if="selectedPodUrl != '' && queriesCacheExists"
+            :key="renderKey"
           >
             <span class="cached-title">Cached Queries</span>
 
             <!-- Iterates over list queries in Query Cache -->
+            <div class="no-cached-queries" v-if="cachedQueries.length === 0">
+              <span> There are no saved queries in your cache... <br />To create a query cache, simply
+                execute a query with the <b>"Save Query?"</b> checkbox checked.</span>
+            </div>
             <li v-for="(query, index) in cachedQueries" :key="index">
               <div class="card-panel folder">
                 <div class="folder-header">
@@ -211,7 +261,12 @@
                   <div class="query-file-container">
                     <span class="user-tag">Query File: <br /></span>
                     <button
-                      @click="fetchQuery(cachedQueries[index].hash)"
+                      @click="
+                        fetchQuery(
+                          cachedQueries[index].hash,
+                          selectedPodUrl + 'querycache/'
+                        )
+                      "
                       class="drop-down"
                     >
                       <div class="query-file-info">
@@ -239,7 +294,12 @@
                     <span class="user-tag">Results File: <br /></span>
                     <div class="query-results">
                       <button
-                        @click="fetchResults(cachedQueries[index].hash)"
+                        @click="
+                          fetchResults(
+                            cachedQueries[index].hash,
+                            selectedPodUrl + 'querycache/'
+                          )
+                        "
                         class="drop-down"
                       >
                         <span class="the-user"
@@ -306,135 +366,14 @@
                     </ul>
                   </div>
 
-                  <!-- TODO: Need top level for the whole query cache -->
-                  <!-- TODO: Then a lower level for each query hash -->
-                  <!-- For sharing cached query data -->
-                  <div class="sharing-prompt">
+                  <!-- TODO: Add deletion of cached query function here -->
+                  <div class="edit-delete">
                     <button
-                      @click="toggleShared(), getSpecificCacheAclData()"
-                      class="sharing-button full-width"
+                      @click="confirmAndDelete(query.hash)"
+                      class="delete-button"
                     >
-                      <span>Resource Sharing Information</span>
-                      <i class="material-icons not-colored info-icon">
-                        {{
-                          showSharing
-                            ? "keyboard_arrow_down share"
-                            : "chevron_right share"
-                        }}</i
-                      >
+                      Delete
                     </button>
-                    <div
-                      id="permissionsBox"
-                      class="form-container"
-                      v-if="showSharing"
-                    >
-                      <!-- For the case that a container/resource has an existing .acl -->
-                      <div id="aclExists" v-if="hasAcl !== null">
-                        <div>
-                          <!-- <span id="permissionsInstructions"
-                            >Current Access Rights
-                            <button
-                              @click="getSpecificAclData(url)"
-                              class="icon-button right"
-                            >
-                              <i class="material-icons not-colored right"
-                                >refresh</i
-                              >
-                              <v-tooltip
-                                class="tool-tip"
-                                activator="parent"
-                                location="end"
-                                >Refresh access rights
-                              </v-tooltip>
-                            </button></span
-                          > -->
-                        </div>
-                        <div id="currentPermissions">
-                          <li
-                            class="access-item"
-                            v-for="(agent, inde) in hasAccess"
-                            :key="inde"
-                          >
-                            <div class="user-id">
-                              <div class="left-content">
-                                <span class="user-tag">Agent:<br /></span>
-                                <span class="the-user"
-                                  ><i>{{ inde }}</i>
-                                </span>
-                              </div>
-                              <!-- <button
-                                @click="copyText(inde.toString())"
-                                class="icon-button right"
-                              > -->
-                              <i class="material-icons not-colored right"
-                                >content_copy</i
-                              >
-                              <v-tooltip
-                                class="tool-tip"
-                                activator="parent"
-                                location="left"
-                                >Copy WebID to clipboard
-                              </v-tooltip>
-                              <!-- </button> -->
-                            </div>
-                            <span class="permissions-tag"
-                              >Permissions:<br
-                            /></span>
-                            <ul
-                              v-for="(permission, ind) in hasAccess[inde]"
-                              :key="ind"
-                            >
-                              <div
-                                class="permission-item"
-                                :class="{
-                                  'true-color': permission,
-                                  'false-color': !permission,
-                                }"
-                              >
-                                <span class="permission-label">{{ ind }}</span>
-                                <span class="permission-value">
-                                  <i>({{ permission }})</i>
-                                  <i class="material-icons right">
-                                    {{ permission ? "check" : "dangerous" }}
-                                  </i>
-                                </span>
-                              </div>
-                            </ul>
-                          </li>
-                          <span id="withPermissions"> </span>
-                        </div>
-                      </div>
-
-                      <!-- For the case the query cache does not have an existing .acl -->
-                      <div
-                        id="noAclExists"
-                        v-if="hasAcl === null && !cannotMakeAcl"
-                      >
-                        <v-alert
-                          type="warning"
-                          title="There is no .acl (permissions file) for the query cache"
-                          >Click the button below to create and initalize
-                          one.</v-alert
-                        >
-                        <button @click="makeNewAcl()" class="new-acl">
-                          <span>Generate .acl</span>
-                        </button>
-                      </div>
-
-                      <!-- For the case that an .acl connot be initialized (e.g. for a file) -->
-                      <div
-                        id="noAclMade"
-                        v-if="hasAcl === null && cannotMakeAcl"
-                      >
-                        <v-alert
-                          type="error"
-                          title="Cannot initialize an .acl for this item"
-                          closable
-                          >The .acl of the container this file is located within
-                          will be used for access controls.</v-alert
-                        >
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -510,7 +449,7 @@
             <div class="query-file-container">
               <span class="user-tag">Query File: <br /></span>
               <button
-                @click="fetchQuery(currentCachedQueryHash)"
+                @click="fetchQuery(currentCachedQueryHash, cachePath)"
                 class="drop-down"
               >
                 <div class="query-file-info">
@@ -598,7 +537,6 @@ import Yasqe from "@triply/yasqe";
 import "@triply/yasqe/build/yasqe.min.css";
 import Yasr from "@triply/yasr";
 import "@triply/yasr/build/yasr.min.css";
-import { isLoggedin, currentWebId } from "./login";
 import {
   ensureCacheContainer,
   createQueriesTTL,
@@ -622,13 +560,13 @@ import {
   fetchAclAgents,
   fetchPublicAccess,
 } from "./getData";
-import {
-  generateAcl
-} from "./privacyEdit";
+import { deleteFromPod, deleteThing } from "./fileUpload";
+import { generateAcl } from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataQueryGuide from "./Guides/DataQueryGuide.vue";
 import { toRaw, shallowRef } from "vue";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   components: {
@@ -639,13 +577,11 @@ export default {
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
-      webid: "" as string,
       yasqe: shallowRef<Yasqe | null>(null),
       yasr: shallowRef<Yasr | null>(null),
       resultsForYasr: null as QueryResultJson | null,
       queryError: null as Error | null,
       successfulLogin: false as boolean,
-      currentPod: "" as string,
       currentView: "newQuery" as "newQuery" | "previousQueries",
       selectedExample: null as any,
       loadExampleQuery: false as boolean,
@@ -703,7 +639,29 @@ export default {
       cachedQueryIndex: null as number | null,
       worker: null as Worker | null,
       containsSolidSources: false as boolean,
+      customCachePath: "" as string,
+      useCustomCachePath: false as boolean,
+      cacheError: null as string | null,
+      invalidUrl: false as boolean,
+      authenticationFailed: false as boolean,
+      deletedQuery: null as string | null,
+      deletionSuccess: null as boolean | null,
+      renderKey: 0 as number,
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
   },
   methods: {
     handleDelay() {
@@ -761,7 +719,7 @@ export default {
 
       for (const path in demonstratorFiles) {
         const content = await demonstratorFiles[path]();
-        const lines = content.split("\n");
+        const lines = (content as string).split("\n");
         const name = path.split("/").pop()?.replace(".rq", "") || "";
 
         let sources: string[] = [];
@@ -800,20 +758,6 @@ export default {
       y.focus();
     },
 
-    /* Takes in the emitted value from PodLogin.vue */
-    handleLoginStatus(loginSuccess) {
-      this.successfulLogin = loginSuccess;
-    },
-    /* Checks if user is already logged in */
-    loginCheck() {
-      this.successfulLogin = isLoggedin();
-    },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
-      this.currentPod = selectedPod;
-      this.possibleSources.unshift(`<${this.currentPod}>`);
-    },
-
     /* Determines whether sources contain a Solid source and reflects this in boolean */
     checkSolidSources(querySources: ComunicaSources[]) {
       this.containsSolidSources = querySources.some(
@@ -840,10 +784,30 @@ export default {
 
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
-          this.cachePath = await ensureCacheContainer(
-            this.currentPod,
-            this.webid
-          );
+          // if the user provided a custom cache path, use that
+          if (this.useCustomCachePath && this.customCachePath) {
+            this.cachePath = await ensureCacheContainer(
+              this.selectedPodUrl,
+              this.webId,
+              this.customCachePath
+            );
+          } else {
+            // otherwise use default (connected pod)
+            this.cachePath = await ensureCacheContainer(
+              this.selectedPodUrl,
+              this.webId,
+              this.selectedPodUrl
+            );
+          }
+
+          // Catch error with accessing custom query cache location
+          if (this.cachePath.includes("Error")) {
+            this.cacheError =
+              "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+            this.loading = false;
+            return;
+          }
+
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
             cleanedSources,
@@ -851,7 +815,7 @@ export default {
           );
 
           // If the output is a string, it means there was no matching entry in the cache
-          if (typeof this.currentQuery.output === "string") {
+          if (this.currentQuery.output === "no-cache") {
             // if there are NOT solid sources use the Worker
             if (!this.containsSolidSources) {
               this.currentQuery.output = await this.executeQuery(
@@ -868,6 +832,7 @@ export default {
           }
 
           // obtaining query cache hash if the cache contains a similar query
+          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -906,12 +871,32 @@ export default {
           }
         } else {
           // If the Save Query button was not selected (pod is connected)
-          if (this.currentPod !== "") {
-            // if there is a pod connected, try to use cache
-            this.cachePath = await ensureCacheContainer(
-              this.currentPod,
-              this.webid
-            );
+          if (this.selectedPodUrl !== "" || this.customCachePath !== "") {
+            // if the user provided a custom cache path, use that
+            if (this.useCustomCachePath && this.customCachePath) {
+              this.cachePath = await ensureCacheContainer(
+                this.selectedPodUrl,
+                this.webId,
+                this.customCachePath
+              );
+            } else {
+              // otherwise use default (connected pod)
+              this.cachePath = await ensureCacheContainer(
+                this.selectedPodUrl,
+                this.webId,
+                this.selectedPodUrl
+              );
+            }
+
+            // Catch error with accessing custom query cache location
+            if (this.cachePath.includes("Error")) {
+              this.cacheError =
+                "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+              this.loading = false;
+              return;
+            }
+
+            // Execute Query
             this.currentQuery.output = await executeQueryWithPodConnected(
               this.currentQuery.query,
               cleanedSources,
@@ -919,7 +904,7 @@ export default {
             );
 
             // If the output is a string, it means there was no matching entry in the cache
-            if (typeof this.currentQuery.output === "string") {
+            if (this.currentQuery.output === "no-cache") {
               // if there are NOT solid sources use the Worker
               if (!this.containsSolidSources) {
                 this.currentQuery.output = await this.executeQuery(
@@ -936,6 +921,8 @@ export default {
             }
           } else {
             // if there is NO pod connected, use the default query execution
+            this.cacheError = this.currentQuery.output;
+
             // if there are NOT solid sources --> use the Worker
             if (!this.containsSolidSources) {
               this.currentQuery.output = await this.executeQuery(
@@ -952,6 +939,7 @@ export default {
           }
 
           // try to obtain cache hash if the cache contains a similar query
+          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -980,7 +968,6 @@ export default {
         }
         // pass found results to YASR (if save query was not selected)
         this.resultsForYasr = this.currentQuery.output.resultsOutput;
-
       } catch (err) {
         if (this.cancelRequested) {
           console.log("Query canceled by user.");
@@ -1139,6 +1126,56 @@ export default {
       );
     },
 
+    // Methods for the deletion of a query cache entry
+    async confirmAndDelete(queryHash: string) {
+      const queryFile = `${this.selectedPodUrl}querycache/${queryHash}.rq`;
+      const resultsFile = `${this.selectedPodUrl}querycache/${queryHash}.json`;
+
+      const message =
+        "Are you sure you want to delete this cache entry? This action cannot be undone.";
+      const userConfirmed = window.confirm(message);
+
+      if (userConfirmed) {
+        const removedCacheRecord = await this.removeCachedRecord(queryHash);
+        const removedQuery = await this.deleteResource(queryFile);
+        const removedResults = await this.deleteResource(resultsFile);
+
+        if (removedCacheRecord && removedQuery && removedResults) {
+          this.deletionSuccess = true;
+          await this.loadCache(); // Refresh the cache view
+          this.deletedQuery = queryHash;
+          this.renderKey += 1; // Force re-render
+        } else {
+          this.deletionSuccess = false;
+          console.log("Failed to delete one or more components of the cache entry.");
+        }
+      } else {
+        console.log("Deletion canceled by the user.");
+      }
+    },
+
+    /*
+    Deleted the resource at the given URL.
+    */
+    async deleteResource(fileUrl: string): Promise<boolean> {
+      try {
+        return await deleteFromPod(fileUrl);
+      } catch (err) {
+        console.error(`Error deleting resource: ${fileUrl}`, err);
+        alert(`An error occurred while deleting resource: ${fileUrl}`);
+        return false;
+      }
+    },
+
+    async removeCachedRecord(queryHash: string) {
+      // remove the record from queries.ttl
+      const queriesttlUpdate = await deleteThing(
+        this.selectedPodUrl + "querycache/queries.ttl",
+        queryHash
+      );
+      return queriesttlUpdate;
+    },
+
     // TODO: Sharing of query results (maybe just the whole container?)
 
     async previousQueriesView() {
@@ -1147,12 +1184,12 @@ export default {
     },
     async loadCache() {
       this.queriesCacheExists = await getStoredTtl(
-        this.currentPod + "querycache/queries.ttl"
+        this.selectedPodUrl + "querycache/queries.ttl"
       );
       if (this.queriesCacheExists) {
         try {
           this.cachedQueries = await getCachedQueries(
-            this.currentPod + "querycache/queries.ttl"
+            this.selectedPodUrl + "querycache/queries.ttl"
           );
         } catch (err) {
           console.log("Error fetching queries:", err);
@@ -1169,18 +1206,16 @@ export default {
       this.showRetrievedQuery = !this.showRetrievedQuery;
     },
     // retrieves cached results for display
-    async fetchResults(hash: string) {
+    async fetchResults(hash: string, cacheLoc: string) {
       const retrievedQueryResults = await fetchSparqlJsonFileData(
-        `${this.currentPod}querycache/${hash}.json`
+        `${cacheLoc}/${hash}.json`
       );
       this.retrievedResults = toRaw(retrievedQueryResults);
       this.togglRetrievedResults();
     },
     // retrieves cached query for display
-    async fetchQuery(hash: string) {
-      this.retrievedQuery = await fetchQueryFileData(
-        `${this.currentPod}querycache/${hash}.rq`
-      );
+    async fetchQuery(hash: string, cacheLoc: string) {
+      this.retrievedQuery = await fetchQueryFileData(`${cacheLoc}/${hash}.rq`);
       this.togglRetrievedQuery();
     },
 
@@ -1190,7 +1225,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificCacheAclData() {
-      const cacheUrl = this.currentPod + "querycache/";
+      const cacheUrl = this.selectedPodUrl + "querycache/";
       this.hasAcl = await fetchPermissionsData(cacheUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(cacheUrl);
@@ -1208,7 +1243,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificQueryAclData(queryHash: string) {
-      const queryUrl = this.currentPod + "querycache/" + queryHash;
+      const queryUrl = this.selectedPodUrl + "querycache/" + queryHash;
       this.hasAcl = await fetchPermissionsData(queryUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(queryUrl);
@@ -1226,7 +1261,7 @@ export default {
      * @param path the URL of the resource or container for which an .acl is to be made
      */
     async makeNewAcl() {
-      const cacheUrl = this.currentPod + "querycache/";
+      const cacheUrl = this.selectedPodUrl + "querycache/";
       try {
         await generateAcl(cacheUrl, this.webId);
         await this.getSpecificCacheAclData();
@@ -1245,6 +1280,18 @@ export default {
         }
       }
       return prefixes;
+    },
+    validateCustomCachePath() {
+      if (this.useCustomCachePath && this.customCachePath) {
+        try {
+          new URL(this.customCachePath);
+          this.cacheError = null; // Clear error if valid
+        } catch {
+          this.cacheError = "Invalid URL. Please enter a valid URL.";
+        }
+      } else {
+        this.cacheError = null; // Clear error if not using custom path
+      }
     },
   },
   watch: {
@@ -1268,6 +1315,11 @@ export default {
       },
       deep: true,
     },
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        window.location.reload();
+      }
+    },
   },
   beforeUnmount() {
     if (this.worker) this.worker.terminate();
@@ -1285,10 +1337,6 @@ export default {
       this.currentQuery.query = instance.getValue();
     });
 
-    setTimeout(() => {
-      this.loginCheck();
-      this.webid = currentWebId();
-    }, 500);
     setTimeout(() => {
       this.handleDelay();
     }, 520);
@@ -1354,13 +1402,51 @@ body {
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  display: flex;
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 0 0 0 1rem;
   margin: 0.5rem 0.5rem 0 0.5rem;
 }
-
+.custom-cache-container {
+  background-color: var(--bg-secondary);
+  margin: 0 0.5rem 0 0.5rem;
+  border-radius: 6px;
+}
+.custom-cache-path {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.custom-cache-guide {
+  margin-left: 1rem;
+  color: var(--text-muted);
+}
+.custom-cache-checkbox {
+  min-width: fit-content;
+  margin-left: 1rem;
+  padding: 0 0.5rem;
+  color: var(--text-secondary);
+}
+.custom-cache-input {
+  width: 100%;
+  margin-right: 1rem;
+  padding: 0.5rem;
+  color: var(--text-secondary);
+}
+.custom-cache-error {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  padding: 0.5rem 0;
+  justify-content: center;
+}
+.custom-cache-error span {
+  padding: 0.5rem;
+  border-radius: 6px;
+  background-color: var(--danger);
+  color: var(--main-white);
+}
 /* Whole nav and query container */
 .general-container {
   background-color: var(--bg-secondary);
@@ -1642,6 +1728,7 @@ body {
 }
 /* message in past queries when no pod is connected */
 .no-pod {
+  color: var(--text-secondary);
   display: block;
   text-align: center;
   font-size: 1.2rem;
@@ -1676,6 +1763,11 @@ body {
   font-weight: bold;
   color: var(--text-secondary);
   margin-bottom: 20px;
+}
+.no-cached-queries {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  padding: 2rem;
 }
 /* Query List Items */
 ul {
@@ -1796,6 +1888,18 @@ ul {
 .query-sources a:hover {
   text-decoration: underline;
 }
+.edit-delete {
+  margin: 0.5rem 0 0 0;
+}
+.delete-button {
+  background-color: var(--danger);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem !important;
+}
+.delete-button:hover {
+  background-color: var(--hover);
+}
+
 
 /* Displayed SPARQL query from .rq file */
 .query-file-info {
@@ -1836,6 +1940,29 @@ ul {
   display: flex;
   justify-content: space-between;
   width: 100%;
+}
+/* Deletion success pop-up */
+.success-popup {
+  font-family: "Oxanium", monospace;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: var(--success);
+  color: var(--main-white);
+  padding: 1rem;
+  border-radius: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-1);
+}
+.close-popup-button {
+  background: none;
+  border: none;
+  color: var(--main-white);
+  cursor: pointer;
+  margin-left: 1rem;
 }
 
 /* Container for the Table */

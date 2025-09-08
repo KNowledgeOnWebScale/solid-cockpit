@@ -1,7 +1,13 @@
 <template>
   <div class="login-container">
     <h2>Solid Pod Login</h2>
-    <div class="login-diplay" v-if="!loggedIn">
+
+    <div class="loading-spinner-container" v-if="loading">
+      <div class="spinner"></div>
+      <span class="loading-text">Checking login status ...</span>
+    </div>
+
+    <div class="login-diplay" v-if="!loggedIn && !loading">
       <div class="input-row">
         <v-form class="form-row">
           <div class="input-row">
@@ -89,9 +95,9 @@
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, session } from "./login";
+import { startLogin, isLoggedin, currentWebId, session, handleRedirectAfterPageLoad } from "./login";
 import { provide, watch } from "vue";
-import { useAuthStore } from "../stores/auth"; // Import the store
+import { useAuthStore } from "../stores/auth";
 
 export default {
   name: "LoginComponent",
@@ -101,13 +107,25 @@ export default {
   data() {
     return {
       userUrl: "",
-      loggedIn: false,
+      isLoggedIn: false,
       isError: false,
       error: "",
       newPodDirections: false,
-      webId: "",
+      currWebId: "",
       isActive: false,
+      loading: true, // New loading state
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
   },
   methods: {
     /*
@@ -118,22 +136,22 @@ export default {
       if (stat === "error") {
         this.error = "Cannot login properly...";
       } else {
+        await handleRedirectAfterPageLoad();
         const authStore = useAuthStore(); // Access the store
         authStore.setAuth(true, currentWebId()); // Update the store
-        this.loggedIn = isLoggedin();
-        this.webId = currentWebId();
+        this.isLoggedIn = isLoggedin();
+        this.currWebId = currentWebId();
       }
     },
     /*
     Checks if user's current session is logged-in and displays the active webID.
     Obtains the loggedIn boolean and webId string.
     */
-    loginCheck() {
+    async loginCheck() {
       const authStore = useAuthStore(); // Access the store
-      this.loggedIn = isLoggedin();
-      this.webId = currentWebId();
-      authStore.setAuth(this.loggedIn, this.webId); // Regularly update the store
-
+      this.isLoggedIn = isLoggedin();
+      this.currWebId = currentWebId();
+      authStore.setAuth(this.isLoggedIn, this.currWebId); // Regularly update the store
     },
     /*
     Redirects user to page with Pod Providers
@@ -146,22 +164,11 @@ export default {
     },
   },
   mounted() {
-    const authStore = useAuthStore();
-
-    // Watch for changes in auth variables and update accordingly
-    watch(
-      () => ({ loggedIn: authStore.loggedIn, webId: authStore.webId }),
-      (newVal) => {
-        this.loggedIn = newVal.loggedIn;
-        this.webId = newVal.webId;
-      },
-      { immediate: true, deep: true }
-    );
-
-    // Regularly check login status
-    setInterval(() => {
+    // Delay login check to ensure session is initialized
+    setTimeout(() => {
       this.loginCheck();
-    }, 30000); // Check every 30 seconds
+      this.loading = false;
+    }, 800);
   },
 };
 </script>
@@ -233,5 +240,39 @@ export default {
 }
 .new-pod-btn:hover {
   background-color: var(--hover);
+}
+
+/* Pod lodaing spinner */
+.loading-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  margin: 0 0.25rem 0.25rem 0.25rem;
+  padding: 1rem;
+  margin-left: 8px;
+}
+.loading-text {
+  font-family: "Oxanium", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+.spinner {
+  border: 4px solid rgba(63, 1, 117, 0.3);
+  border-top: 4px solid #754ff6;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

@@ -106,6 +106,7 @@
 import ThemeSwitch from "./ThemeSwitch.vue";
 import { useAuthStore } from "../../stores/auth"; // Import the store
 import {
+  handleRedirectAfterPageLoad,
   redirectToHomepage,
   redirectToLogin,
   logOut,
@@ -151,6 +152,17 @@ export default {
     LoginpageRedir(): void {
       redirectToLogin();
     },
+    async loginCheck(): Promise<void> {
+      await handleRedirectAfterPageLoad();
+    },
+  },
+  mounted() {
+    this.loginCheck(); // Perform login check on component mount
+
+    // Regularly check login status
+    setInterval(() => {
+      this.loginCheck();
+    }, 30000); // Check every 30 seconds
   },
 };
 </script>

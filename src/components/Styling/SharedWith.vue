@@ -4,172 +4,186 @@
       <span class="shared-title">Shared With Me</span>
 
       <!-- Iterates over list of shared hashes in sharedWithMe.tll -->
-      <li v-for="(item, index) in sharedMeItems" :key="index">
-        <div class="card-panel folder">
-          <div class="folder-header">
-            <button @click="toggleItem(index)" class="icon-button full-width">
-              <div class="icon-hash">
-                <i class="material-icons not-colored">{{
-                  containerCheck(item.usersSharedWith[0].resourceUrl)
-                    ? "folder"
-                    : "description"
-                }}</i>
-                <span class="resource-hash">{{
-                  item.usersSharedWith[0].resourceUrl ===
-                  "http://xmlns.com/foaf/0.1/Agent"
-                    ? "Public"
-                    : item.usersSharedWith[0].resourceUrl
-                }}</span>
-              </div>
-              <i class="material-icons not-colored info-icon">
-                {{
-                  showItemIndex === index
-                    ? "keyboard_arrow_down info"
-                    : "chevron_right info"
-                }}</i
-              >
-            </button>
-          </div>
-
-          <!-- The Users Resource is shared with -->
-          <div class="shared-with" v-if="showItemIndex === index">
-            <div class="specific-access">
-              <!-- The user that shared the resource -->
-              <div class="shared-with-item">
-                <span class="shared-with-title">Owner: <br /></span>
+      <div class="no-items" v-if="sharedMeItems.length === 0">
+        <p>No resources have been shared with you.</p>
+      </div>
+      <div v-else>
+        <li v-for="(item, index) in sharedMeItems" :key="index">
+          <div class="card-panel folder">
+            <div class="folder-header">
+              <button @click="toggleItem(index)" class="icon-button full-width">
                 <div class="icon-hash">
-                  <i class="material-icons not-colored left">{{ "person" }}</i>
-                  <a class="the-user">{{ item.owner }}</a>
-                </div>
-              </div>
-
-              <!-- The information about this User's access -->
-              <div class="shared-with-item">
-                <span class="shared-with-title">Access Modes: <br /></span>
-                <div class="icon-hash">
-                  <i class="material-icons not-colored left">{{ "lock" }}</i>
-                  <li v-for="(ac, ind) in item.usersSharedWith[0].accessModes">
-                    <a class="the-user">{{ ac }}</a>
-                  </li>
-                </div>
-              </div>
-
-              <!-- When these access rights were given -->
-              <div class="shared-with-item">
-                <span class="shared-with-title">Date: <br /></span>
-                <div class="icon-hash">
-                  <i class="material-icons not-colored left">{{
-                    "schedule"
+                  <i class="material-icons not-colored">{{
+                    containerCheck(item.usersSharedWith[0].resourceUrl)
+                      ? "folder"
+                      : "description"
                   }}</i>
-                  <span class="the-user"
-                    ><i>{{ item.usersSharedWith[0].created }}</i></span
-                  >
+                  <span class="resource-hash">{{
+                    item.usersSharedWith[0].resourceUrl ===
+                    "http://xmlns.com/foaf/0.1/Agent"
+                      ? "Public"
+                      : item.usersSharedWith[0].resourceUrl
+                  }}</span>
+                </div>
+                <i class="material-icons not-colored info-icon">
+                  {{
+                    showItemIndex === index
+                      ? "keyboard_arrow_down info"
+                      : "chevron_right info"
+                  }}</i
+                >
+              </button>
+            </div>
+
+            <!-- The Users Resource is shared with -->
+            <div class="shared-with" v-if="showItemIndex === index">
+              <div class="specific-access">
+                <!-- The user that shared the resource -->
+                <div class="shared-with-item">
+                  <span class="shared-with-title">Owner: <br /></span>
+                  <div class="icon-hash">
+                    <i class="material-icons not-colored left">{{
+                      "person"
+                    }}</i>
+                    <a class="the-user">{{ item.owner }}</a>
+                  </div>
+                </div>
+
+                <!-- The information about this User's access -->
+                <div class="shared-with-item">
+                  <span class="shared-with-title">Access Modes: <br /></span>
+                  <div class="icon-hash">
+                    <i class="material-icons not-colored left">{{ "lock" }}</i>
+                    <li
+                      v-for="(ac, ind) in item.usersSharedWith[0].accessModes"
+                    >
+                      <a class="the-user">{{ ac }}</a>
+                    </li>
+                  </div>
+                </div>
+
+                <!-- When these access rights were given -->
+                <div class="shared-with-item">
+                  <span class="shared-with-title">Date: <br /></span>
+                  <div class="icon-hash">
+                    <i class="material-icons not-colored left">{{
+                      "schedule"
+                    }}</i>
+                    <span class="the-user"
+                      ><i>{{ item.usersSharedWith[0].created }}</i></span
+                    >
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </li>
+        </li>
+      </div>
     </div>
 
     <div class="with-others" v-if="currentOperation === 'sharedWithOthers'">
       <span class="shared-title">Shared With Others</span>
 
-      <!-- Iterates over list of resources in sharedWithOthers.tll -->
-      <li v-for="(item, index) in sharedItems" :key="index">
-        <div class="card-panel folder">
-          <div class="folder-header">
-            <button @click="toggleItem(index)" class="icon-button full-width">
-              <div class="icon-hash">
-                <i class="material-icons not-colored left">{{
-                  containerCheck(item.resourceHash) ? "folder" : "description"
-                }}</i>
-                <span class="resource-hash">{{ item.resourceHash }}</span>
-              </div>
-              <i class="material-icons not-colored info-icon">
-                {{
-                  showItemIndex === index
-                    ? "keyboard_arrow_down info"
-                    : "chevron_right info"
-                }}</i
-              >
-            </button>
-          </div>
+      <div class="no-items" v-if="sharedItems.length === 0">
+        <p>You havbe not shared any resources with others.</p>
+      </div>
+      <div v-else>
+        <!-- Iterates over list of resources in sharedWithOthers.tll -->
+        <li v-for="(item, index) in sharedItems" :key="index">
+          <div class="card-panel folder">
+            <div class="folder-header">
+              <button @click="toggleItem(index)" class="icon-button full-width">
+                <div class="icon-hash">
+                  <i class="material-icons not-colored left">{{
+                    containerCheck(item.resourceHash) ? "folder" : "description"
+                  }}</i>
+                  <span class="resource-hash">{{ item.resourceHash }}</span>
+                </div>
+                <i class="material-icons not-colored info-icon">
+                  {{
+                    showItemIndex === index
+                      ? "keyboard_arrow_down info"
+                      : "chevron_right info"
+                  }}</i
+                >
+              </button>
+            </div>
 
-          <!-- The Users Resource is shared with -->
-          <div class="shared-with" v-if="showItemIndex === index">
-            <span class="users-title">Shared with Users: <br /></span>
-            <!-- List of all Users -->
-            <div class="user-list">
-              <li
-                class="shared-with-item"
-                v-for="(mode, i) in item.usersSharedWith"
-                :key="i"
-              >
-                <!-- The user that shared the resource -->
-                <div class="specific-access">
-                  <button
-                    @click="toggleUser(i)"
-                    class="user-icon-button full-width"
-                  >
-                    <div class="icon-hash">
-                      <i class="material-icons not-colored left">{{
-                        "person"
-                      }}</i>
-                      <span class="query-hash">{{
-                        mode.sharedWith === "http://xmlns.com/foaf/0.1/Agent"
-                          ? "Public"
-                          : mode.sharedWith
-                      }}</span>
-                    </div>
-                    <i class="material-icons not-colored info-icon">
-                      {{
-                        showUserIndex === i
-                          ? "keyboard_arrow_down info"
-                          : "chevron_right info"
-                      }}</i
+            <!-- The Users Resource is shared with -->
+            <div class="shared-with" v-if="showItemIndex === index">
+              <span class="users-title">Shared with Users: <br /></span>
+              <!-- List of all Users -->
+              <div class="user-list">
+                <li
+                  class="shared-with-item"
+                  v-for="(mode, i) in item.usersSharedWith"
+                  :key="i"
+                >
+                  <!-- The user that shared the resource -->
+                  <div class="specific-access">
+                    <button
+                      @click="toggleUser(i)"
+                      class="user-icon-button full-width"
                     >
-                  </button>
-
-                  <!-- The information about this User's access -->
-                  <div
-                    class="expandable-item"
-                    v-if="showUserIndex === i && showItemIndex === index"
-                  >
-                    <!-- Access modes for this user -->
-                    <span class="shared-with-title">Access Modes <br /></span>
-                    <div class="shared-with-item">
                       <div class="icon-hash">
                         <i class="material-icons not-colored left">{{
-                          "lock"
+                          "person"
                         }}</i>
-                        <li
-                          class="access-modes-items"
-                          v-for="(ac, ind) in mode.accessModes"
-                          :key="i"
-                        >
-                          <a class="the-user">{{ ac }}</a>
-                        </li>
+                        <span class="query-hash">{{
+                          mode.sharedWith === "http://xmlns.com/foaf/0.1/Agent"
+                            ? "Public"
+                            : mode.sharedWith
+                        }}</span>
                       </div>
-                    </div>
+                      <i class="material-icons not-colored info-icon">
+                        {{
+                          showUserIndex === i
+                            ? "keyboard_arrow_down info"
+                            : "chevron_right info"
+                        }}</i
+                      >
+                    </button>
 
-                    <!-- When these access rights were given -->
-                    <span class="shared-with-title">Date: <br /></span>
-                    <div class="shared-with-item">
-                      <div class="icon-hash">
-                        <i class="material-icons not-colored left">{{
-                          "schedule"
-                        }}</i>
-                        <span class="the-user">{{ mode.created }}</span>
+                    <!-- The information about this User's access -->
+                    <div
+                      class="expandable-item"
+                      v-if="showUserIndex === i && showItemIndex === index"
+                    >
+                      <!-- Access modes for this user -->
+                      <span class="shared-with-title">Access Modes <br /></span>
+                      <div class="shared-with-item">
+                        <div class="icon-hash">
+                          <i class="material-icons not-colored left">{{
+                            "lock"
+                          }}</i>
+                          <li
+                            class="access-modes-items"
+                            v-for="(ac, ind) in mode.accessModes"
+                            :key="i"
+                          >
+                            <a class="the-user">{{ ac }}</a>
+                          </li>
+                        </div>
+                      </div>
+
+                      <!-- When these access rights were given -->
+                      <span class="shared-with-title">Date: <br /></span>
+                      <div class="shared-with-item">
+                        <div class="icon-hash">
+                          <i class="material-icons not-colored left">{{
+                            "schedule"
+                          }}</i>
+                          <span class="the-user">{{ mode.created }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
+                </li>
+              </div>
             </div>
           </div>
-        </div>
-      </li>
+        </li>
+      </div>
     </div>
   </div>
 </template>
@@ -180,6 +194,7 @@ import {
   sharedSomething,
   getSharedWithMe,
   getSharedWithOthers,
+  SharedWithMeData,
 } from "../privacyEdit";
 import { getStoredTtl } from "../queryPod";
 
@@ -250,7 +265,7 @@ export default {
       if (this.currentOperation === "sharedWithMe") {
         try {
           const sharedItemsThings = await getSharedWithMe(this.currentPod);
-          this.sharedMeItems = await toRaw(sharedItemsThings);
+          this.sharedMeItems = sharedItemsThings.sharedItems;
         } catch (err) {
           console.error("Error fetching shared items:", err);
         }
@@ -280,6 +295,15 @@ export default {
   color: var(--text-secondary);
   margin-bottom: 20px;
 }
+
+.no-items {
+  font-family: "Oxanium", monospace;
+  padding: 1rem 0.5rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
 /* Query List Items */
 ul {
   list-style: none;

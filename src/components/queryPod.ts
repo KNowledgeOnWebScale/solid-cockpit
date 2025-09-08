@@ -147,7 +147,6 @@ export async function executeQueryWithPodConnected(
   providedSources: ComunicaSources[],
   userCachePath: string
 ): Promise<CacheOutput | string | null> {
-
   // TODO: z3-solver DOES NOT work on a Worker Thread... (maybe could fix?)
   // First, try to perform the query using the cache worker.
   // This worker attempts to find results in the user's cache (Solid Pod).
@@ -228,7 +227,11 @@ async function sparqlQueryWithCache(
   const mySparqlEngine = new SparqlEngineCache();
 
   try {
-    const fetchForCache = createCoiFetch(fetch, { coepCredentialless: false, passthroughOpaque: true, noCors: false });
+    const fetchForCache = createCoiFetch(fetch, {
+      coepCredentialless: false,
+      passthroughOpaque: true,
+      noCors: false,
+    });
 
     // Query executor using Comunica
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
@@ -315,11 +318,15 @@ async function sparqlQueryWithCache(
  */
 export async function executeQueryInMainThread(
   inputQuery: string,
-  mixedSources: ComunicaSources[],
+  mixedSources: ComunicaSources[]
 ): Promise<CacheOutput | Error> {
   const mySparqlEngine = new SolidQueryEngine();
 
-  const fetchForCache = createCoiFetch(fetch, { coepCredentialless: false, passthroughOpaque: true, noCors: true });
+  const fetchForCache = createCoiFetch(fetch, {
+    coepCredentialless: false,
+    passthroughOpaque: true,
+    noCors: true,
+  });
   try {
     // Query executor using Comunica
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
@@ -378,7 +385,6 @@ export async function executeQueryInMainThread(
     return err;
   }
 }
-
 
 /**
  * Generates a unique 6-character hash using alphanumeric characters.
@@ -448,35 +454,55 @@ function stringToSeed(str: string): number {
  * @param podUrl - The URL of the container (should end with a slash, e.g., "https://pod.example.com/").
  * @returns the query cache directory path.
  */
-export async function ensureCacheContainer(podUrl: string, webId: string): Promise<string> {
-  const cacheUrl = podUrl + "querycache/";
+export async function ensureCacheContainer(
+  podUrl: string,
+  webId: string,
+  providedCache: string
+): Promise<string> {
+  let cacheUrl: string;
+
+  // check if url contains querycache
+  if (podUrl === providedCache) {
+    cacheUrl = providedCache + "querycache/";
+  } else {
+    if (!providedCache.endsWith("/")) {
+      cacheUrl = providedCache + "/";
+    } else {
+      cacheUrl = providedCache;
+    }
+  }
+
   try {
     // Try to retrieve the dataset (container)
     await getSolidDataset(cacheUrl, { fetch });
     return cacheUrl;
   } catch (error) {
-    // If not found, create the container
-    await createContainerAt(cacheUrl, { fetch });
+    // If not found, create the container (if it is the users pod in question)
+    if (providedCache === podUrl) {
+      await createContainerAt(cacheUrl, { fetch });
 
-    // TODO: Change this to just initialize acl with default permissions
-    // Set public read permissions for the cache container
-    const publicRead: Permissions = {
-      read: true,
-      append: false,
-      write: false,
-      control: false,
-    };
-    let aclDataset = await fetchPermissionsData(cacheUrl);
-    if (aclDataset == null) {
-      console.warn("Initializing an ACL for your inbox/ container...");
-      await generateAcl(cacheUrl, webId);
-      await changeAclPublic(cacheUrl, publicRead);
+      // TODO: Change this to just initialize acl with default permissions
+      // Set public read permissions for the cache container
+      const publicRead: Permissions = {
+        read: true,
+        append: false,
+        write: false,
+        control: false,
+      };
+      let aclDataset = await fetchPermissionsData(cacheUrl);
+      if (aclDataset == null) {
+        console.warn("Initializing an ACL for your inbox/ container...");
+        await generateAcl(cacheUrl, webId);
+        await changeAclPublic(cacheUrl, publicRead);
+      } else {
+        await changeAclPublic(cacheUrl, publicRead);
+      }
+
+      console.log(`Query Cache container was created at ${cacheUrl}`);
+      return cacheUrl;
     } else {
-      await changeAclPublic(cacheUrl, publicRead);
+      return error.toString();
     }
-
-    console.log(`Query Cache container was created at ${cacheUrl}`);
-    return cacheUrl;
   }
 }
 
@@ -566,7 +592,7 @@ export async function createQueriesTTL(
   const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
 
   const cleanedSources: string[] = cleanSourcesUrlsForCache(sources);
-  console.log(cleanedSources);
+
   // parse input query string using SPARQLjs
   const serviceSources = parseSparqlQuery(query);
 

@@ -4,14 +4,15 @@ import {
   saveFileInContainer,
   createContainerAt,
   getSolidDataset,
-  getSourceUrl,
+  saveSolidDatasetAt,
   getResourceInfo,
   getThing,
+  removeThing,
   deleteFile,
   deleteSolidDataset,
   getContainedResourceUrlAll,
+  getUrlAll,
 } from "@inrupt/solid-client";
-import { fetchData } from "./getData"; 
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { mimeTypes } from "./mime_types.js";
 
@@ -21,7 +22,7 @@ import { mimeTypes } from "./mime_types.js";
  * @param fileList The list of files to be uploaded to the Pod.
  * @param uploadPath The URL path to the specified upload container.
  * @param podURL The URL of the Pod files are to be uploaded to.
- * 
+ *
  * @returns a list of file names that have been uploaded.
  */
 export async function handleFiles(
@@ -35,7 +36,11 @@ export async function handleFiles(
     if (await alreadyExists(fileList[i], uploadPath)) {
       outputList.push(`already exists`);
     } else {
-      const upload: string = await uploadToPod(`${uploadPath}`, fileList[i], fetch);
+      const upload: string = await uploadToPod(
+        `${uploadPath}`,
+        fileList[i],
+        fetch
+      );
       outputList.push(upload);
     }
   }
@@ -100,7 +105,6 @@ async function overwriteToPod(
 export async function deleteFromPod(fileUrl: string): Promise<boolean> {
   try {
     await deleteFile(fileUrl, { fetch });
-    // console.log(`${fileUrl} deleted successfully`);
     return true;
   } catch (error) {
     console.error(`Error deleting ${fileUrl}:`, error);
@@ -132,6 +136,46 @@ export async function deleteContainer(containerUrl: string): Promise<boolean> {
   }
 }
 
+/**
+ * Deletes a Query Hash Thing from queries.ttl file using the @inrupt/solid-client method removeThing().
+ *
+ * @param queriesttlUrl The URL of the file to be deleted.
+ * @param targetHash The hash of the Query Thing to be deleted.
+ * @returns A Promise that resolves to a boolean indicating whether the deletion was successful.
+ */
+export async function deleteThing(
+  queriesttlUrl: string,
+  targetHash: string
+): Promise<boolean> {
+  const SD_ENDPOINT =
+    "http://www.w3.org/ns/sparql-service-description#endpoint";
+  const removalTarget = `${queriesttlUrl}#${targetHash}`;
+  try {
+    let dataset = await getSolidDataset(removalTarget, { fetch });
+
+    // Get the sources Thing from the desired query and delete it
+    const entry = getThing(dataset, removalTarget);
+    const endpointUrls = getUrlAll(entry, SD_ENDPOINT);
+    let removed = dataset;
+    console.log(removed);
+    if (endpointUrls.length != 0) {
+      for (const oUrl of endpointUrls) {
+        // a) Remove the object URL from the entry’s sd:endpoint values
+        removed = removeThing(removed, oUrl);
+      }
+    }
+
+    // delete the hash Thing
+    removed = removeThing(removed, removalTarget);
+    console.log(removed);
+    await saveSolidDatasetAt(queriesttlUrl, removed, { fetch });
+
+    return true;
+  } catch (error) {
+    console.log(`Error deleting ${removalTarget}`);
+    return false;
+  }
+}
 
 /**
  * Takes in a File and uploads it to a Solid Pod using the @inrupt/solid-client method saveFileInContainer().
@@ -200,11 +244,15 @@ async function ensureDirectoriesExist(
     // handles deep directory structure
     try {
       // Check if directory exists
-      const result = await getResourceInfo(`${currentUrl}${directories[i]}/`, { fetch: fetch });
+      const result = await getResourceInfo(`${currentUrl}${directories[i]}/`, {
+        fetch: fetch,
+      });
     } catch (error) {
       if (error.statusCode === 404) {
         // console.log(`Creating directory: ${directories[i]}`);
-        await createContainerAt(`${currentUrl}${directories[i]}/`, { fetch: fetch });
+        await createContainerAt(`${currentUrl}${directories[i]}/`, {
+          fetch: fetch,
+        });
       } else {
         console.error(`Error creating directory ${directories[i]}:`, error);
       }
@@ -218,14 +266,17 @@ async function ensureDirectoriesExist(
  *
  * @param file The container URL where the files are to be uploaded.
  * @param uploadUrl The file that is to be uploaded to the Pod.
- * 
+ *
  * @return A boolean representing whether the file to be uploaded alreay exists in the current directory
  */
-export async function alreadyExists(file: File, uploadUrl: string): Promise<boolean> {
+export async function alreadyExists(
+  file: File,
+  uploadUrl: string
+): Promise<boolean> {
   // const containerContents = await fetchData(uploadUrl);
   try {
-    const containerContents = await getSolidDataset(uploadUrl, {fetch});
-    const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`)
+    const containerContents = await getSolidDataset(uploadUrl, { fetch });
+    const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`);
     // console.log(`The file ${allegedFile.url} already exists...`)
     return true;
   } catch (e) {
@@ -238,14 +289,14 @@ export async function alreadyExists(file: File, uploadUrl: string): Promise<bool
  * Takes in a file name and returns whether it already exists in the specified container or not.
  *
  * @param uploadMessage the file name (could also be "already exists")
- * 
+ *
  * @return A boolean representing whether the file to be uploaded alreay exists in the current directory
  */
-export function alreadyExistsCheck(uploadMessage: string):boolean {
-    if (uploadMessage == 'already exists') {
-      return true;
-    } else {
-      return false;
+export function alreadyExistsCheck(uploadMessage: string): boolean {
+  if (uploadMessage == "already exists") {
+    return true;
+  } else {
+    return false;
   }
 }
 

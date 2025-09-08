@@ -11,8 +11,7 @@ import {
 Calls handleRedirectAfterPageLoad() on page reload.
 Crucially, stores credentials in session and fetch objects.
 */
-const session: Session = getDefaultSession()
-handleRedirectAfterPageLoad()
+export const session: Session = getDefaultSession()
 
 /**
  * Begins the User login process via the login() method from @inrupt/solid-client by following a Pod Provider URL link.
@@ -20,7 +19,7 @@ handleRedirectAfterPageLoad()
  * @param purl The URL of user's Pod Provider.
  * @returns A Promise that resolves to a string, if there is an error, it is returned in this string.
 */
-async function startLogin(purl: string): Promise<string> {
+export async function startLogin(purl: string): Promise<string> {
   // Start the Login Process if not already logged in.
   let status = '';
   if (!session.info.isLoggedIn) {
@@ -45,7 +44,7 @@ async function startLogin(purl: string): Promise<string> {
  * 
  * @returns A Promise that resolves to a boolean. (false === 'logged out' / true === 'logged in')
 */
-async function logOut(): Promise<boolean> {
+export async function logOut(): Promise<boolean> {
   if (session.info.isLoggedIn) {
     try {
       await session.logout({ logoutType: 'app' });
@@ -63,7 +62,7 @@ async function logOut(): Promise<boolean> {
  * 
  * @returns a boolean that signifies login status (false === 'logged out' / true === 'logged in')
 */
-function isLoggedin(): boolean {
+export function isLoggedin(): boolean {
   return session.info.isLoggedIn
 }
 
@@ -72,7 +71,7 @@ function isLoggedin(): boolean {
  * 
  * @returns a user's webID URL as a string.
 */
-function currentWebId(): string {
+export function currentWebId(): string {
   return session.info.webId as string;
 }
 
@@ -82,7 +81,7 @@ function currentWebId(): string {
  * @param webid The webID URL of the current user.
  * @returns A Promise that resolves to a string[] of user Pod URLs, if available, or `undefined` if no pods are found.
  */
-async function getPodURLs(): Promise<string[] | null> {
+export async function getPodURLs(): Promise<string[] | null> {
   try {
     return await getPodUrlAll(session.info.webId, { fetch: fetch });
   } catch (error) {
@@ -93,29 +92,30 @@ async function getPodURLs(): Promise<string[] | null> {
 /**
  * Redirects the user back to the TRIPLE App homepage
 */
-function redirectToHomepage(): void {
+export function redirectToHomepage(): void {
   window.location.href = new URL("/solid-cockpit/", window.location.href).toString()
 }
 
 /**
  * Redirects the user to the TRIPLE App login page
 */
-function redirectToLogin(): void {
+export function redirectToLogin(): void {
   window.location.href = new URL("/solid-cockpit/login", window.location.href).toString()
 }
 
 /**
  * Checks if the current User is logged-in to a Solid Pod after page-reload.
-*/
-async function handleRedirectAfterPageLoad(): Promise<void> {
+ * Ensures the user stays on the current page.
+ * @returns A Promise that resolves when the session restoration is complete.
+ */
+export async function handleRedirectAfterPageLoad(): Promise<void> {
   try {
-    handleIncomingRedirect({restorePreviousSession: true})
+    await handleIncomingRedirect({
+      restorePreviousSession: true, // Restore the session without redirection
+    });
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error during session restoration:", error);
   }
 }
 
 
-
-
-export { startLogin, isLoggedin, handleRedirectAfterPageLoad, currentWebId, getPodURLs, redirectToHomepage, redirectToLogin, logOut, session }

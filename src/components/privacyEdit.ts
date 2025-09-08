@@ -26,10 +26,14 @@ import {
   getUrl,
   getIri,
   getIriAll,
+  createThing,
+  addIri,
+  setDatetime,
+  addDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
 import { WorkingData, fetchData, fetchPermissionsData } from "./getData";
-import { generateHash, generateSeededHash } from "./queryPod";
+import { generateSeededHash } from "./queryPod";
 
 export type Permissions = {
   read: boolean;
@@ -135,6 +139,8 @@ export async function changeAclAgent(
   }
 }
 
+// Set Agent ACL access
+
 /**
  * Changes the access control settings of a specified resource using setPublicResourceAccess() from Inrupt.
  *
@@ -214,7 +220,11 @@ export async function generateAcl(
 
   // add that root ACL info to empty acl
   const updatedNewAcl = setAgentResourceAccess(newAcl, userWebId, userAccess);
-  const defUpdatedNewAcl = setAgentDefaultAccess(updatedNewAcl, userWebId, userAccess);
+  const defUpdatedNewAcl = setAgentDefaultAccess(
+    updatedNewAcl,
+    userWebId,
+    userAccess
+  );
 
   const savedDataset = await saveSolidDatasetAt(
     location.internal_resourceInfo.aclUrl,
@@ -299,7 +309,11 @@ export async function createInboxWithACL(
     // Initialize the sharedWithMe.ttl file
     const mefileName = "sharedWithMe.ttl";
     const medataset = createSolidDataset();
-    await saveSolidDatasetAt(inboxUrl + mefileName, medataset, { fetch });
+    const newDataset = await recordLastAccessTime(
+      medataset,
+      inboxUrl + mefileName
+    );
+    await saveSolidDatasetAt(inboxUrl + mefileName, newDataset, { fetch });
     console.log(`CREATED sharedWithMe.ttl`);
 
     // Initialize the sharedWithOthers.ttl file
@@ -359,14 +373,6 @@ export async function updateSharedWithMe(
   // Remove the trailing comma and space
   accessModesString = accessModesString.slice(0, -2);
 
-  // TODO: Add additional logic here for RDFSource / NonRDFSource / BasicContainer
-  let sharedThing = "";
-  if (resourceURL.endsWith("/")) {
-    sharedThing = "Container";
-  } else {
-    sharedThing = "Resource";
-  }
-
   // Attempt to update sharedWithMe.ttl with a PATCH SPARQL update
   try {
     const newTriples = `
@@ -386,7 +392,6 @@ export async function updateSharedWithMe(
         PREFIX dct: <http://purl.org/dc/terms/>
         PREFIX acl: <http://www.w3.org/ns/auth/acl#>
         PREFIX as: <https://www.w3.org/ns/activitystreams#>
-        PREFIX ldp: <http://www.w3.org/ns/ldp#>
         INSERT DATA {
           ${newTriples}
         }
@@ -430,7 +435,7 @@ export async function updateSharedWithOthers(
 ): Promise<boolean> {
   const sharedWithMeUrl = `${podUrl}inbox/`;
   const fileName = "sharedWithOthers.ttl";
-  const hash = generateSeededHash(resourceUrl+sharedWith);
+  const hash = generateSeededHash(resourceUrl + sharedWith);
 
   // Construct access modes string
   let accessModesString = "";
@@ -525,7 +530,7 @@ export interface indexedUserHash {
  */
 export async function getSharedWithOthers(
   rootPodUrl: string,
-  currentUserWebId: string,
+  currentUserWebId: string
 ): Promise<sharedSomething[]> {
   // Load the dataset from the TTL file.
   const sharedWithOthersUrl = `${rootPodUrl}inbox/sharedWithOthers.ttl`;
@@ -540,21 +545,32 @@ export async function getSharedWithOthers(
     // Extract the hash from the Thing’s URL fragment.
     i += 1;
     const thingUrl = thing.url;
-    const resourceHash = thingUrl.includes("#") ? `${thingUrl.split("#")[1]}` : "";
+    const resourceHash = thingUrl.includes("#")
+      ? `${thingUrl.split("#")[1]}`
+      : "";
     // Only consider resources
-    if (resourceHash.includes('/')) {
-      const whatKind = getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") || "N/A";
-      const sharedHashes = getIriAll(thing, "https://www.w3.org/ns/activitystreams#Offer") || ["N/A"];
-      const usersSharedWith = thingsUsersSharedWithParse(sharedHashes, things, i);
+    if (resourceHash.includes("/")) {
+      const whatKind =
+        getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") ||
+        "N/A";
+      const sharedHashes = getIriAll(
+        thing,
+        "https://www.w3.org/ns/activitystreams#Offer"
+      ) || ["N/A"];
+      const usersSharedWith = thingsUsersSharedWithParse(
+        sharedHashes,
+        things,
+        i
+      );
       const owner = currentUserWebId;
 
       sharedItems.push({
         resourceHash,
         usersSharedWith,
         owner,
-        whatKind
+        whatKind,
       });
-    } 
+    }
   });
   return sharedItems;
 }
@@ -571,28 +587,24 @@ function thingsUsersSharedWithParse(
   things: Thing[],
   index: number
 ): userHash[] {
-
   const usersSharedWith: userHash[] = [];
 
   // Iterate through the Things array and extract the users a resource is shared with
-  let userIndex = 0
+  let userIndex = 0;
   while (index < things.length && userIndex < userHashes.length) {
     // See is the current thing is a user hash
     if (userHashes[userIndex] === things[index].url) {
       const created =
         getDatetime(
-          things[index], "http://purl.org/dc/terms/created")?.toISOString() 
-          || "N/A";
+          things[index],
+          "http://purl.org/dc/terms/created"
+        )?.toISOString() || "N/A";
       const sharedWith =
-        getUrl(
-          things[index],
-          "https://www.w3.org/ns/activitystreams#target"
-        ) || "N/A";
+        getUrl(things[index], "https://www.w3.org/ns/activitystreams#target") ||
+        "N/A";
       const resourceUrl =
-        getUrl(
-          things[index],
-          "http://www.w3.org/ns/auth/acl#accessTo"
-        ) || "N/A";
+        getUrl(things[index], "http://www.w3.org/ns/auth/acl#accessTo") ||
+        "N/A";
       const access = getIriAll(
         things[index],
         "http://www.w3.org/ns/auth/acl#mode"
@@ -613,6 +625,10 @@ function thingsUsersSharedWithParse(
   return usersSharedWith;
 }
 
+export interface SharedWithMeData {
+  lastAccessed: string;
+  sharedItems: sharedSomething[];
+}
 /**
  * Retrieves all shared data entries from a sharedWithMe.ttl file.
  *
@@ -628,37 +644,127 @@ function thingsUsersSharedWithParse(
  * @param rootPodUrl - The URL of the current user's Solid Pod URL
  * @returns An array of sharedItems objects.
  */
-export async function getSharedWithMe(rootPodUrl: string): Promise<sharedSomething[]> {
+export async function getSharedWithMe(
+  rootPodUrl: string
+): Promise<SharedWithMeData> {
   // Load the dataset from the TTL file.
   const sharedWithMeUrl = `${rootPodUrl}inbox/sharedWithMe.ttl`;
   const dataset = await getSolidDataset(sharedWithMeUrl, { fetch });
+
   const things: Thing[] = getThingAll(dataset);
   const sharedItems: sharedSomething[] = [];
+  let lastAccessed: string = "N/A";
 
   things.forEach((thing) => {
-    const resourceHash = thing.url.includes("#") ? thing.url.split("#")[1] : "";
-    const creator = getUrl(thing, "http://purl.org/dc/terms/creator") || "N/A";
-    const created = getDatetime(thing, "http://purl.org/dc/terms/created")?.toISOString() || "N/A";
-    const accessTo = getUrl(thing, "http://www.w3.org/ns/auth/acl#accessTo") || "N/A";
-    const accessModes = getIriAll(thing, "http://www.w3.org/ns/auth/acl#mode") || ["N/A"];
-    const whatKind = getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") || "N/A";
+    try {
+      const resourceHash = thing.url.includes("#")
+        ? thing.url.split("#")[1]
+        : "";
 
-    const usersSharedWith: userHash[] = [
-      {
-        sharedWith: creator,
-        resourceUrl: accessTo,
-        accessModes: accessModes,
-        created: created,
-      },
-    ];
+      // Get the last accessed time
+      if (resourceHash === "lastAccess") {
+        lastAccessed =
+          getDatetime(
+            thing,
+            "http://purl.org/dc/terms/modified"
+          )?.toISOString() || "N/A";
+      } else {
+        // Get all other info
+        const creator =
+          getUrl(thing, "http://purl.org/dc/terms/creator") || "N/A";
+        const created =
+          getDatetime(
+            thing,
+            "http://purl.org/dc/terms/created"
+          )?.toISOString() || "N/A";
+        const accessTo =
+          getUrl(thing, "http://www.w3.org/ns/auth/acl#accessTo") || "N/A";
+        const accessModes = getIriAll(
+          thing,
+          "http://www.w3.org/ns/auth/acl#mode"
+        ) || ["N/A"];
+        const whatKind =
+          getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") ||
+          "N/A";
 
-    sharedItems.push({
-      resourceHash,
-      usersSharedWith,
-      owner: creator,
-      whatKind,
-    });
+        const usersSharedWith: userHash[] = [
+          {
+            sharedWith: creator,
+            resourceUrl: accessTo,
+            accessModes: accessModes,
+            created: created,
+          },
+        ];
+
+        sharedItems.push({
+          resourceHash,
+          usersSharedWith,
+          owner: creator,
+          whatKind,
+        });
+      }
+    } catch (error) {
+      console.log("Error processing thing:", error);
+    }
   });
 
-  return sharedItems;
+  return {
+    lastAccessed,
+    sharedItems,
+  };
+}
+
+/**
+ * Records the last access time of the sharedWithMe.ttl file.
+ * If the triple exists, updates the object to the current date and time.
+ * If the triple does not exist, creates the triple.
+ *
+ * @param dataset The SolidDataset representing the sharedWithMe.ttl file.
+ * @param fileUrl The URL of the sharedWithMe.ttl file.
+ */
+export function recordLastAccessTime(
+  dataset: SolidDataset,
+  fileUrl: string
+): SolidDataset {
+  const accessTimePredicate = "http://purl.org/dc/terms/modified";
+  const thingSubj = `${fileUrl}#lastAccess`;
+  try {
+    // change date accessed to current dateTime
+    let thing = getThing(dataset, thingSubj);
+    thing = setDatetime(thing, accessTimePredicate, new Date());
+    return setThing(dataset, thing);
+  } catch (error) {
+    // Triple does not exist, create the triple
+    try {
+      let thing = addDatetime(
+        createThing({ name: "lastAccess" }),
+        "http://purl.org/dc/terms/modified",
+        new Date()
+      );
+      return setThing(dataset, thing);
+    } catch (error) {
+      console.error("Error creating lastAccess thing:", error);
+    }
+  }
+}
+
+export async function saveNewAccessTime(podUrl: string): Promise<boolean> {
+  try {
+    const workingDataset = await getSolidDataset(
+      `${podUrl}inbox/sharedWithMe.ttl`,
+      { fetch }
+    );
+    const newAccess = recordLastAccessTime(
+      workingDataset,
+      `${podUrl}inbox/sharedWithMe.ttl`
+    );
+    console.log(newAccess);
+    await saveSolidDatasetAt(`${podUrl}inbox/sharedWithMe.ttl`, newAccess, {
+      fetch,
+    });
+    return true;
+  } catch (error) {
+    console.error("Error saving new access time:", error);
+    return false;
+  }
 }

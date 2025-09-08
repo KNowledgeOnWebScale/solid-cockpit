@@ -6,7 +6,7 @@
   />
 
   <!-- Title bar -->
-  <div class="content-container">
+  <div class="content-container" :key="renderKey">
     <div class="title-container">
       <nav class="title-nav">
         <!-- Title bar and icons -->
@@ -19,7 +19,124 @@
                 <a href="#!"><i class="material-icons">info</i></a>
               </li>
               <li>
-                <a href="#!"><i class="material-icons">notifications</i></a>
+                <button
+                  class="notification-button"
+                  @click="toggleNotifications"
+                >
+                  <i class="material-icons">
+                    {{
+                      hasNotifications ? "notifications" : "notifications_none"
+                    }}
+                    <i v-if="hasNotifications" class="badge"></i>
+                  </i>
+                </button>
+                <!-- Notifications dropdown data display -->
+                <div v-if="showNotifications" class="notifications-dropdown">
+                  <div class="notifications-content">
+                    <div class="notifications-header-container">
+                      <ul class="notifications-header">
+                        <div class="notifications-header-text">
+                          <li>
+                            <span class="notification-title"
+                              >Notifications:</span
+                            >
+                          </li>
+                          <li>
+                            <span class="notification-hint"
+                              >(See "Shared with me" for more details)</span
+                            >
+                          </li>
+                        </div>
+                        <li v-if="notifications.length != 0">
+                          <button
+                            class="mark-read"
+                            @click="markNotificationsRead"
+                          >
+                            Mark Read
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div
+                      class="no-notifications"
+                      v-if="notifications.length === 0"
+                    >
+                      <span
+                        >No new notifications</span
+                      >
+                    </div>
+                    <ul class="share-list">
+                      <li
+                        v-for="(item, index) in notifications"
+                        :key="index"
+                        class="card-panel folder compact"
+                      >
+                        <!-- Resource header -->
+                        <div class="row header">
+                          <i class="material-icons left not-colored">
+                            {{
+                              containerCheck(
+                                item.usersSharedWith[0].resourceUrl
+                              )
+                                ? "folder"
+                                : "description"
+                            }}
+                          </i>
+                          <span class="resource-hash mono">{{
+                            item.usersSharedWith[0].resourceUrl
+                          }}</span>
+                        </div>
+
+                        <!-- Users (always visible, condensed) -->
+                        <ul class="user-rows">
+                          <li
+                            v-for="(mode, i) in item.usersSharedWith"
+                            :key="i"
+                            class="user-row"
+                          >
+                            <span class="cell user">
+                              <i class="material-icons tiny not-colored"
+                                >person</i
+                              >
+                              <span class="truncate">
+                                {{
+                                  item.owner ===
+                                  "http://xmlns.com/foaf/0.1/Agent"
+                                    ? "Public"
+                                    : item.owner
+                                }}
+                              </span>
+                            </span>
+
+                            <span class="cell modes">
+                              <i class="material-icons tiny not-colored"
+                                >lock</i
+                              >
+                              <span class="chips">
+                                <span
+                                  v-for="(ac, ind) in mode.accessModes"
+                                  :key="ind"
+                                  class="chip"
+                                  >{{ ac.split("#")[1] }}</span
+                                >
+                              </span>
+                            </span>
+
+                            <span class="cell date">
+                              <i class="material-icons tiny not-colored"
+                                >schedule</i
+                              >
+                              <time :datetime="mode.created">{{
+                                formatDate(mode.created)
+                              }}</time>
+                            </span>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </li>
             </div>
           </ul>
@@ -29,7 +146,7 @@
 
     <!-- Choose Pod -->
     <div class="pod-chooseContainer">
-      <PodRegistration @pod-selected="handlePodSelected"/>
+      <PodRegistration />
     </div>
 
     <!-- the side nav -->
@@ -96,9 +213,16 @@
           <ul>
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
-              <div class="card-panel folder">
+              <div
+                v-if="loadingIndex === index"
+                class="loading-spinner-container"
+              >
+                <div class="spinner"></div>
+                <span class="loading-text">Loading access rights...</span>
+              </div>
+              <div v-else class="card-panel folder">
                 <button
-                  @click="toggleShared(index), getSpecificAclData(url)"
+                  @click="toggleShared(index), getSpecificAclData(url, index)"
                   class="icon-button full-width"
                 >
                   <i class="material-icons not-colored left">{{
@@ -180,6 +304,7 @@
                               'true-color': permission,
                               'false-color': !permission,
                             }"
+                            :key="renderKey"
                           >
                             <span class="permission-label">{{ ind }}</span>
                             <span class="permission-value">
@@ -453,7 +578,6 @@
       </div>
 
       <!-- "Shared with me" display -->
-      <!-- TODO: Fix this because emitted values are not working properly -->
       <div class="shared-with" v-if="navValue === 1">
         <SharedWith
           :currentOperation="currentDisplay"
@@ -490,6 +614,10 @@ import {
   createInboxWithACL,
   updateSharedWithMe,
   updateSharedWithOthers,
+  getSharedWithMe,
+  sharedSomething,
+  SharedWithMeData,
+  saveNewAccessTime,
 } from "./privacyEdit";
 import {
   fetchPermissionsData,
@@ -503,7 +631,6 @@ import ContainerNav from "./ContainerNav.vue";
 import SharedWith from "./Styling/SharedWith.vue";
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth";
-
 
 interface Permissions {
   read: boolean;
@@ -562,6 +689,12 @@ export default {
       uploadedSharingDoc: "" as string,
       container: [] as string[],
       currentDisplay: "default" as string,
+      loading: false as boolean,
+      loadingIndex: null as number | null,
+      renderKey: 0 as number,
+      notifications: [] as sharedSomething[],
+      showNotifications: false as boolean,
+      hasNotifications: false as boolean,
     };
   },
   computed: {
@@ -606,7 +739,7 @@ export default {
           return segments[segments.length - 1] + "/";
         });
       // for navigating up a directory path (not possible when in root directory)
-      if (currentDir !== this.selectedPodUrl()) {
+      if (currentDir !== this.selectedPodUrl) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
@@ -676,6 +809,7 @@ export default {
       } else {
         this.showSharedIndex = index; // Show the form for the clicked item
       }
+      this.showFormIndex = null;
     },
     toggleForm(index: number) {
       if (this.showFormIndex === index) {
@@ -703,7 +837,7 @@ export default {
      * Method for creating an inbox/ container in a Pod if it does not already exist
      */
     createInbox() {
-      createInboxWithACL(this.selectedPodUrl(), this.webId());
+      createInboxWithACL(this.selectedPodUrl, this.webId);
     },
 
     /**
@@ -731,9 +865,11 @@ export default {
         this.permissionsString = "No / ";
       }
 
+      this.loading = true; // Start loading
+
       // for Agent ACL changes
       if (this.accessType === "Agent") {
-        this.userUrlInvalid = checkUrl(this.userUrl, this.webId());
+        this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
         if (!this.userUrlInvalid) {
           // add condition for different agents here ...
           // actual .acl changing
@@ -741,14 +877,14 @@ export default {
           // write changes to specified user's sharedWithMe.ttl file
           this.postedMe = await updateSharedWithMe(
             this.userUrl,
-            this.webId(),
+            this.webId,
             url,
             this.permissions
           );
 
           // write changes to current user's sharedWithOthers.ttl file
           this.recordedOthers = await updateSharedWithOthers(
-            this.selectedPodUrl(),
+            this.selectedPodUrl,
             url,
             this.userUrl,
             this.permissions
@@ -762,7 +898,7 @@ export default {
 
         // write changes to current user's sharedWithOthers.ttl file
         this.recordedOthers = await updateSharedWithOthers(
-          this.selectedPodUrl(),
+          this.selectedPodUrl,
           url,
           "http://xmlns.com/foaf/0.1/Agent",
           this.permissions
@@ -781,7 +917,10 @@ export default {
         .join("");
       this.submissionDone = true;
 
-      await this.getSpecificAclData(this.currentLocation);
+      await this.getSpecificAclData(url);
+
+      this.loading = false; // Stop loading
+      this.updateRenderKey();
     },
 
     /**
@@ -810,11 +949,11 @@ export default {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.selectedPodUrl() &&
-        !this.urls.includes(this.selectedPodUrl())
+        this.currentLocation === this.selectedPodUrl &&
+        !this.urls.includes(this.selectedPodUrl)
       ) {
-        this.urls.push(this.selectedPodUrl());
-        this.containerUrls.push(this.selectedPodUrl());
+        this.urls.push(this.selectedPodUrl);
+        this.containerUrls.push(this.selectedPodUrl);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
@@ -827,7 +966,7 @@ export default {
      * then sorts the array to reflect heirarchy
      */
     async getGeneralData() {
-      this.dirContents = await fetchData(this.selectedPodUrl());
+      this.dirContents = await fetchData(this.selectedPodUrl);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
@@ -852,16 +991,24 @@ export default {
      *
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
-    async getSpecificAclData(path: string) {
-      this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
-      if (this.hasAcl !== null) {
-        this.hasAccess = await fetchAclAgents(path);
-        this.publicAccess = await fetchPublicAccess(path);
-        this.hasAccess = {
-          Public: this.publicAccess,
-          ...this.hasAccess,
-        };
-        this.cannotMakeAcl = false;
+    async getSpecificAclData(url: string, index?: number) {
+      if (index !== undefined) {
+        this.loadingIndex = index;
+      }
+
+      try {
+        this.hasAcl = await fetchPermissionsData(url); // value is either .acl obj OR null (if .acl does not exist)
+        if (this.hasAcl !== null) {
+          this.hasAccess = await fetchAclAgents(url);
+          this.publicAccess = await fetchPublicAccess(url);
+          this.hasAccess = {
+            Public: this.publicAccess,
+            ...this.hasAccess,
+          };
+          this.cannotMakeAcl = false;
+        }
+      } finally {
+        this.loadingIndex = null; // Reset loading index after loading completes
       }
     },
 
@@ -872,7 +1019,7 @@ export default {
      */
     async makeNewAcl(path: string) {
       try {
-        await generateAcl(path, this.webId());
+        await generateAcl(path, this.webId);
         await this.getSpecificAclData(path);
       } catch (err) {
         console.error(err);
@@ -880,16 +1027,60 @@ export default {
       }
     },
     async initialLoad() {
-      if (this.selectedPodUrl() != "") {
-        this.currentLocation = this.selectedPodUrl();
+      if (this.selectedPodUrl != "") {
+        this.currentLocation = this.selectedPodUrl;
         await this.getGeneralData();
         await this.createStuff();
       }
     },
 
+    /* Compares each of the dates created on items in sharedWithMe */
+    async obtainSharedWithMeData(): Promise<SharedWithMeData | null> {
+      try {
+        const sharedItemsThings = await getSharedWithMe(this.selectedPodUrl);
+        return sharedItemsThings;
+      } catch (err) {
+        console.error("Error fetching shared items:", err);
+        return null;
+      }
+    },
+
+    /* Compares each of the dates created on items in sharedWithMe */
+    async compareDates() {
+      const sharedData = await this.obtainSharedWithMeData();
+      // When there is an error obtaining sharedWithMe data
+      if (sharedData === null) {
+        this.notifications = [];
+        return;
+      }
+
+      // Filter items created after the last accessed date
+      const lastAccessedDate = new Date(sharedData.lastAccessed);
+      this.notifications = sharedData.sharedItems.filter((item) => {
+        const createdDate = new Date(item.usersSharedWith[0].created);
+        return createdDate > lastAccessedDate;
+      });
+
+      if (this.notifications.length > 0) {
+        this.hasNotifications = true;
+      } else {
+        this.hasNotifications = false;
+      }
+    },
+
+    // Records the current date and time as the last access time
+    async markNotificationsRead() {
+      const newAccessSuccess = await saveNewAccessTime(this.selectedPodUrl);
+      if (newAccessSuccess) {
+        await this.compareDates();
+      } else {
+        console.log("Failed to update last access time.");
+      }
+    },
+
     /* creates files and directories if not already present */
     async createStuff() {
-      await createInboxWithACL(this.selectedPodUrl(), this.webId());
+      await createInboxWithACL(this.selectedPodUrl, this.webId);
       this.$forceUpdate(); // Forces a re-render of the component
     },
     /* Takes in the emitted value from ContainerNav.vue */
@@ -897,17 +1088,43 @@ export default {
       this.currentLocation = selectedContainer;
       this.getSpecificData(this.currentLocation);
     },
+    updateRenderKey() {
+      this.renderKey += 1;
+    },
+    toggleNotifications() {
+      this.showNotifications = !this.showNotifications;
+    },
+    formatDate(d: string) {
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return d; // fallback if not a valid date
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      });
+    },
   },
   mounted() {
     try {
-      if (this.selectedPodUrl() != "") {
-        this.currentLocation = this.selectedPodUrl();
+      if (this.selectedPodUrl != "") {
+        this.currentLocation = this.selectedPodUrl;
         this.getGeneralData();
         this.createStuff();
+        this.compareDates();
       }
     } catch (error) {
       console.error("Error during component mount:", error);
     }
+  },
+  watch: {
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.getGeneralData();
+        this.createStuff();
+        this.compareDates();
+        this.updateRenderKey();
+      }
+    },
   },
 };
 </script>
@@ -945,6 +1162,9 @@ button:focus {
 .dir-nav {
   background-color: var(--panel);
   border-radius: 6px;
+  display: flex;
+  align-items: center;
+  box-shadow: none;
 }
 
 /* title bar */
@@ -1375,8 +1595,8 @@ label span {
 .new-acl {
   padding: 10px;
   margin-top: 5px;
-  background-color: var(--text-secondary);
-  color: var(--text-muted);
+  background-color: var(--muted);
+  color: var(--text-secondary);
   border: none;
   cursor: pointer;
   font-family: "Oxanium", monospace;
@@ -1403,5 +1623,238 @@ label span {
 }
 #resetButton button:hover {
   background-color: var(--hover);
+}
+
+/* Loading spinner */
+.loading-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  margin: 20px 0;
+}
+.spinner {
+  border: 4px solid var(--border);
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+.loading-text {
+  margin-top: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Notifications */
+.notification-button {
+  padding: 0 0.5rem;
+}
+.notification-button:hover {
+  background-color: var(--hover);
+  color: var(--main-white);
+  border-radius: 6px;
+}
+.badge {
+  position: absolute;
+  top: 17px;
+  right: 15px;
+  width: 12px;
+  height: 12px;
+  background: var(--error);
+  border-radius: 50%;
+}
+.notifications-dropdown {
+  position: absolute;
+  top: 4rem;
+  right: 20px;
+  border-radius: 1rem;
+  z-index: 1000;
+  background-color: var(--panel-elev);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 40%;
+  min-width: fit-content;
+  line-height: normal;
+}
+.notifications-dropdown span {
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+.notifications-dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notifications-dropdown li {
+  padding: 0.5rem;
+  transition: background 0.3s;
+}
+.notifications-content {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: 0 0 0 0.5rem;
+  justify-content: flex-start;
+}
+.notifications-content li {
+  padding: 0;
+}
+.notifications-header-container {
+  width: 100%;
+}
+.notifications-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem !important;
+}
+.notifications-header-text {
+  display: flex;
+  flex-direction: column;
+}
+.mark-read {
+  font-size: 14pt;
+  font-family: "oxanium", monospace;
+  border-radius: 6px;
+  color: var(--main-white);
+  cursor: pointer;
+  background-color: var(--primary);
+  padding: 0.4rem 0.5rem;
+}
+.mark-read:hover {
+  color: var(--main-white);
+  background-color: var(--hover);
+}
+.notification-title {
+  font-size: 20pt !important;
+  font-weight: 600;
+}
+.notification-hint {
+  font-size: 10pt !important;
+  color: var(--text-secondary);
+}
+.no-notifications {
+  margin: 0.5rem 0;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+
+/* Ensure user rows are displayed in a vertical list */
+.user-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* Add spacing between items */
+}
+.share-list,
+.user-rows {
+  font-size: 10pt;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.folder.compact {
+  margin: 0.5rem 0 0 0;
+  border-radius: 8px;
+  width: 100%;
+}
+.row.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 0 0.5rem;
+}
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+.spacer {
+  flex: 1;
+}
+.meta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+}
+.count {
+  font-weight: 600;
+}
+.user-rows {
+  margin: 0 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.user-row {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  margin: 0 0 0 1rem;
+}
+.cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0; /* enable truncate */
+  font-size: 13px;
+}
+.user .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  border: none;
+  margin: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid
+    color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
+  background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
+  font-weight: 600;
+  font-size: 11px;
+  margin: 0;
+  color: var(--yasqe-keyword);
+}
+.material-icons.tiny {
+  font-size: 20px;
+}
+.left {
+  vertical-align: middle;
+}
+.not-colored {
+  color: var(--text-secondary);
+}
+.resource-hash {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
 }
 </style>
