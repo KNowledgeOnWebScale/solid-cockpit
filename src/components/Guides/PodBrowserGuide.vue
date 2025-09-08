@@ -1,32 +1,29 @@
 <template>
-  <div class="container">
+  <div class="guide-wrapper">
     <div class="item">
       <button class="dropdown-toggle" @click="toggleGuideDropdown">
-        <h2 class="guide" style="display:inline;">Data Query Guide</h2>
+        <h2 class="guide" style="display: inline">Pod Browser Guide</h2>
         <i class="material-icons dropdown-arrow">
-          {{ guideDropdownOpen ? "keyboard_arrow_down" : "chevron_right" }}</i>
+          {{ guideDropdownOpen ? "keyboard_arrow_down" : "chevron_right" }}</i
+        >
       </button>
-      <div v-if="guideDropdownOpen" class="dropdown-content">
+      <div v-show="guideDropdownOpen">
         <ol class="list-container">
+          <li class="req"><span>Select the Pod you want to Browse.</span></li>
           <li class="req">
-            <b>OPTIONAL:</b> Select a pod (if you want to save/share queries and
-            results)
+            <span>Navigate to the directory you want to browse.</span>
           </li>
           <li class="req">
-            Select or input the URL(s) of the SPARQL Endpoint(s) and/or Solid
-            Pod(s) to query in <b>"Datasources"</b> (Solid pod querying not
-            available yet)
-          </li>
-          <li class="req">Enter a SPARQL query in the input box</li>
-          <li class="req">
-            Click the <b>"Save Query"</b> button if you wish to save the query and
-            results
+            <span
+              >Click the
+              <i class="material-icons not-colored">chevron_right</i> to see
+              resource information.</span
+            >
           </li>
           <li class="req">
-            Click the <b>"Execute Query"</b> button to execute the query
-          </li>
-          <li class="req">
-            Results will be displayed below once the query has finished
+            Future work: Graphical browser (as an interactive knowledge graph) /
+            RDF data + Metadata editing (with syntax checking) /
+            View filtering / Search bar (for quick searching)
           </li>
         </ol>
       </div>
@@ -36,6 +33,7 @@
 
 <script lang="ts">
 export default {
+  name: "PodBrowserGuide",
   data: () => ({
     guideDropdownOpen: false as boolean,
   }),
@@ -48,14 +46,32 @@ export default {
 </script>
 
 <style scoped>
+.guide-wrapper {
+  font-family: "Oxanium", monospace;
+  max-width: 100%;
+  margin: 0.5rem 0.5rem;
+  padding: 0.5rem;
+  background: var(--panel);
+  border-radius: 10px;
+}
+button:focus {
+  background-color: transparent;
+  box-shadow: none;
+}
 .item {
   background-color: var(--panel);
-  border: 3px solid var(--panel-elev);
+  border: 3px solid var(--border);
   border-radius: 6px;
+  padding: 1rem;
   margin: 0.5rem 0;
+  color: var(--text-secondary);
 }
 .guide {
   text-align: Left;
+  color: var(--text-primary);
+  font-size: 18pt;
+  font-weight: 600;
+  margin: 0;
 }
 .req {
   margin: 1rem 0.5rem;
@@ -63,21 +79,11 @@ export default {
   list-style-type: upper-roman;
   align-items: Left;
 }
-.container {
-  font-family: "Oxanium", monospace;
-  max-width: 100%;
-  margin: 0 0.5rem;
-  padding: 0.5rem;
-  background: var(--panel);
-  border-radius: 10px;
-}
 
 /* Dropdown style */
 .dropdown-toggle {
   color: var(--text-primary);
   font-family: "Oxanium", monospace;
-  font-size: 12pt;
-  font-weight: 600;
   border-radius: 8px;
   cursor: pointer;
   width: 100%;
@@ -85,17 +91,19 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  background: none;
+  border: none;
+  padding: 0;
 }
 .item:hover {
   background: var(--muted);
 }
 .dropdown-arrow {
   font-size: 1.5em;
-  margin-left: 0.5em;
   color: var(--text-primary);
 }
 .dropdown-content {
+  margin-top: 0.5rem;
   border-radius: 8px;
   padding: 0.2rem 0.5rem;
   color: var(--text-secondary);
@@ -103,5 +111,8 @@ export default {
 .list-container {
   margin: 0 1.5rem;
   padding: 0;
+}
+.not-colored {
+  color: var(--text-muted);
 }
 </style>

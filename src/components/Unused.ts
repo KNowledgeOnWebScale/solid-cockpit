@@ -1,3 +1,147 @@
+// query cache sharing HTML
+// <!-- TODO: Need top level for the whole query cache -->
+// <!-- TODO: Then a lower level for each query hash -->
+// <!-- For sharing cached query data -->
+// <div class="sharing-prompt">
+//   <button
+//     @click="toggleShared(), getSpecificCacheAclData()"
+//     class="sharing-button full-width"
+//   >
+//     <span>Resource Sharing Information</span>
+//     <i class="material-icons not-colored info-icon">
+//       {{
+//         showSharing
+//           ? "keyboard_arrow_down share"
+//           : "chevron_right share"
+//       }}</i
+//     >
+//   </button>
+//   <div
+//     id="permissionsBox"
+//     class="form-container"
+//     v-if="showSharing"
+//   >
+//     <!-- For the case that a container/resource has an existing .acl -->
+//     <div id="aclExists" v-if="hasAcl !== null">
+//       <div>
+//         <!-- <span id="permissionsInstructions"
+//           >Current Access Rights
+//           <button
+//             @click="getSpecificAclData(url)"
+//             class="icon-button right"
+//           >
+//             <i class="material-icons not-colored right"
+//               >refresh</i
+//             >
+//             <v-tooltip
+//               class="tool-tip"
+//               activator="parent"
+//               location="end"
+//               >Refresh access rights
+//             </v-tooltip>
+//           </button></span
+//         > -->
+//       </div>
+//       <div id="currentPermissions">
+//         <li
+//           class="access-item"
+//           v-for="(agent, inde) in hasAccess"
+//           :key="inde"
+//         >
+//           <div class="user-id">
+//             <div class="left-content">
+//               <span class="user-tag">Agent:<br /></span>
+//               <span class="the-user"
+//                 ><i>{{ inde }}</i>
+//               </span>
+//             </div>
+//             <!-- <button
+//               @click="copyText(inde.toString())"
+//               class="icon-button right"
+//             > -->
+//             <i class="material-icons not-colored right"
+//               >content_copy</i
+//             >
+//             <v-tooltip
+//               class="tool-tip"
+//               activator="parent"
+//               location="left"
+//               >Copy WebID to clipboard
+//             </v-tooltip>
+//             <!-- </button> -->
+//           </div>
+//           <span class="permissions-tag"
+//             >Permissions:<br
+//           /></span>
+//           <ul
+//             v-for="(permission, ind) in hasAccess[inde]"
+//             :key="ind"
+//           >
+//             <div
+//               class="permission-item"
+//               :class="{
+//                 'true-color': permission,
+//                 'false-color': !permission,
+//               }"
+//             >
+//               <span class="permission-label">{{ ind }}</span>
+//               <span class="permission-value">
+//                 <i>({{ permission }})</i>
+//                 <i class="material-icons right">
+//                   {{ permission ? "check" : "dangerous" }}
+//                 </i>
+//               </span>
+//             </div>
+//           </ul>
+//         </li>
+//         <span id="withPermissions"> </span>
+//       </div>
+//     </div>
+
+//     <!-- For the case the query cache does not have an existing .acl -->
+//     <div
+//       id="noAclExists"
+//       v-if="hasAcl === null && !cannotMakeAcl"
+//     >
+//       <v-alert
+//         type="warning"
+//         title="There is no .acl (permissions file) for the query cache"
+//         >Click the button below to create and initalize
+//         one.</v-alert
+//       >
+//       <button @click="makeNewAcl()" class="new-acl">
+//         <span>Generate .acl</span>
+//       </button>
+//     </div>
+
+//     <!-- For the case that an .acl connot be initialized (e.g. for a file) -->
+//     <div
+//       id="noAclMade"
+//       v-if="hasAcl === null && cannotMakeAcl"
+//     >
+//       <v-alert
+//         type="error"
+//         title="Cannot initialize an .acl for this item"
+//         closable
+//         >The .acl of the container this file is located within
+//         will be used for access controls.</v-alert
+//       >
+//     </div>
+//   </div>
+// </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
 import {
     getContainedResourceUrlAll,
     getResourceInfo,

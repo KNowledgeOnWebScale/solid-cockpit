@@ -9,7 +9,7 @@ import DataQuery from "./components/DataQuery.vue";
 import EditPrivacy from "./components/EditPrivacy.vue";
 import NotFound from "./components/Styling/NotFound.vue";
 
-import { isLoggedin } from "./components/login";
+import { useAuthStore } from "./stores/auth";
 
 /**
  * The router here allows for navigation between different functional pages of the TRIPLE App
@@ -61,15 +61,18 @@ const router = createRouter({
  * (and returning to the login page if logged out at any point)
  */
 const publicPages = ["Home", "Login Page", "Query"];
+
 setTimeout(() => {
+  const authStore = useAuthStore();
   router.beforeEach(async (to, from, next) => {
+
     // make sure the user is authenticated
-    if (publicPages.includes(to.name)) {
+    if (publicPages.includes(to.name as string)) {
       // Always allow public pages
       return next();
     }
     // If not logged in, redirect to login
-    if (!isLoggedin()) {
+    if (!authStore.loggedIn) {
       return next({ name: "Login Page" });
     }
     // Otherwise allow navigation

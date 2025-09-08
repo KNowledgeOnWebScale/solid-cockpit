@@ -160,11 +160,16 @@ export default defineComponent({
   list-style-type: none;
   padding-left: 1rem;
   margin-left: 0;
+  color: var(--text-secondary);
 }
 .dir-nav {
   padding: 1rem;
 }
-
+.dir-nav li {
+    display: flex;
+  justify-content: center;
+  align-items: center;
+}
 .directory-nav span {
   font-size: 16pt;
   font-family: "Oxanium", monospace;
@@ -181,17 +186,22 @@ export default defineComponent({
   margin-left: 15px;
   gap: 20px;
 }
-
-.select-dir .v-btn {
-  margin-bottom: 15px;
-}
 .select-dir .v-select {
   min-width: 150px;
-  margin-top: 15px;
   font-family: "Oxanium", monospace;
 }
 .navigate-btn {
   font-family: "Oxanium", monospace;
-  margin-top: 10px;
+  background-color: var(--primary);
+  color: var(--main-white);
+}
+.navigate-btn:hover {
+  background-color: var(--primary-700);
+}
+:deep(.v-input__details) {
+  display:none;
+}
+:deep(.v-field__loader) {
+  display:none;
 }
 </style>

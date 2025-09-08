@@ -10,14 +10,52 @@
   </div>
 
   <div class="delay-placeholder" v-if="!delay">
-    <div v-if="!successfulLogin" class="login-container">
-      <pod-login @login-success="handleLoginStatus" />
+    <div v-if="!loggedIn" class="login-container">
+      <pod-login />
     </div>
 
-    <div v-if="successfulLogin" class="pod-chooseContainer">
-      <PodRegistration @pod-selected="handlePodSelected" />
+    <div v-if="loggedIn" class="pod-chooseContainer">
+      <PodRegistration />
+    </div>
+
+    <!-- Input field for custom cache path -->
+    <div class="custom-cache-container">
+      <div class="custom-cache-path">
+        <div class="custom-cache-guide">
+          <v-icon>mdi-help-circle</v-icon>
+          <v-tooltip class="tool-tip" activator="parent" location="top"
+            >Provide a custom query cache URL to use (defaults to the connected
+            pod)
+          </v-tooltip>
+        </div>
+        <div class="custom-cache-checkbox">
+          <v-checkbox
+            v-model="useCustomCachePath"
+            label="Use Custom Cache Path"
+            hide-details
+          ></v-checkbox>
+        </div>
+        <div class="custom-cache-input">
+          <v-text-field
+            id="cachePathInput"
+            v-show="useCustomCachePath"
+            v-model="customCachePath"
+            label="Cache URL"
+            placeholder="Enter custom cache location (optional)"
+            :disabled="!useCustomCachePath"
+            variant="outlined"
+            dense
+            hide-details
+            @blur="validateCustomCachePath"
+          ></v-text-field>
+        </div>
+      </div>
+      <div v-if="cacheError != null" class="custom-cache-error">
+        <span>{{ cacheError }}</span>
+      </div>
     </div>
   </div>
+
   <div class="general-container">
     <!-- Left Navigation Bar -->
     <div class="nav-container">
@@ -110,7 +148,7 @@
               Cancel Query
             </button>
 
-            <div class="save-query" v-show="currentPod !== ''">
+            <div class="save-query" v-show="selectedPodUrl !== ''">
               <v-checkbox
                 class="save-checkbox"
                 v-model="saveQuery"
@@ -158,16 +196,35 @@
         </ul>
       </div>
 
+      <div v-if="deletionSuccess" class="success-popup">
+        <span>Cached record: {{ deletedQuery }} was deleted successfully!</span>
+        <button @click="deletionSuccess = false" class="close-popup-button">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+
       <div v-if="currentView === 'previousQueries'">
-        <span class="no-pod" v-if="currentPod == ''"
+        <span class="no-pod" v-if="selectedPodUrl == ''"
           >Please connect your pod if you wish to look at your Query Cache...
           <br />(simply click the "select pod" button above.)</span
         >
+        <span class="no-pod" v-if="selectedPodUrl !== '' && !queriesCacheExists"
+          >No query cache found in your pod. To create a query cache, simply
+          execute a query with the <b>"Save Query?"</b> checkbox checked.</span
+        >
         <ul>
-          <div class="cached-container" v-if="currentPod != ''">
+          <div
+            class="cached-container"
+            v-if="selectedPodUrl != '' && queriesCacheExists"
+            :key="renderKey"
+          >
             <span class="cached-title">Cached Queries</span>
 
             <!-- Iterates over list queries in Query Cache -->
+            <div class="no-cached-queries" v-if="cachedQueries.length === 0">
+              <span> There are no saved queries in your cache... <br />To create a query cache, simply
+                execute a query with the <b>"Save Query?"</b> checkbox checked.</span>
+            </div>
             <li v-for="(query, index) in cachedQueries" :key="index">
               <div class="card-panel folder">
                 <div class="folder-header">
@@ -204,7 +261,12 @@
                   <div class="query-file-container">
                     <span class="user-tag">Query File: <br /></span>
                     <button
-                      @click="fetchQuery(cachedQueries[index].hash)"
+                      @click="
+                        fetchQuery(
+                          cachedQueries[index].hash,
+                          selectedPodUrl + 'querycache/'
+                        )
+                      "
                       class="drop-down"
                     >
                       <div class="query-file-info">
@@ -232,7 +294,12 @@
                     <span class="user-tag">Results File: <br /></span>
                     <div class="query-results">
                       <button
-                        @click="fetchResults(cachedQueries[index].hash)"
+                        @click="
+                          fetchResults(
+                            cachedQueries[index].hash,
+                            selectedPodUrl + 'querycache/'
+                          )
+                        "
                         class="drop-down"
                       >
                         <span class="the-user"
@@ -299,135 +366,14 @@
                     </ul>
                   </div>
 
-                  <!-- TODO: Need top level for the whole query cache -->
-                  <!-- TODO: Then a lower level for each query hash -->
-                  <!-- For sharing cached query data -->
-                  <div class="sharing-prompt">
+                  <!-- TODO: Add deletion of cached query function here -->
+                  <div class="edit-delete">
                     <button
-                      @click="toggleShared(), getSpecificCacheAclData()"
-                      class="sharing-button full-width"
+                      @click="confirmAndDelete(query.hash)"
+                      class="delete-button"
                     >
-                      <span>Resource Sharing Information</span>
-                      <i class="material-icons not-colored info-icon">
-                        {{
-                          showSharing
-                            ? "keyboard_arrow_down share"
-                            : "chevron_right share"
-                        }}</i
-                      >
+                      Delete
                     </button>
-                    <div
-                      id="permissionsBox"
-                      class="form-container"
-                      v-if="showSharing"
-                    >
-                      <!-- For the case that a container/resource has an existing .acl -->
-                      <div id="aclExists" v-if="hasAcl !== null">
-                        <div>
-                          <!-- <span id="permissionsInstructions"
-                            >Current Access Rights
-                            <button
-                              @click="getSpecificAclData(url)"
-                              class="icon-button right"
-                            >
-                              <i class="material-icons not-colored right"
-                                >refresh</i
-                              >
-                              <v-tooltip
-                                class="tool-tip"
-                                activator="parent"
-                                location="end"
-                                >Refresh access rights
-                              </v-tooltip>
-                            </button></span
-                          > -->
-                        </div>
-                        <div id="currentPermissions">
-                          <li
-                            class="access-item"
-                            v-for="(agent, inde) in hasAccess"
-                            :key="inde"
-                          >
-                            <div class="user-id">
-                              <div class="left-content">
-                                <span class="user-tag">Agent:<br /></span>
-                                <span class="the-user"
-                                  ><i>{{ inde }}</i>
-                                </span>
-                              </div>
-                              <!-- <button
-                                @click="copyText(inde.toString())"
-                                class="icon-button right"
-                              > -->
-                              <i class="material-icons not-colored right"
-                                >content_copy</i
-                              >
-                              <v-tooltip
-                                class="tool-tip"
-                                activator="parent"
-                                location="left"
-                                >Copy WebID to clipboard
-                              </v-tooltip>
-                              <!-- </button> -->
-                            </div>
-                            <span class="permissions-tag"
-                              >Permissions:<br
-                            /></span>
-                            <ul
-                              v-for="(permission, ind) in hasAccess[inde]"
-                              :key="ind"
-                            >
-                              <div
-                                class="permission-item"
-                                :class="{
-                                  'true-color': permission,
-                                  'false-color': !permission,
-                                }"
-                              >
-                                <span class="permission-label">{{ ind }}</span>
-                                <span class="permission-value">
-                                  <i>({{ permission }})</i>
-                                  <i class="material-icons right">
-                                    {{ permission ? "check" : "dangerous" }}
-                                  </i>
-                                </span>
-                              </div>
-                            </ul>
-                          </li>
-                          <span id="withPermissions"> </span>
-                        </div>
-                      </div>
-
-                      <!-- For the case the query cache does not have an existing .acl -->
-                      <div
-                        id="noAclExists"
-                        v-if="hasAcl === null && !cannotMakeAcl"
-                      >
-                        <v-alert
-                          type="warning"
-                          title="There is no .acl (permissions file) for the query cache"
-                          >Click the button below to create and initalize
-                          one.</v-alert
-                        >
-                        <button @click="makeNewAcl()" class="new-acl">
-                          <span>Generate .acl</span>
-                        </button>
-                      </div>
-
-                      <!-- For the case that an .acl connot be initialized (e.g. for a file) -->
-                      <div
-                        id="noAclMade"
-                        v-if="hasAcl === null && cannotMakeAcl"
-                      >
-                        <v-alert
-                          type="error"
-                          title="Cannot initialize an .acl for this item"
-                          closable
-                          >The .acl of the container this file is located within
-                          will be used for access controls.</v-alert
-                        >
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -503,7 +449,7 @@
             <div class="query-file-container">
               <span class="user-tag">Query File: <br /></span>
               <button
-                @click="fetchQuery(currentCachedQueryHash)"
+                @click="fetchQuery(currentCachedQueryHash, cachePath)"
                 class="drop-down"
               >
                 <div class="query-file-info">
@@ -544,10 +490,39 @@
         </div>
       </div>
 
-      <!-- Display Result Count -->
-
-      <div class="table-container" v-show="!loading && resultsForYasr != null">
+      <!-- Display results of query -->
+      <div
+        class="table-container"
+        v-show="
+          !loading &&
+          resultsForYasr != null &&
+          resultsForYasr.results.bindings.length > 0
+        "
+      >
         <div id="yasr-container"></div>
+      </div>
+      <!-- Display message if there were no results -->
+      <div
+        class="null-results"
+        v-show="
+          !loading &&
+          resultsForYasr != null &&
+          resultsForYasr.results.bindings.length === 0
+        "
+      >
+        <span>This query produced no results 🙃</span>
+      </div>
+
+      <!-- Display error if there was an error -->
+      <div class="null-results" v-show="!loading && queryError != null">
+        <span
+          >There was a(n)
+          <b
+            ><i>{{ queryError }}</i></b
+          >
+          error when executing this query <br />(open the browser console to see
+          more details.)</span
+        >
       </div>
     </div>
   </div>
@@ -562,7 +537,6 @@ import Yasqe from "@triply/yasqe";
 import "@triply/yasqe/build/yasqe.min.css";
 import Yasr from "@triply/yasr";
 import "@triply/yasr/build/yasr.min.css";
-import { isLoggedin } from "./login";
 import {
   ensureCacheContainer,
   createQueriesTTL,
@@ -578,25 +552,21 @@ import {
   CacheOutput,
   cleanSourcesUrls,
   QueryResultJson,
+  ComunicaSources,
+  executeQueryInMainThread,
 } from "./queryPod";
 import {
   fetchPermissionsData,
   fetchAclAgents,
   fetchPublicAccess,
 } from "./getData";
-import {
-  changeAclAgent,
-  changeAclPublic,
-  checkUrl,
-  generateAcl,
-  createInboxWithACL,
-  updateSharedWithMe,
-  updateSharedWithOthers,
-} from "./privacyEdit";
+import { deleteFromPod, deleteThing } from "./fileUpload";
+import { generateAcl } from "./privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataQueryGuide from "./Guides/DataQueryGuide.vue";
 import { toRaw, shallowRef } from "vue";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   components: {
@@ -610,8 +580,8 @@ export default {
       yasqe: shallowRef<Yasqe | null>(null),
       yasr: shallowRef<Yasr | null>(null),
       resultsForYasr: null as QueryResultJson | null,
+      queryError: null as Error | null,
       successfulLogin: false as boolean,
-      currentPod: "" as string,
       currentView: "newQuery" as "newQuery" | "previousQueries",
       selectedExample: null as any,
       loadExampleQuery: false as boolean,
@@ -668,7 +638,30 @@ export default {
       showResultQuery: false as boolean,
       cachedQueryIndex: null as number | null,
       worker: null as Worker | null,
+      containsSolidSources: false as boolean,
+      customCachePath: "" as string,
+      useCustomCachePath: false as boolean,
+      cacheError: null as string | null,
+      invalidUrl: false as boolean,
+      authenticationFailed: false as boolean,
+      deletedQuery: null as string | null,
+      deletionSuccess: null as boolean | null,
+      renderKey: 0 as number,
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
   },
   methods: {
     handleDelay() {
@@ -726,7 +719,7 @@ export default {
 
       for (const path in demonstratorFiles) {
         const content = await demonstratorFiles[path]();
-        const lines = content.split("\n");
+        const lines = (content as string).split("\n");
         const name = path.split("/").pop()?.replace(".rq", "") || "";
 
         let sources: string[] = [];
@@ -765,20 +758,12 @@ export default {
       y.focus();
     },
 
-    /* Takes in the emitted value from PodLogin.vue */
-    handleLoginStatus(loginSuccess) {
-      this.successfulLogin = loginSuccess;
+    /* Determines whether sources contain a Solid source and reflects this in boolean */
+    checkSolidSources(querySources: ComunicaSources[]) {
+      this.containsSolidSources = querySources.some(
+        (source) => source.context != null
+      );
     },
-    /* Checks if user is already logged in */
-    loginCheck() {
-      this.successfulLogin = isLoggedin();
-    },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod) {
-      this.currentPod = selectedPod;
-      this.possibleSources.unshift(`<${this.currentPod}>`);
-    },
-
     // Executes user provided query and saves it to querycache if specified
     async runExecuteQuery() {
       this.loading = true;
@@ -789,25 +774,65 @@ export default {
         return;
       }
 
+      // make sources into a ComunicaSources[]
+      const cleanedSources = cleanSourcesUrls(this.currentQuery.sources);
+      this.checkSolidSources(cleanedSources);
+
       try {
+        // reset query error
+        this.queryError = null;
+
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
-          this.cachePath = await ensureCacheContainer(this.currentPod);
+          // if the user provided a custom cache path, use that
+          if (this.useCustomCachePath && this.customCachePath) {
+            this.cachePath = await ensureCacheContainer(
+              this.selectedPodUrl,
+              this.webId,
+              this.customCachePath
+            );
+          } else {
+            // otherwise use default (connected pod)
+            this.cachePath = await ensureCacheContainer(
+              this.selectedPodUrl,
+              this.webId,
+              this.selectedPodUrl
+            );
+          }
+
+          // Catch error with accessing custom query cache location
+          if (this.cachePath.includes("Error")) {
+            this.cacheError =
+              "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+            this.loading = false;
+            return;
+          }
+
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
-            this.currentQuery.sources,
+            cleanedSources,
             this.cachePath
           );
 
           // If the output is a string, it means there was no matching entry in the cache
-          if (typeof this.currentQuery.output === "string") {
-            this.currentQuery.output = await this.executeQuery(
-              this.currentQuery.query,
-              this.currentQuery.sources
-            );
+          if (this.currentQuery.output === "no-cache") {
+            // if there are NOT solid sources use the Worker
+            if (!this.containsSolidSources) {
+              this.currentQuery.output = await this.executeQuery(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            } else {
+              // if there are Solid sources, use custom execution in main thread
+              this.currentQuery.output = await executeQueryInMainThread(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            }
           }
 
           // obtaining query cache hash if the cache contains a similar query
+          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -819,22 +844,13 @@ export default {
             );
           }
 
-          // if the result of the query was null
-          if (
-            !this.currentQuery.output.resultsOutput ||
-            !this.currentQuery.output.resultsOutput.results
-          ) {
-            this.currentQuery.output.resultsOutput = {
-              head: { vars: [] },
-              results: { bindings: [] },
-            };
-          }
-
           // pass found results to YASR (with save query selected)
           this.resultsForYasr = this.currentQuery.output.resultsOutput;
 
+          this.currentQuery.output = toRaw(this.currentQuery.output);
           // If there is NOT an equivalent query in cache, then add it to cache
           if (
+            this.currentQuery.output.provenanceOutput === null ||
             this.currentQuery.output.provenanceOutput.algorithm != "equivalence"
           ) {
             this.currHash = await createQueriesTTL(
@@ -854,32 +870,76 @@ export default {
             );
           }
         } else {
-          // If the Save Query button was not selected
-          if (this.currentPod !== "") {
-            // if there is a pod connected, try to use cache
-            this.cachePath = await ensureCacheContainer(this.currentPod);
+          // If the Save Query button was not selected (pod is connected)
+          if (this.selectedPodUrl !== "" || this.customCachePath !== "") {
+            // if the user provided a custom cache path, use that
+            if (this.useCustomCachePath && this.customCachePath) {
+              this.cachePath = await ensureCacheContainer(
+                this.selectedPodUrl,
+                this.webId,
+                this.customCachePath
+              );
+            } else {
+              // otherwise use default (connected pod)
+              this.cachePath = await ensureCacheContainer(
+                this.selectedPodUrl,
+                this.webId,
+                this.selectedPodUrl
+              );
+            }
+
+            // Catch error with accessing custom query cache location
+            if (this.cachePath.includes("Error")) {
+              this.cacheError =
+                "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+              this.loading = false;
+              return;
+            }
+
+            // Execute Query
             this.currentQuery.output = await executeQueryWithPodConnected(
               this.currentQuery.query,
-              this.currentQuery.sources,
+              cleanedSources,
               this.cachePath
             );
 
             // If the output is a string, it means there was no matching entry in the cache
-            if (typeof this.currentQuery.output === "string") {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                this.currentQuery.sources
-              );
+            if (this.currentQuery.output === "no-cache") {
+              // if there are NOT solid sources use the Worker
+              if (!this.containsSolidSources) {
+                this.currentQuery.output = await this.executeQuery(
+                  this.currentQuery.query,
+                  cleanedSources
+                );
+              } else {
+                // if there are Solid sources, use custom execution in main thread
+                this.currentQuery.output = await executeQueryInMainThread(
+                  this.currentQuery.query,
+                  cleanedSources
+                );
+              }
             }
           } else {
-            // if there is no pod connected, use the default query execution
-            this.currentQuery.output = await this.executeQuery(
-              this.currentQuery.query,
-              this.currentQuery.sources
-            );
+            // if there is NO pod connected, use the default query execution
+            this.cacheError = this.currentQuery.output;
+
+            // if there are NOT solid sources --> use the Worker
+            if (!this.containsSolidSources) {
+              this.currentQuery.output = await this.executeQuery(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            } else {
+              // if there are Solid sources, use custom execution in main thread
+              this.currentQuery.output = await executeQueryInMainThread(
+                this.currentQuery.query,
+                cleanedSources
+              );
+            }
           }
 
           // try to obtain cache hash if the cache contains a similar query
+          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -890,7 +950,12 @@ export default {
               this.currentQuery.output.provenanceOutput.id.value
             );
           }
-
+        }
+        // if there was an error report it here
+        if (this.currentQuery.output instanceof Error) {
+          this.queryError = this.currentQuery.output.message;
+        } else {
+          // if the query was empty assign it empty bindings
           if (
             !this.currentQuery.output.resultsOutput ||
             !this.currentQuery.output.resultsOutput.results
@@ -900,9 +965,9 @@ export default {
               results: { bindings: [] },
             };
           }
-          // pass found results to YASR (if save query was not selected)
-          this.resultsForYasr = this.currentQuery.output.resultsOutput;
         }
+        // pass found results to YASR (if save query was not selected)
+        this.resultsForYasr = this.currentQuery.output.resultsOutput;
       } catch (err) {
         if (this.cancelRequested) {
           console.log("Query canceled by user.");
@@ -922,16 +987,15 @@ export default {
      */
     async executeQuery(
       query: string,
-      providedSources: string[]
-    ): Promise<CacheOutput | null> {
+      providedSources: ComunicaSources[]
+    ): Promise<CacheOutput | null | Error> {
       this.cancelRequested = false;
-      const cleanedSources = cleanSourcesUrls(providedSources);
 
       this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
         type: "module",
       });
 
-      return new Promise<CacheOutput | null>((resolve, reject) => {
+      return new Promise<CacheOutput | null | Error>((resolve, reject) => {
         this.worker!.onmessage = (e: MessageEvent) => {
           const { data } = e as { data: any };
           switch (data?.type) {
@@ -943,9 +1007,8 @@ export default {
               });
               break;
             case "error":
-              console.log("Worker error:", data.error);
               this.cleanupWorker();
-              resolve(null); // or reject(data.error) if you prefer
+              resolve(new Error(data.error.message)); // or reject(data.error) if you prefer
               break;
             case "cancelled":
               this.cleanupWorker();
@@ -958,15 +1021,14 @@ export default {
         };
         // for an error or cancellation
         this.worker!.onerror = (err) => {
-          console.log("Worker error:", err);
           this.cancelQuery();
-          reject(err);
+          resolve(err as any);
         };
         // starts a run
         this.worker.postMessage({
           type: "run",
           query,
-          sources: cleanedSources,
+          sources: providedSources,
         });
       });
     },
@@ -1064,6 +1126,56 @@ export default {
       );
     },
 
+    // Methods for the deletion of a query cache entry
+    async confirmAndDelete(queryHash: string) {
+      const queryFile = `${this.selectedPodUrl}querycache/${queryHash}.rq`;
+      const resultsFile = `${this.selectedPodUrl}querycache/${queryHash}.json`;
+
+      const message =
+        "Are you sure you want to delete this cache entry? This action cannot be undone.";
+      const userConfirmed = window.confirm(message);
+
+      if (userConfirmed) {
+        const removedCacheRecord = await this.removeCachedRecord(queryHash);
+        const removedQuery = await this.deleteResource(queryFile);
+        const removedResults = await this.deleteResource(resultsFile);
+
+        if (removedCacheRecord && removedQuery && removedResults) {
+          this.deletionSuccess = true;
+          await this.loadCache(); // Refresh the cache view
+          this.deletedQuery = queryHash;
+          this.renderKey += 1; // Force re-render
+        } else {
+          this.deletionSuccess = false;
+          console.log("Failed to delete one or more components of the cache entry.");
+        }
+      } else {
+        console.log("Deletion canceled by the user.");
+      }
+    },
+
+    /*
+    Deleted the resource at the given URL.
+    */
+    async deleteResource(fileUrl: string): Promise<boolean> {
+      try {
+        return await deleteFromPod(fileUrl);
+      } catch (err) {
+        console.error(`Error deleting resource: ${fileUrl}`, err);
+        alert(`An error occurred while deleting resource: ${fileUrl}`);
+        return false;
+      }
+    },
+
+    async removeCachedRecord(queryHash: string) {
+      // remove the record from queries.ttl
+      const queriesttlUpdate = await deleteThing(
+        this.selectedPodUrl + "querycache/queries.ttl",
+        queryHash
+      );
+      return queriesttlUpdate;
+    },
+
     // TODO: Sharing of query results (maybe just the whole container?)
 
     async previousQueriesView() {
@@ -1072,12 +1184,12 @@ export default {
     },
     async loadCache() {
       this.queriesCacheExists = await getStoredTtl(
-        this.currentPod + "querycache/queries.ttl"
+        this.selectedPodUrl + "querycache/queries.ttl"
       );
       if (this.queriesCacheExists) {
         try {
           this.cachedQueries = await getCachedQueries(
-            this.currentPod + "querycache/queries.ttl"
+            this.selectedPodUrl + "querycache/queries.ttl"
           );
         } catch (err) {
           console.log("Error fetching queries:", err);
@@ -1094,18 +1206,16 @@ export default {
       this.showRetrievedQuery = !this.showRetrievedQuery;
     },
     // retrieves cached results for display
-    async fetchResults(hash: string) {
+    async fetchResults(hash: string, cacheLoc: string) {
       const retrievedQueryResults = await fetchSparqlJsonFileData(
-        `${this.currentPod}querycache/${hash}.json`
+        `${cacheLoc}/${hash}.json`
       );
       this.retrievedResults = toRaw(retrievedQueryResults);
       this.togglRetrievedResults();
     },
     // retrieves cached query for display
-    async fetchQuery(hash: string) {
-      this.retrievedQuery = await fetchQueryFileData(
-        `${this.currentPod}querycache/${hash}.rq`
-      );
+    async fetchQuery(hash: string, cacheLoc: string) {
+      this.retrievedQuery = await fetchQueryFileData(`${cacheLoc}/${hash}.rq`);
       this.togglRetrievedQuery();
     },
 
@@ -1115,7 +1225,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificCacheAclData() {
-      const cacheUrl = this.currentPod + "querycache/";
+      const cacheUrl = this.selectedPodUrl + "querycache/";
       this.hasAcl = await fetchPermissionsData(cacheUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(cacheUrl);
@@ -1133,7 +1243,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificQueryAclData(queryHash: string) {
-      const queryUrl = this.currentPod + "querycache/" + queryHash;
+      const queryUrl = this.selectedPodUrl + "querycache/" + queryHash;
       this.hasAcl = await fetchPermissionsData(queryUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(queryUrl);
@@ -1151,7 +1261,7 @@ export default {
      * @param path the URL of the resource or container for which an .acl is to be made
      */
     async makeNewAcl() {
-      const cacheUrl = this.currentPod + "querycache/";
+      const cacheUrl = this.selectedPodUrl + "querycache/";
       try {
         await generateAcl(cacheUrl, this.webId);
         await this.getSpecificCacheAclData();
@@ -1170,6 +1280,18 @@ export default {
         }
       }
       return prefixes;
+    },
+    validateCustomCachePath() {
+      if (this.useCustomCachePath && this.customCachePath) {
+        try {
+          new URL(this.customCachePath);
+          this.cacheError = null; // Clear error if valid
+        } catch {
+          this.cacheError = "Invalid URL. Please enter a valid URL.";
+        }
+      } else {
+        this.cacheError = null; // Clear error if not using custom path
+      }
     },
   },
   watch: {
@@ -1205,14 +1327,10 @@ export default {
       showQueryButton: false,
     });
     this.yasqe.setValue(this.currentQuery.query);
-
     this.yasqe.on("change", (instance) => {
       this.currentQuery.query = instance.getValue();
     });
 
-    setTimeout(() => {
-      this.loginCheck();
-    }, 500);
     setTimeout(() => {
       this.handleDelay();
     }, 520);
@@ -1232,7 +1350,7 @@ body {
   padding: 20px;
   background: #445560;
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-1);
 }
 .tool-tip {
   font-family: "Oxanium", monospace;
@@ -1240,7 +1358,7 @@ body {
 
 /* Title bar */
 .title-container {
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   margin: 0.5rem 0.5rem 0 0.5rem;
 }
@@ -1250,6 +1368,7 @@ body {
   font-weight: 500;
   padding-left: 20px;
   padding-right: 20px;
+  color: var(--text-primary);
 }
 .login-container {
   margin: 0.5rem 0.25rem 0 0.25rem;
@@ -1258,7 +1377,7 @@ body {
 /* loading spinner for login-check */
 .loading-spinner-container {
   display: flex;
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 6px;
   align-items: center;
   justify-content: flex-start;
@@ -1272,28 +1391,72 @@ body {
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.5px;
+  color: var(--text-primary);
 }
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
   padding: 0 0 0 1rem;
   margin: 0.5rem 0.5rem 0 0.5rem;
 }
-
+.custom-cache-container {
+  background-color: var(--bg-secondary);
+  margin: 0 0.5rem 0 0.5rem;
+  border-radius: 6px;
+}
+.custom-cache-path {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.custom-cache-guide {
+  margin-left: 1rem;
+  color: var(--text-muted);
+}
+.custom-cache-checkbox {
+  min-width: fit-content;
+  margin-left: 1rem;
+  padding: 0 0.5rem;
+  color: var(--text-secondary);
+}
+.custom-cache-input {
+  width: 100%;
+  margin-right: 1rem;
+  padding: 0.5rem;
+  color: var(--text-secondary);
+}
+.custom-cache-error {
+  display: flex;
+  font-family: "Oxanium", monospace;
+  padding: 0.5rem 0;
+  justify-content: center;
+}
+.custom-cache-error span {
+  padding: 0.5rem;
+  border-radius: 6px;
+  background-color: var(--danger);
+  color: var(--main-white);
+}
 /* Whole nav and query container */
 .general-container {
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   margin: 0.5rem;
   display: flex;
 }
 
 /* Left nav bar */
+.general-container :deep(.v-input__details) {
+  display: none !important;
+}
 .nav-container {
   display: flex;
-  background-color: #28353e;
+  background-color: var(--panel);
+  border: 2px solid var(--border);
   border-radius: 8px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
@@ -1304,37 +1467,38 @@ body {
   padding: 10px;
   height: 100%;
   overflow: auto;
+  color: var(--text-secondary);
 }
 .nav-container li span {
   font-size: 18pt;
   font-weight: bold;
   padding: 10px 8px 4px 8px;
   text-decoration: none;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--border);
 }
 #top-button {
   margin-top: 10px;
 }
 .nav-container li button {
   display: block;
-  color: #ede7f6;
+  color: var(--text-secondary);
   width: 100%;
   border-radius: 4px;
   padding: 0.8rem 1.2rem;
   text-decoration: none;
 }
 .nav-container li button.active {
-  background-color: #04aa6d;
-  color: white;
+  background-color: var(--success);
+  color: var(--main-white);
 }
 .nav-container li button:hover:not(.active) {
-  background-color: #555;
-  color: white;
+  background-color: var(--hover);
+  color: var(--text-muted);
   width: 100%;
 }
 .nav-container .highlight {
-  background-color: #754ff6;
-  color: #ede7f6;
+  background-color: var(--primary);
+  color: var(--main-white);
 }
 
 /* Query elements */
@@ -1370,6 +1534,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  color: var(--text-secondary);
 }
 .top-container .top-label span {
   display: flex;
@@ -1384,76 +1549,83 @@ body {
 }
 /* Query Container Customizations */
 #yasqe-container {
-  border: 3px solid #1e1e1e;
+  border: 3px solid var(--yasqe-bg);
   border-radius: 8px;
   margin-bottom: 1rem;
 }
 #yasqe-container :deep(.CodeMirror-gutters) {
-  background-color: #1e1e1e;
+  background-color: var(--yasqe-bg);
 }
 #yasqe-container :deep(.resizeWrapper) {
-  background-color: #1e1e1e;
+  background-color: var(--yasqe-bg);
 }
 #yasqe-container :deep(.CodeMirror) {
-  background-color: #28353e;
-  border: 1px solid #1e1e1e;
+  background-color: var(--yasqe-bg-2);
+  border: 1px solid var(--yasqe-bg);
   color: #ede7f6;
 }
 #yasqe-container :deep(.CodeMirror-linenumber) {
   padding: 0;
 }
 #yasqe-container :deep(.notification.notif_property) {
-  background-color: #28353e;
+  background-color: var(--yasqe-bg);
   padding: 0;
   color: #a9a7ad;
 }
 #yasqe-container :deep(.notification.active) {
-  background-color: #28353e;
+  background-color: var(--yasqe-bg);
   padding: 0;
-  color: #a9a7ad;
+  color: var(--text-muted);
 }
 #yasqe-container :deep(.yasqe_buttons) {
   display: none;
 }
 /* TODO: Change colors to look nicer */
 #yasqe-container :deep(.cm-keyword) {
-  color: #c792ea; /* Example: purple for keywords like SELECT, WHERE */
+  color: var(
+    --yasqe-keyword
+  ); /* Example: purple for keywords like SELECT, WHERE */
 }
 #yasqe-container :deep(.cm-atom) {
-  color: #f78c6c; /* Example: orange for atoms like 'a' */
+  color: var(--yasqe-atom); /* Example: orange for atoms like 'a' */
 }
 #yasqe-container :deep(.cm-variable-2) {
-  color: #82aaff; /* Example: blue for variables like ?s */
+  color: var(--yasqe-variable-2); /* Example: blue for variables like ?s */
 }
 #yasqe-container :deep(.cm-string) {
-  color: #c3e88d; /* Example: green for string literals */
+  color: var(--yasqe-string); /* Example: green for string literals */
 }
 #yasqe-container :deep(.cm-string-2) {
-  color: #ff5370; /* Example: red for IRI's like <http://...> */
+  color: var(--yasqe-string-2); /* Example: red for IRI's like <http://...> */
 }
 #yasqe-container :deep(.cm-variable-3) {
-  color: #a0fa87; /* Example: red for IRI's like <http://...> */
+  color: var(--yasqe-variable-3); /* Example: red for IRI's like <http://...> */
 }
 #yasqe-container :deep(.cm-number) {
-  color: #ede7f6; /* Example: red for IRI's like <http://...> */
+  color: var(--yasqe-number); /* Example: red for IRI's like <http://...> */
 }
 #yasqe-container :deep(.cm-comment) {
-  color: #a9a7ad; /* Example: grey for comments */
+  color: var(--yasqe-comment); /* Example: grey for comments */
 }
 #yasqe-container :deep(.cm-operator) {
-  color: #89ddff; /* Example: light blue for operators */
+  color: var(--yasqe-operator); /* Example: light blue for operators */
 }
 #yasqe-container :deep(.cm-meta) {
-  color: #ffcb6b; /* Example: yellow for PREFIX */
+  color: var(--yasqe-meta); /* Example: yellow for PREFIX */
+}
+#yasqe-container :deep(.cm-punc) {
+  color: var(--text-primary); /* Example: yellow for PREFIX */
 }
 #yasqe-container :deep(.cm-matchhighlight) {
-  background-color: #5f5f5f; /* Example: yellow for PREFIX */
+  background-color: var(
+    --yasqe-matchhighlight
+  ); /* Example: yellow for PREFIX */
 }
 #yasqe-container :deep(.CodeMirror-cursor) {
-  border-left: 1px solid #ffcc00; /* Example: yellow cursor */
+  border-left: 1px solid var(--yasqe-cursor); /* Example: yellow cursor */
 }
 #yasqe-container :deep(.CodeMirror-selected) {
-  background: #545454; /* Example: dark grey for selection */
+  background: var(--yasqe-selected); /* Example: dark grey for selection */
 }
 
 /* source designation */
@@ -1462,12 +1634,14 @@ body {
   align-items: center;
   border-radius: 4px;
   margin: 0.2rem 0.2rem 0.4rem 0.2rem;
-  outline: #28353e 3px solid;
+  outline: 3px solid var(--yasqe-bg);
+  color: var(--text-secondary);
 }
 .source-selection span {
   font-size: 16pt;
   font-weight: 600;
   padding: 4px 8px 4px 8px;
+  color: var(--text-secondary);
 }
 .source-selection .autocomplete {
   padding: 0;
@@ -1495,36 +1669,41 @@ body {
 /* execute */
 .execute-button {
   padding: 8px 14px;
-  border: 2px solid #28353e;
+  border: 2px solid var(--yasqe-bg);
   border-radius: 8px;
+  color: var(--text-secondary);
 }
 .cancel-query {
   padding: 8px 14px;
-  border: 2px solid #28353e;
+  border: 2px solid var(--yasqe-bg);
   border-radius: 8px;
+  color: var(--text-secondary);
 }
 .query-container .execute-button:hover {
-  background-color: #754ff6;
+  background-color: var(--primary);
+  color: var(--main-white);
 }
 .query-container .execute-button:disabled {
-  background-color: #888;
+  background-color: var(--text-muted);
   cursor: not-allowed;
 }
 .sparql-guide {
   padding-left: 0.5rem;
   margin-left: auto;
+  color: var(--text-muted);
 }
 .clear-button {
   padding: 8px 14px;
   margin-right: 1rem;
-  border: 2px solid #28353e;
+  border: 2px solid var(--yasqe-bg);
   border-radius: 8px;
+  color: var(--text-secondary);
 }
 .query-container .clear-button:hover {
-  background-color: #ff7f7fbb;
+  background-color: var(--danger);
 }
 .query-container .clear-button:disabled {
-  background-color: #888;
+  background-color: var(--text-muted);
   cursor: not-allowed;
 }
 .save-query {
@@ -1532,16 +1711,18 @@ body {
   align-items: center;
   margin-left: 1rem;
   gap: 1rem;
+  color: var(--text-secondary);
 }
 .save-checkbox {
   padding: 0px 0px 0px 20px;
 }
 .save-info {
   padding: 0px 0px 0px 10px;
-  color: #a9aeb1;
+  color: var(--text-muted);
 }
 /* message in past queries when no pod is connected */
 .no-pod {
+  color: var(--text-secondary);
   display: block;
   text-align: center;
   font-size: 1.2rem;
@@ -1550,7 +1731,7 @@ body {
 
 /* Past Queries Display */
 .query-catalog {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin-top: 10px;
   display: flex;
@@ -1574,8 +1755,13 @@ body {
 .cached-title {
   font-size: 24px;
   font-weight: bold;
-  color: #ede7f6;
+  color: var(--text-secondary);
   margin-bottom: 20px;
+}
+.no-cached-queries {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  padding: 2rem;
 }
 /* Query List Items */
 ul {
@@ -1587,14 +1773,14 @@ ul {
   display: flex;
   flex-direction: column;
   width: 100%;
-  background-color: #28353e;
+  background-color: var(--bg);
   border-radius: 8px;
   padding: 16px;
   margin: 10px 0;
   transition: all 0.3s ease-in-out;
 }
 .folder:hover {
-  background-color: #37474f;
+  background-color: var(--panel);
   cursor: pointer;
 }
 /* Folder Header */
@@ -1620,7 +1806,7 @@ ul {
   font-family: "Oxanium", monospace;
   font-size: large;
   font-weight: 600;
-  color: white;
+  color: var(--text-secondary);
   transition: background 0.3s ease-in-out;
 }
 /* Ensure full-width coverage */
@@ -1648,26 +1834,26 @@ ul {
   flex-grow: 1;
   text-align: left;
   padding-left: 10px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 /* Query Details (Hidden by Default) */
 .specific-query {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #1e1e1e;
+  background: var(--panel);
   padding: 10px;
   margin-top: 10px;
   border-radius: 5px;
-  color: white;
+  color: var(--text-secondary);
 }
 /* Query Details Spacing */
 .specific-query div {
   padding: 8px;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border);
 }
 .specific-query div:last-child {
   border-bottom: none;
@@ -1675,11 +1861,11 @@ ul {
 /* Query Labels */
 .user-tag {
   font-weight: bold;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 /* Query Data */
 .the-user {
-  color: #90caf9;
+  color: var(--yasqe-variable-2);
   font-style: italic;
 }
 /* Query Sources */
@@ -1690,12 +1876,24 @@ ul {
   list-style-type: disc;
 }
 .query-sources a {
-  color: #ffab40;
+  color: var(--yasqe-keyword);
   text-decoration: none;
 }
 .query-sources a:hover {
   text-decoration: underline;
 }
+.edit-delete {
+  margin: 0.5rem 0 0 0;
+}
+.delete-button {
+  background-color: var(--danger);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem !important;
+}
+.delete-button:hover {
+  background-color: var(--hover);
+}
+
 
 /* Displayed SPARQL query from .rq file */
 .query-file-info {
@@ -1710,15 +1908,15 @@ ul {
 }
 /* SPARQL Code Box */
 .sparql-box {
-  background-color: #1e1e1e;
-  color: #dcdcdc;
+  background-color: var(--bg);
+  color: var(--text-secondary);
   padding: 15px;
   border-radius: 6px;
   font-family: "Courier New", monospace;
   font-size: 14px;
   overflow-x: auto;
   max-height: 250px;
-  border-left: 4px solid #754ff6;
+  border-left: 4px solid var(--primary);
 }
 /* Syntax Formatting */
 .sparql-box pre {
@@ -1729,13 +1927,36 @@ ul {
 .sparql-box code {
   display: block;
   padding: 5px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 /* Displayed query results from .json file */
 .query-results {
   display: flex;
   justify-content: space-between;
   width: 100%;
+}
+/* Deletion success pop-up */
+.success-popup {
+  font-family: "Oxanium", monospace;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: var(--success);
+  color: var(--main-white);
+  padding: 1rem;
+  border-radius: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-1);
+}
+.close-popup-button {
+  background: none;
+  border: none;
+  color: var(--main-white);
+  cursor: pointer;
+  margin-left: 1rem;
 }
 
 /* Container for the Table */
@@ -1746,9 +1967,9 @@ ul {
   border-radius: 6px;
   margin: 0 0.5rem 0.5rem 0.5rem;
   padding: 1rem;
-  background-color: #28353e;
-  color: #ede7f6;
-  scrollbar-color: #a9a7ad #1e1e1e;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  scrollbar-color: dark;
   scrollbar-width: thin;
 }
 /* Loading Spinner */
@@ -1778,6 +1999,18 @@ ul {
   }
 }
 
+/* No results */
+.null-results {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+  font-size: 14pt;
+  padding: 0.25rem;
+  text-align: center;
+}
+.null-results b {
+  color: var(--error);
+}
+
 /* Results */
 .results-container .results-text {
   font-size: 18pt;
@@ -1789,12 +2022,12 @@ ul {
 /* YASR Results Display Customizations */
 #yasr-container :deep(.yasr) {
   font-family: "Oxanium", monospace;
-  background-color: #1e1e1e;
-  color: #ede7f6 !important;
+  background-color: var(--yasqe-bg);
+  color: var(--text-secondary) !important;
   border-radius: 8px;
   padding: 0;
   margin-top: 0.5rem;
-  border: 2px solid #1e1e1e;
+  border: 2px solid var(--border);
 }
 #yasr-container :deep(.grip-container) {
   padding-top: 0.4rem;
@@ -1816,25 +2049,25 @@ ul {
   border-bottom: none;
 }
 #yasr-container :deep(.yasr_btn) {
-  color: #a9a7ad;
+  color: var(--text-secondary);
 }
 #yasr-container :deep(.yasr_btn.select_table.selected) {
-  color: #ede7f6 !important;
-  border-bottom: 3px solid #5728d9;
+  color: var(--text-secondary) !important;
+  border-bottom: 3px solid var(--primary);
 }
 #yasr-container :deep(.yasr_btn.select_response.selected) {
-  color: #ede7f6 !important;
-  border-bottom: 3px solid #5728d9;
+  color: var(--text-secondary) !important;
+  border-bottom: 3px solid var(--primary);
 }
 #yasr-container :deep(.yasr_btnGroup) {
-  color: #ede7f6 !important;
+  color: var(--text-secondary) !important;
 }
 #yasr-container :deep(.yasr_download_control) {
   margin-left: auto;
 }
 #yasr-container :deep(.tableControls div) {
   padding: 0 1rem 0 1.5rem;
-  border-left: 1px solid #f8f8f8;
+  border-left: 1px solid var(--bg-secondary);
 }
 #yasr-container :deep(.yasr_plugin_control label span) {
   margin: 0 0.5rem 0 0;
@@ -1842,29 +2075,29 @@ ul {
 #yasr-container :deep(.tableFilter) {
   padding: 0 0.5rem 0 0.5rem;
   margin-right: 0;
-  color: #ede7f6;
-  border-left: 1px solid #f8f8f8;
+  color: var(--text-secondary);
+  border-left: 1px solid var(--bg-secondary);
   text-align: center !important;
 }
 #yasr-container :deep(.pageSizeWrapper) {
   padding: 0 1rem 0 1.5rem !important;
   text-align: center !important;
-  border-right: 1px solid #f8f8f8;
+  border-right: 1px solid var(--bg-secondary);
 }
 #yasr-container :deep(.pageSizeWrapper select) {
   padding: 0;
   text-align: center !important;
-  color: #ede7f6;
-  background-color: #1e1e1e;
+  color: var(--text-secondary);
+  background-color: var(--yasqe-bg);
 }
 #yasr-container :deep(.yasr_external_ref_btn) {
   display: none;
 }
 #yasr-container :deep(.yasr_btn) {
-  color: #a9a7ad;
+  color: var(--text-secondary);
 }
 #yasr-container :deep(.yasr_btnGroup) {
-  color: #ede7f6 !important;
+  color: var(--text-secondary) !important;
 }
 #yasr-container :deep(.yasr_response_chip) {
   display: none;
@@ -1880,22 +2113,22 @@ ul {
   margin-bottom: 1rem;
 }
 #yasr-container :deep(ul.yasr_tabs li) {
-  background-color: #445560;
-  border: 1px solid #1e1e1e !important;
+  background-color: var(--bg);
+  border: 1px solid var(--border) !important;
   border-radius: 4px !important;
   margin-right: 0.5rem;
 }
 #yasr-container :deep(ul.yasr_tabs li.active) {
-  background-color: #754ff6;
+  background-color: var(--muted);
 }
 #yasr-container :deep(ul.yasr_tabs li span) {
-  color: #ede7f6 !important;
+  color: var(--text-secondary) !important;
 }
 /* Table results */
 #yasr-container :deep(.yasr_results) {
   border-radius: 6px;
   overflow-x: auto;
-  scrollbar-color: #a9a7ad #1e1e1e;
+  scrollbar-color: dark;
   scrollbar-width: thin;
 }
 #yasr-container :deep(.dataTable) {
@@ -1903,8 +2136,8 @@ ul {
   min-width: 100%;
 }
 #yasr-container :deep(thead tr th) {
-  background-color: #5728d9;
-  color: #ede7f6;
+  background-color: var(--primary);
+  color: var(--main-white);
   font-weight: bold;
   font-size: 13pt;
   padding: 12px 15px;
@@ -1913,19 +2146,19 @@ ul {
   white-space: normal;
 }
 #yasr-container :deep(tbody tr:nth-child(even)) {
-  background-color: #445560;
+  background-color: var(--bg);
 }
 #yasr-container :deep(tbody tr:nth-child(odd)) {
-  background-color: #2c363d;
+  background-color: var(--panel);
 }
 #yasr-container :deep(tbody tr:hover) {
-  background-color: #201054;
+  background-color: var(--border);
   cursor: pointer;
 }
 #yasr-container :deep(tbody tr td) {
   padding: 12px 15px;
   border: none;
-  border-top: 1px solid #4a4a4a;
+  border-top: 1px solid var(--border);
   white-space: normal; /* Allow cell content to wrap */
   overflow-wrap: break-word; /* Break long words to prevent overflow */
 }
@@ -1933,34 +2166,34 @@ ul {
   border-top: none;
 }
 #yasr-container :deep(tbody tr td .nonIri) {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 #yasr-container :deep(tbody tr td .iri) {
-  color: #ffab40;
+  color: var(--yasqe-keyword);
 }
 #yasr-container :deep(.CodeMirror-lines) {
-  background-color: #28353e;
+  background-color: var(--panel);
   text-decoration: none;
 }
 #yasr-container :deep(.CodeMirror-gutters) {
-  background-color: #1e1e1e;
+  background-color: var(--yasqe-bg);
 }
 #yasr-container :deep(.resizeWrapper) {
-  background-color: #1e1e1e;
+  background-color: var(--yasqe-bg);
 }
 #yasr-container :deep(.CodeMirror) {
-  background-color: #28353e;
-  border: 1px solid #1e1e1e;
-  color: #ede7f6;
+  background-color: var(--panel);
+  border: 1px solid var(--yasqe-bg);
+  color: var(--text-secondary);
 }
 #yasr-container :deep(.CodeMirror-linenumber) {
   padding: 0;
 }
 #yasr-container :deep(.cm-string) {
-  color: #baa6fc; /* Example: green for string literals */
+  color: var(--yasqe-string); /* Example: green for string literals */
 }
 #yasr-container :deep(.cm-property) {
-  color: #ff5370; /* Example: red for IRI's like <http://...> */
+  color: var(--yasqe-keyword); /* Example: red for IRI's like <http://...> */
 }
 #yasr-container :deep(.overlay_content) {
   border-radius: 6px;
@@ -1969,30 +2202,30 @@ ul {
   border-radius: 6px;
 }
 #yasr-container ::selection {
-  background: #5f5f5f; /* highlight background */
-  color: #ede7f6; /* highlighted text color */
+  background: var(--yasqe-selected); /* highlight background */
+  color: var(--yasqe-number); /* highlighted text color */
 }
 
 #yasr-container :deep(.dataTables_info) {
   padding-left: 0.5rem;
-  color: #a9a7ad;
+  color: var(--text-muted);
 }
 #yasr-container :deep(.paginate_button) {
-  color: #a9a7ad !important;
+  color: var(--text-muted) !important;
 }
 
 .cache-header {
   font-family: "Oxanium", monospace;
   display: flex;
   align-items: center;
-  background-color: #444;
+  background-color: var(--panel);
   border-radius: 6px;
 }
 .query-hash {
   display: flex;
   margin-right: auto;
   margin-left: 2rem;
-  color: #90caf9;
+  color: var(--yasqe-keyword);
   font-style: italic;
   font-size: 16pt;
 }
@@ -2035,35 +2268,35 @@ ul {
 }
 /* Header Styling */
 .result-table th {
-  background-color: #754ff6;
-  color: EDE7F6;
+  background-color: var(--primary);
   font-weight: bold;
+  color: var(--main-white);
 }
 /* Alternate Header colors */
 .result-table th:nth-child(even) {
-  background-color: #5423f6;
+  background-color: var(--primary-600);
 }
 /* Alternating Row Colors */
 .result-table tr:nth-child(even) {
-  background-color: #445560; /* Slightly lighter shade */
+  background-color: var(--bg);
 }
 .result-table tr:nth-child(odd) {
-  background-color: #2c363d; /* Slightly lighter shade */
+  background-color: var(--panel-elev);
 }
 /* Hover Effect */
 .result-table tr:hover {
-  background-color: #201054; /* Light blue highlight */
+  background-color: var(--hover); /* Light blue highlight */
   cursor: pointer;
 }
 
 /* Sharing of a cached query */
 .sharing-prompt {
-  background-color: #0d1115;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
 }
 .sharing-prompt:hover {
-  background-color: #764ff633;
+  background-color: var(--hover);
   transition: background-color 0.2s ease;
 }
 .sharing-button {
@@ -2075,7 +2308,7 @@ ul {
 .new-acl {
   padding: 0.25rem;
   margin-top: 5px;
-  background-color: #ede7f6;
+  background-color: var(--bg-secondary);
   color: #445560;
   border: none;
   cursor: pointer;

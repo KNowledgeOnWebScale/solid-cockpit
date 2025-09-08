@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
+
 body {
-  background-color: #a9a7ad;
+  background-color: var(--bg);
   margin: 0;
 }
 
@@ -8,11 +10,15 @@ body {
   flex-direction: column;
   min-height: 80vh;
   min-height: 80dvh;
-  color: #EDE7F6; /* This sets the text color inside the #app div to a dark grey */
+  color: var(--text);
 }
 
 #footer {
   display: flex;
   flex-direction: column;
   margin-top: auto;
+}
+
+.v-application, .v-overlay-container {
+  font-family: 'Oxanium', monospace;
 }

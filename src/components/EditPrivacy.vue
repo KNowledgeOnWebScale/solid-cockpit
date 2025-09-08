@@ -6,7 +6,7 @@
   />
 
   <!-- Title bar -->
-  <div class="content-container">
+  <div class="content-container" :key="renderKey">
     <div class="title-container">
       <nav class="title-nav">
         <!-- Title bar and icons -->
@@ -19,7 +19,124 @@
                 <a href="#!"><i class="material-icons">info</i></a>
               </li>
               <li>
-                <a href="#!"><i class="material-icons">notifications</i></a>
+                <button
+                  class="notification-button"
+                  @click="toggleNotifications"
+                >
+                  <i class="material-icons">
+                    {{
+                      hasNotifications ? "notifications" : "notifications_none"
+                    }}
+                    <i v-if="hasNotifications" class="badge"></i>
+                  </i>
+                </button>
+                <!-- Notifications dropdown data display -->
+                <div v-if="showNotifications" class="notifications-dropdown">
+                  <div class="notifications-content">
+                    <div class="notifications-header-container">
+                      <ul class="notifications-header">
+                        <div class="notifications-header-text">
+                          <li>
+                            <span class="notification-title"
+                              >Notifications:</span
+                            >
+                          </li>
+                          <li>
+                            <span class="notification-hint"
+                              >(See "Shared with me" for more details)</span
+                            >
+                          </li>
+                        </div>
+                        <li v-if="notifications.length != 0">
+                          <button
+                            class="mark-read"
+                            @click="markNotificationsRead"
+                          >
+                            Mark Read
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div
+                      class="no-notifications"
+                      v-if="notifications.length === 0"
+                    >
+                      <span
+                        >No new notifications</span
+                      >
+                    </div>
+                    <ul class="share-list">
+                      <li
+                        v-for="(item, index) in notifications"
+                        :key="index"
+                        class="card-panel folder compact"
+                      >
+                        <!-- Resource header -->
+                        <div class="row header">
+                          <i class="material-icons left not-colored">
+                            {{
+                              containerCheck(
+                                item.usersSharedWith[0].resourceUrl
+                              )
+                                ? "folder"
+                                : "description"
+                            }}
+                          </i>
+                          <span class="resource-hash mono">{{
+                            item.usersSharedWith[0].resourceUrl
+                          }}</span>
+                        </div>
+
+                        <!-- Users (always visible, condensed) -->
+                        <ul class="user-rows">
+                          <li
+                            v-for="(mode, i) in item.usersSharedWith"
+                            :key="i"
+                            class="user-row"
+                          >
+                            <span class="cell user">
+                              <i class="material-icons tiny not-colored"
+                                >person</i
+                              >
+                              <span class="truncate">
+                                {{
+                                  item.owner ===
+                                  "http://xmlns.com/foaf/0.1/Agent"
+                                    ? "Public"
+                                    : item.owner
+                                }}
+                              </span>
+                            </span>
+
+                            <span class="cell modes">
+                              <i class="material-icons tiny not-colored"
+                                >lock</i
+                              >
+                              <span class="chips">
+                                <span
+                                  v-for="(ac, ind) in mode.accessModes"
+                                  :key="ind"
+                                  class="chip"
+                                  >{{ ac.split("#")[1] }}</span
+                                >
+                              </span>
+                            </span>
+
+                            <span class="cell date">
+                              <i class="material-icons tiny not-colored"
+                                >schedule</i
+                              >
+                              <time :datetime="mode.created">{{
+                                formatDate(mode.created)
+                              }}</time>
+                            </span>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </li>
             </div>
           </ul>
@@ -29,11 +146,11 @@
 
     <!-- Choose Pod -->
     <div class="pod-chooseContainer">
-      <PodRegistration @pod-selected="handlePodSelected" />
+      <PodRegistration />
     </div>
 
     <!-- the side nav -->
-    <div class="body-container" v-if="currentPod !== ''">
+    <div class="body-container" v-if="selectedPodUrl !== ''">
       <div>
         <ul class="side-nav fixed floating #28353e z-depth-0">
           <li>
@@ -86,7 +203,7 @@
                 <!-- Browse existing path -->
                 <li class="container-choose">
                   <container-nav
-                    :currentPod="currentPod"
+                    :currentPod="selectedPodUrl"
                     @path-selected="handleSelectedContainer"
                   />
                 </li>
@@ -96,9 +213,16 @@
           <ul>
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
-              <div class="card-panel folder">
+              <div
+                v-if="loadingIndex === index"
+                class="loading-spinner-container"
+              >
+                <div class="spinner"></div>
+                <span class="loading-text">Loading access rights...</span>
+              </div>
+              <div v-else class="card-panel folder">
                 <button
-                  @click="toggleShared(index), getSpecificAclData(url)"
+                  @click="toggleShared(index), getSpecificAclData(url, index)"
                   class="icon-button full-width"
                 >
                   <i class="material-icons not-colored left">{{
@@ -132,7 +256,10 @@
                           <i class="material-icons not-colored right"
                             >refresh</i
                           >
-                          <v-tooltip class="tool-tip" activator="parent" location="end"
+                          <v-tooltip
+                            class="tool-tip"
+                            activator="parent"
+                            location="end"
                             >Refresh access rights
                           </v-tooltip>
                         </button></span
@@ -158,7 +285,10 @@
                             <i class="material-icons not-colored right"
                               >content_copy</i
                             >
-                            <v-tooltip class="tool-tip" activator="parent" location="left"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="left"
                               >Copy WebID to clipboard
                             </v-tooltip>
                           </button>
@@ -174,6 +304,7 @@
                               'true-color': permission,
                               'false-color': !permission,
                             }"
+                            :key="renderKey"
                           >
                             <span class="permission-label">{{ ind }}</span>
                             <span class="permission-value">
@@ -228,7 +359,10 @@
                           <label>
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Observe existing content
                             </v-tooltip>
                           </label>
@@ -238,7 +372,10 @@
                               v-model="permissions.append"
                             />
                             <span>Append</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Add to to existing content
                             </v-tooltip>
                           </label>
@@ -248,7 +385,10 @@
                               v-model="permissions.write"
                             />
                             <span>Write</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Change existing content + create new content
                             </v-tooltip>
                           </label>
@@ -258,7 +398,10 @@
                               v-model="permissions.control"
                             />
                             <span>Control</span>
-                            <v-tooltip class="tool-tip" activator="parent" location="top"
+                            <v-tooltip
+                              class="tool-tip"
+                              activator="parent"
+                              location="top"
                               >Change .acl permissions for the resource
                             </v-tooltip>
                           </label>
@@ -274,7 +417,10 @@
                               :class="{ highlight: accessType === 'Agent' }"
                             >
                               Agent
-                              <v-tooltip class="tool-tip" activator="parent" location="top"
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="top"
                                 >Change access for a specific WebId
                               </v-tooltip>
                             </button>
@@ -286,7 +432,10 @@
                               :class="{ highlight: accessType === 'Public' }"
                             >
                               Public
-                              <v-tooltip class="tool-tip" activator="parent" location="top"
+                              <v-tooltip
+                                class="tool-tip"
+                                activator="parent"
+                                location="top"
                                 >Change access for anyone
                               </v-tooltip>
                             </button>
@@ -429,11 +578,10 @@
       </div>
 
       <!-- "Shared with me" display -->
-      <!-- TODO: Fix this because emitted values are not working properly -->
       <div class="shared-with" v-if="navValue === 1">
         <SharedWith
           :currentOperation="currentDisplay"
-          :currentPod="currentPod"
+          :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
       </div>
@@ -442,7 +590,7 @@
       <div class="shared-with" v-if="navValue === 2">
         <SharedWith
           :currentOperation="currentDisplay"
-          :currentPod="currentPod"
+          :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
       </div>
@@ -451,37 +599,12 @@
 
   <!-- Use guide -->
   <div class="use-guide">
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="guide-container">
-      <h2 class="guide">Privacy Editing Guide</h2>
-
-      <hr class="line" />
-      <ol class="list-container">
-        <li class="req">Select the Pod you want to Browse.</li>
-
-        <li class="req">
-          Use the nav bar above the container/resource list to navigate between
-          containers
-        </li>
-
-        <li class="req">
-          Click the <i class="material-icons">lock</i> next to a container or
-          resource to see current access rights
-        </li>
-        <li class="req">
-          Select the <b>"Add access rights +"</b> section to adjust access for a
-          provided WebID
-        </li>
-        <li class="req">
-          Future work: The left nav bar pages, add filter functionality, and
-          functionality to the info/notifications icons
-        </li>
-      </ol>
-    </div>
+    <PrivacyEditingGuide />
   </div>
 </template>
 
 <script lang="ts">
+import PrivacyEditingGuide from "./Guides/PrivacyEditingGuide.vue";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
 import {
   changeAclAgent,
@@ -491,8 +614,11 @@ import {
   createInboxWithACL,
   updateSharedWithMe,
   updateSharedWithOthers,
+  getSharedWithMe,
+  sharedSomething,
+  SharedWithMeData,
+  saveNewAccessTime,
 } from "./privacyEdit";
-import { currentWebId } from "./login";
 import {
   fetchPermissionsData,
   fetchData,
@@ -504,6 +630,8 @@ import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import SharedWith from "./Styling/SharedWith.vue";
 import { ref } from "vue";
+import { useAuthStore } from "../stores/auth";
+
 interface Permissions {
   read: boolean;
   append: boolean;
@@ -520,83 +648,68 @@ export default {
     PodRegistration,
     ContainerNav,
     SharedWith,
+    PrivacyEditingGuide,
   },
   name: "PrivacyComponent",
-  data(): {
-    currentPod: string;
-    filters: string[];
-    filterValues: boolean[];
-    filterMenuOpen: boolean;
-    showSharedIndex: number | null;
-    showFormIndex: number | null;
-    userUrl: string;
-    userUrlInvalid: boolean;
-    submissionDone: boolean;
-    recordedOthers: boolean;
-    permissions: Permissions;
-    navValue: number;
-    permissionsString: string;
-    webId: string;
-    dirContents: WorkingData | null;
-    containerContents: WorkingData | null;
-    hasAcl: any; // Replace with a more specific type if available
-    cannotMakeAcl: boolean;
-    accessType: string;
-    currentLocation: string;
-    currentUrl: string | null;
-    urls: string[];
-    containerUrls: string[];
-    resourceUrls: string[];
-    inContainer: WorkingData | null;
-    newUrls: string[];
-    aclUrl: string;
-    postedMe: boolean;
-    hasAccess: AccessData;
-    publicAccess: { [permission: string]: boolean };
-    uploadedSharingDoc: string;
-    container: string[];
-    currentDisplay: string;
-  } {
+  data() {
     return {
-      currentPod: "",
-      filters: ["containers", "resources"],
-      filterValues: [true, true],
-      filterMenuOpen: false,
-      showSharedIndex: null,
-      showFormIndex: null,
-      userUrl: "",
-      userUrlInvalid: false,
-      submissionDone: false,
-      recordedOthers: false,
+      filters: ["containers", "resources"] as string[],
+      filterValues: [true, true] as boolean[],
+      filterMenuOpen: false as boolean,
+      showSharedIndex: null as number | null,
+      showFormIndex: null as number | null,
+      userUrl: "" as string,
+      userUrlInvalid: false as boolean,
+      submissionDone: false as boolean,
+      recordedOthers: false as boolean,
       permissions: {
         read: false,
         append: false,
         write: false,
         control: false,
-      },
-      navValue: 0,
-      permissionsString: "",
-      webId: "",
-      dirContents: null,
-      containerContents: null,
-      hasAcl: null,
-      cannotMakeAcl: false,
-      accessType: "Agent",
-      currentLocation: "",
-      currentUrl: null,
-      urls: [],
-      containerUrls: [],
-      resourceUrls: [],
-      inContainer: null,
-      newUrls: [],
-      aclUrl: "",
-      postedMe: false,
-      hasAccess: {},
-      publicAccess: {},
-      uploadedSharingDoc: "",
-      container: [],
-      currentDisplay: "default",
+      } as Permissions,
+      navValue: 0 as number,
+      permissionsString: "" as string,
+      dirContents: null as WorkingData | null,
+      containerContents: null as WorkingData | null,
+      hasAcl: null as any, // Replace with a more specific type if available
+      cannotMakeAcl: false as boolean,
+      accessType: "Agent" as string,
+      currentLocation: "" as string,
+      currentUrl: null as string | null,
+      urls: [] as string[],
+      containerUrls: [] as string[],
+      resourceUrls: [] as string[],
+      inContainer: null as WorkingData | null,
+      newUrls: [] as string[],
+      aclUrl: "" as string,
+      postedMe: false as boolean,
+      hasAccess: {} as AccessData,
+      publicAccess: {} as { [permission: string]: boolean },
+      uploadedSharingDoc: "" as string,
+      container: [] as string[],
+      currentDisplay: "default" as string,
+      loading: false as boolean,
+      loadingIndex: null as number | null,
+      renderKey: 0 as number,
+      notifications: [] as sharedSomething[],
+      showNotifications: false as boolean,
+      hasNotifications: false as boolean,
     };
+  },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
   },
   methods: {
     /*
@@ -626,7 +739,7 @@ export default {
           return segments[segments.length - 1] + "/";
         });
       // for navigating up a directory path (not possible when in root directory)
-      if (currentDir !== this.currentPod) {
+      if (currentDir !== this.selectedPodUrl) {
         newUrlLst.push("/..");
       }
       return newUrlLst.sort((a, b) => a.length - b.length);
@@ -696,6 +809,7 @@ export default {
       } else {
         this.showSharedIndex = index; // Show the form for the clicked item
       }
+      this.showFormIndex = null;
     },
     toggleForm(index: number) {
       if (this.showFormIndex === index) {
@@ -723,7 +837,7 @@ export default {
      * Method for creating an inbox/ container in a Pod if it does not already exist
      */
     createInbox() {
-      createInboxWithACL(this.currentPod, this.webId);
+      createInboxWithACL(this.selectedPodUrl, this.webId);
     },
 
     /**
@@ -751,6 +865,8 @@ export default {
         this.permissionsString = "No / ";
       }
 
+      this.loading = true; // Start loading
+
       // for Agent ACL changes
       if (this.accessType === "Agent") {
         this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
@@ -768,7 +884,7 @@ export default {
 
           // write changes to current user's sharedWithOthers.ttl file
           this.recordedOthers = await updateSharedWithOthers(
-            this.currentPod,
+            this.selectedPodUrl,
             url,
             this.userUrl,
             this.permissions
@@ -782,7 +898,7 @@ export default {
 
         // write changes to current user's sharedWithOthers.ttl file
         this.recordedOthers = await updateSharedWithOthers(
-          this.currentPod,
+          this.selectedPodUrl,
           url,
           "http://xmlns.com/foaf/0.1/Agent",
           this.permissions
@@ -801,7 +917,10 @@ export default {
         .join("");
       this.submissionDone = true;
 
-      await this.getSpecificAclData(this.currentLocation);
+      await this.getSpecificAclData(url);
+
+      this.loading = false; // Stop loading
+      this.updateRenderKey();
     },
 
     /**
@@ -830,23 +949,15 @@ export default {
       this.containerUrls = this.urls.filter((url) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.currentPod &&
-        !this.urls.includes(this.currentPod)
+        this.currentLocation === this.selectedPodUrl &&
+        !this.urls.includes(this.selectedPodUrl)
       ) {
-        this.urls.push(this.currentPod);
-        this.containerUrls.push(this.currentPod);
+        this.urls.push(this.selectedPodUrl);
+        this.containerUrls.push(this.selectedPodUrl);
       }
       this.urls = this.urls.sort((a, b) => a.length - b.length);
       this.container = this.urls.sort((a, b) => a.length - b.length);
       this.resourceUrls = this.urls.sort((a, b) => a.length - b.length);
-    },
-
-    /**
-     * Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-     * Obtains 'pod' variable (URL path to user's Pod).
-     */
-    async podURL() {
-      this.webId = currentWebId();
     },
 
     /**
@@ -855,7 +966,7 @@ export default {
      * then sorts the array to reflect heirarchy
      */
     async getGeneralData() {
-      this.dirContents = await fetchData(this.currentPod);
+      this.dirContents = await fetchData(this.selectedPodUrl);
       this.urls = getContainedResourceUrlAll(this.dirContents);
       this.separateUrls();
     },
@@ -880,16 +991,24 @@ export default {
      *
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
-    async getSpecificAclData(path: string) {
-      this.hasAcl = await fetchPermissionsData(path); // value is either .acl obj OR null (if .acl does not exist)
-      if (this.hasAcl !== null) {
-        this.hasAccess = await fetchAclAgents(path);
-        this.publicAccess = await fetchPublicAccess(path);
-        this.hasAccess = {
-          Public: this.publicAccess,
-          ...this.hasAccess,
-        };
-        this.cannotMakeAcl = false;
+    async getSpecificAclData(url: string, index?: number) {
+      if (index !== undefined) {
+        this.loadingIndex = index;
+      }
+
+      try {
+        this.hasAcl = await fetchPermissionsData(url); // value is either .acl obj OR null (if .acl does not exist)
+        if (this.hasAcl !== null) {
+          this.hasAccess = await fetchAclAgents(url);
+          this.publicAccess = await fetchPublicAccess(url);
+          this.hasAccess = {
+            Public: this.publicAccess,
+            ...this.hasAccess,
+          };
+          this.cannotMakeAcl = false;
+        }
+      } finally {
+        this.loadingIndex = null; // Reset loading index after loading completes
       }
     },
 
@@ -907,16 +1026,61 @@ export default {
         this.cannotMakeAcl = true;
       }
     },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.currentLocation = this.currentPod;
-      this.getGeneralData();
-      this.createStuff();
+    async initialLoad() {
+      if (this.selectedPodUrl != "") {
+        this.currentLocation = this.selectedPodUrl;
+        await this.getGeneralData();
+        await this.createStuff();
+      }
     },
+
+    /* Compares each of the dates created on items in sharedWithMe */
+    async obtainSharedWithMeData(): Promise<SharedWithMeData | null> {
+      try {
+        const sharedItemsThings = await getSharedWithMe(this.selectedPodUrl);
+        return sharedItemsThings;
+      } catch (err) {
+        console.error("Error fetching shared items:", err);
+        return null;
+      }
+    },
+
+    /* Compares each of the dates created on items in sharedWithMe */
+    async compareDates() {
+      const sharedData = await this.obtainSharedWithMeData();
+      // When there is an error obtaining sharedWithMe data
+      if (sharedData === null) {
+        this.notifications = [];
+        return;
+      }
+
+      // Filter items created after the last accessed date
+      const lastAccessedDate = new Date(sharedData.lastAccessed);
+      this.notifications = sharedData.sharedItems.filter((item) => {
+        const createdDate = new Date(item.usersSharedWith[0].created);
+        return createdDate > lastAccessedDate;
+      });
+
+      if (this.notifications.length > 0) {
+        this.hasNotifications = true;
+      } else {
+        this.hasNotifications = false;
+      }
+    },
+
+    // Records the current date and time as the last access time
+    async markNotificationsRead() {
+      const newAccessSuccess = await saveNewAccessTime(this.selectedPodUrl);
+      if (newAccessSuccess) {
+        await this.compareDates();
+      } else {
+        console.log("Failed to update last access time.");
+      }
+    },
+
     /* creates files and directories if not already present */
     async createStuff() {
-      await createInboxWithACL(this.currentPod, this.webId);
+      await createInboxWithACL(this.selectedPodUrl, this.webId);
       this.$forceUpdate(); // Forces a re-render of the component
     },
     /* Takes in the emitted value from ContainerNav.vue */
@@ -924,16 +1088,52 @@ export default {
       this.currentLocation = selectedContainer;
       this.getSpecificData(this.currentLocation);
     },
+    updateRenderKey() {
+      this.renderKey += 1;
+    },
+    toggleNotifications() {
+      this.showNotifications = !this.showNotifications;
+    },
+    formatDate(d: string) {
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return d; // fallback if not a valid date
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      });
+    },
   },
   mounted() {
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
-    this.podURL();
+    try {
+      if (this.selectedPodUrl != "") {
+        this.currentLocation = this.selectedPodUrl;
+        this.getGeneralData();
+        this.createStuff();
+        this.compareDates();
+      }
+    } catch (error) {
+      console.error("Error during component mount:", error);
+    }
+  },
+  watch: {
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.getGeneralData();
+        this.createStuff();
+        this.compareDates();
+        this.updateRenderKey();
+      }
+    },
   },
 };
 </script>
 
 <style scoped>
 @import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+button:focus {
+  background-color: transparent !important;
+}
 
 /* general formatting */
 .content-container {
@@ -944,9 +1144,9 @@ export default {
 .body-container {
   display: flex;
   flex: 1 1 auto;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--v-shadow-2);
   border-radius: 6px;
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   margin: 0.5rem;
   resize: vertical;
   overflow: auto;
@@ -960,8 +1160,11 @@ export default {
   scroll-behavior: smooth;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 6px;
+  display: flex;
+  align-items: center;
+  box-shadow: none;
 }
 
 /* title bar */
@@ -980,16 +1183,19 @@ export default {
   font-size: 30pt;
   font-family: "Oxanium", monospace;
   font-weight: 500;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .dir-nav nav {
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--v-shadow-2);
 }
 .nav-wrapper {
-  background-color: #445560;
   border-radius: 6px;
   padding: 0 1rem;
   margin: 0 0.5rem 0 0.5rem;
+  background-color: var(--panel);
+}
+.nav-wrapper .material-icons {
+  color: var(--text-secondary);
 }
 .tool-tip {
   font-family: "Oxanium", monospace;
@@ -997,7 +1203,7 @@ export default {
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
+  background: var(--panel);
   border-radius: 8px;
   padding: 0rem 0 0 1rem;
   margin: 0rem 0.5rem;
@@ -1011,12 +1217,12 @@ export default {
 /* Choose location in MyPod */
 .nav-container {
   display: flex;
-  border-radius: 8px;
+  border-radius: 4px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   min-width: fit-content;
-  background-color: #445560;
-  border: 2px solid #ede7f6;
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border);
   align-items: center;
   width: 100%;
   position: sticky;
@@ -1047,6 +1253,7 @@ export default {
   margin: 0.5rem 0 0.3rem 0;
   width: 100%;
   align-items: center;
+  color: var(--text-secondary);
 }
 .path-selection li {
   margin: 0 0 0 1rem;
@@ -1064,7 +1271,7 @@ export default {
   box-shadow: none;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -1104,7 +1311,7 @@ export default {
   margin-top: 0;
   padding-top: 2px;
   border-radius: 2px;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 8px VAR(--v-shadow-2);
 }
 .side-nav .divider {
   margin: 2px 0;
@@ -1133,15 +1340,16 @@ export default {
   padding: 5px;
   width: 100%;
   text-decoration: none;
+  color: var(--text-secondary);
 }
-.highlight {
-  background-color: #754ff6;
-  color: #ede7f6;
+.side-nav li button.highlight {
+  background-color: VAR(--primary) !important;
+  color: var(--main-white);
   border-radius: 6px;
 }
 .side-nav li button:hover {
-  background-color: #555;
-  color: white;
+  background-color: var(--text-muted);
+  color: var(--main-white);
   width: 100%;
 }
 .side-nav li a {
@@ -1154,9 +1362,9 @@ export default {
   font-weight: 600;
   font-size: large;
   font-family: "Oxanium", monospace;
-  background-color: #28353e;
+  background-color: var(--panel);
   border-radius: 4px;
-  border: 0.5px solid #ede7f6;
+  border: 0.5px solid var(--border);
   min-height: max-content;
 }
 .folder i {
@@ -1164,7 +1372,7 @@ export default {
   margin-top: -2px;
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .full-width {
   width: 100%;
@@ -1173,6 +1381,7 @@ export default {
 }
 .resource-name {
   font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
 }
 .info-icon {
   margin-left: auto;
@@ -1195,15 +1404,16 @@ export default {
 /* Current permissions display */
 #permissionsInstructions {
   font-weight: bold;
+  color: var(--text-secondary);
 }
 .access-item {
-  color: #ede7f6;
-  border-top: 1px dashed #000;
+  color: var(--text-secondary);
+  border-top: 1px dashed var(--text-secondary);
   padding-top: 10px;
   margin-top: 10px;
 }
 .access-item:nth-last-child(2) {
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid var(--text-secondary);
   padding-bottom: 10px;
   margin-bottom: 10px;
 }
@@ -1223,7 +1433,7 @@ export default {
   gap: 5rem;
 }
 .user-tag {
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .user-id button {
   padding: 3px;
@@ -1238,7 +1448,7 @@ export default {
 }
 .the-user i {
   font-size: large;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .permissions-tag {
   font-size: large;
@@ -1254,16 +1464,16 @@ export default {
   justify-content: flex-end;
 }
 .true-color {
-  color: #77dd76;
+  color: var(--yasqe-string);
 }
 .true-color i {
-  color: #77dd76;
+  color: var(--yasqe-string);
 }
 .false-color {
-  color: #ff6962;
+  color: var(--yasqe-string-2);
 }
 .false-color i {
-  color: #ff6962;
+  color: var(--yasqe-string-2);
 }
 
 #sharebox {
@@ -1276,11 +1486,14 @@ label {
 #checkBoxes {
   margin-bottom: 10px;
 }
+#checkBoxes span {
+  color: var(--text-secondary);
+}
 input[type="checkbox"] {
   appearance: none; /* Hide default checkbox */
   width: 18px;
   height: 18px;
-  border: 2px solid #ede7f6; /* Default border */
+  border: 2px solid var(--border); /* Default border */
   border-radius: 3px;
   background-color: transparent;
   position: relative;
@@ -1288,18 +1501,21 @@ input[type="checkbox"] {
   outline: none;
 }
 input[type="checkbox"]:checked {
-  background-color: #77dd76; /* Green color when checked */
-  border-color: #77dd76; /* Match the border */
+  background-color: var(--success); /* Green color when checked */
+  border-color: var(--success); /* Match the border */
 }
 input[type="checkbox"]:checked::before {
   content: "✔";
-  color: white;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: bold;
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+}
+.icon-button span {
+  color: var(--text-secondary);
 }
 /* Access rights Agent + Public buttons */
 .access-choose {
@@ -1312,23 +1528,31 @@ input[type="checkbox"]:checked::before {
   width: 100%;
   border-radius: 5px;
 }
+.access-choose button:focus {
+  background-color: var(--primary) !important;
+  color: var(--main-white);
+}
 form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
-  border: 1px solid #ede7f6 !important;
+  border: 1px solid var(--text-secondary) !important;
+  border-radius: 4px;
   font-family: "Courier New", Courier, monospace;
   font-size: large;
   max-width: 100%;
-  color: #ede7f6;
+  color: var(--text-secondary);
+  box-shadow: none !important;
 }
 form input::placeholder {
-  color: rgba(255, 255, 255, 0.7); /* Slight transparency */
+  padding-left: 0.5rem;
+  color: var(--text-muted); /* Slight transparency */
 }
-form button {
+.agent-button,
+.public-button {
   padding: 10px;
   margin-top: 5px;
-  background-color: #ede7f6;
-  color: #445560;
+  background-color: var(--border);
+  color: var(--text-secondary);
   border: none;
   cursor: pointer;
   font-size: large;
@@ -1337,14 +1561,21 @@ form button {
   font-family: "Oxanium", monospace;
   font-weight: 600;
   border-radius: 6px;
+  margin-top: 0.25rem;
+  padding: 0.75rem;
+  background-color: var(--primary);
+  color: var(--main-white);
 }
 form button:hover {
-  background-color: #a9a7ad;
+  background-color: var(--hover);
+}
+#submitButton button:hover {
+  background-color: var(--text-muted);
 }
 label span {
   font-family: "Oxanium", monospace;
   font-size: 14px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 #errorIndicator {
   margin-top: 10px;
@@ -1364,8 +1595,8 @@ label span {
 .new-acl {
   padding: 10px;
   margin-top: 5px;
-  background-color: #ede7f6;
-  color: #445560;
+  background-color: var(--muted);
+  color: var(--text-secondary);
   border: none;
   cursor: pointer;
   font-family: "Oxanium", monospace;
@@ -1373,7 +1604,7 @@ label span {
   border-radius: 6px;
 }
 .new-acl:hover {
-  background-color: #a9a7ad;
+  background-color: var(--hover);
 }
 
 /* Shared with displays */
@@ -1381,36 +1612,249 @@ label span {
   width: 80%;
 }
 
-/* The how to use guide */
-.use-guide {
-  margin: 0.5rem;
-}
-.guide-container {
+#resetButton button {
   font-family: "Oxanium", monospace;
-  font-size: 16pt;
-  width: 100%;
-  margin: auto;
-  padding: 0.5rem 0rem 0.5rem 0.5rem;
-  background: #445560;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  font-size: 14pt;
+  background-color: var(--muted);
+  color: var(--text-secondary);
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.25rem;
 }
-.guide {
-  text-align: Left;
-  font-size: 18pt;
-  margin: 0.5rem;
+#resetButton button:hover {
+  background-color: var(--hover);
+}
+
+/* Loading spinner */
+.loading-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  margin: 20px 0;
+}
+.spinner {
+  border: 4px solid var(--border);
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+.loading-text {
+  margin-top: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Notifications */
+.notification-button {
+  padding: 0 0.5rem;
+}
+.notification-button:hover {
+  background-color: var(--hover);
+  color: var(--main-white);
+  border-radius: 6px;
+}
+.badge {
+  position: absolute;
+  top: 17px;
+  right: 15px;
+  width: 12px;
+  height: 12px;
+  background: var(--error);
+  border-radius: 50%;
+}
+.notifications-dropdown {
+  position: absolute;
+  top: 4rem;
+  right: 20px;
+  border-radius: 1rem;
+  z-index: 1000;
+  background-color: var(--panel-elev);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 40%;
+  min-width: fit-content;
+  line-height: normal;
+}
+.notifications-dropdown span {
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+.notifications-dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notifications-dropdown li {
+  padding: 0.5rem;
+  transition: background 0.3s;
+}
+.notifications-content {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin: 0 0 0 0.5rem;
+  justify-content: flex-start;
+}
+.notifications-content li {
+  padding: 0;
+}
+.notifications-header-container {
+  width: 100%;
+}
+.notifications-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem !important;
+}
+.notifications-header-text {
+  display: flex;
+  flex-direction: column;
+}
+.mark-read {
+  font-size: 14pt;
+  font-family: "oxanium", monospace;
+  border-radius: 6px;
+  color: var(--main-white);
+  cursor: pointer;
+  background-color: var(--primary);
+  padding: 0.4rem 0.5rem;
+}
+.mark-read:hover {
+  color: var(--main-white);
+  background-color: var(--hover);
+}
+.notification-title {
+  font-size: 20pt !important;
   font-weight: 600;
 }
-.line {
-  margin-right: 0.5rem;
+.notification-hint {
+  font-size: 10pt !important;
+  color: var(--text-secondary);
 }
-.list-container {
-  margin: 0 1.5rem;
-}
-.req {
-  margin: 1rem 0.5rem;
+.no-notifications {
+  margin: 0.5rem 0;
+  font-family: "Oxanium", monospace;
   font-size: 14pt;
-  list-style-type: upper-roman;
-  align-items: Left;
+  color: var(--text-secondary);
+}
+
+/* Ensure user rows are displayed in a vertical list */
+.user-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; /* Add spacing between items */
+}
+.share-list,
+.user-rows {
+  font-size: 10pt;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.folder.compact {
+  margin: 0.5rem 0 0 0;
+  border-radius: 8px;
+  width: 100%;
+}
+.row.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 0 0.5rem;
+}
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+.spacer {
+  flex: 1;
+}
+.meta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+}
+.count {
+  font-weight: 600;
+}
+.user-rows {
+  margin: 0 0 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.user-row {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  margin: 0 0 0 1rem;
+}
+.cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0; /* enable truncate */
+  font-size: 13px;
+}
+.user .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  border: none;
+  margin: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid
+    color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
+  background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
+  font-weight: 600;
+  font-size: 11px;
+  margin: 0;
+  color: var(--yasqe-keyword);
+}
+.material-icons.tiny {
+  font-size: 20px;
+}
+.left {
+  vertical-align: middle;
+}
+.not-colored {
+  color: var(--text-secondary);
+}
+.resource-hash {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
 }
 </style>

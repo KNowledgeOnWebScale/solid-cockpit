@@ -1,7 +1,13 @@
 <template>
   <div class="login-container">
     <h2>Solid Pod Login</h2>
-    <div class="login-diplay" v-if="!loggedIn">
+
+    <div class="loading-spinner-container" v-if="loading">
+      <div class="spinner"></div>
+      <span class="loading-text">Checking login status ...</span>
+    </div>
+
+    <div class="login-diplay" v-if="!loggedIn && !loading">
       <div class="input-row">
         <v-form class="form-row">
           <div class="input-row">
@@ -31,7 +37,7 @@
                     <v-icon
                       fab
                       v-bind="props"
-                      color="white"
+                      color="var(--text-muted)"
                       size="small"
                       icon="mdi-information"
                       >mdi-information</v-icon
@@ -45,7 +51,7 @@
               <template v-slot:append>
                 <v-btn
                   class="mx-right"
-                  color="#EDE7F6"
+                  color="var(--primary)"
                   name="btnLogin"
                   @click="handleLogin"
                   >Login</v-btn
@@ -68,7 +74,7 @@
       <!-- "Don't have a pod" button redirects to Pod Provider site -->
       <v-btn
         id="new-pod"
-        color="#EDE7F6"
+        class="new-pod-btn"
         text="Don't have a pod?"
         variant="flat"
         @click="newpodRedir"
@@ -89,8 +95,9 @@
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, session } from "./login";
-import { provide } from "vue";
+import { startLogin, isLoggedin, currentWebId, session, handleRedirectAfterPageLoad } from "./login";
+import { provide, watch } from "vue";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   name: "LoginComponent",
@@ -99,43 +106,54 @@ export default {
   },
   data() {
     return {
-      userUrl: "", // sets default url (if nothing is entered)
-      loggedIn: false,
+      userUrl: "",
+      isLoggedIn: false,
       isError: false,
       error: "",
       newPodDirections: false,
-      webId: "",
+      currWebId: "",
       isActive: false,
+      loading: true, // New loading state
     };
   },
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
+    },
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+  },
   methods: {
-    /* 
+    /*
     For the login to a Solid pod, calls startLogin from login.ts
     */
     async handleLogin() {
       const stat = await startLogin(this.userUrl);
       if (stat === "error") {
         this.error = "Cannot login properly...";
+      } else {
+        await handleRedirectAfterPageLoad();
+        const authStore = useAuthStore(); // Access the store
+        authStore.setAuth(true, currentWebId()); // Update the store
+        this.isLoggedIn = isLoggedin();
+        this.currWebId = currentWebId();
       }
-      this.loginSuccess();
     },
-    /* 
+    /*
     Checks if user's current session is logged-in and displays the active webID.
     Obtains the loggedIn boolean and webId string.
     */
-    loginCheck() {
-      this.loggedIn = isLoggedin();
-      this.webId = currentWebId();
+    async loginCheck() {
+      const authStore = useAuthStore(); // Access the store
+      this.isLoggedIn = isLoggedin();
+      this.currWebId = currentWebId();
+      authStore.setAuth(this.isLoggedIn, this.currWebId); // Regularly update the store
     },
-    /* 
-    Emits when login is successful.
-    */
-    loginSuccess() {
-      const loginStatus = this.loggedIn;
-      this.$emit("login-success", loginStatus);
-      // console.log("Selected pod: " + selectedPod);
-    },
-    /* 
+    /*
     Redirects user to page with Pod Providers
     */
     newpodRedir() {
@@ -146,10 +164,11 @@ export default {
     },
   },
   mounted() {
-    // Delays the execution loginCheck() on page reload (to avoid async-related errors)
+    // Delay login check to ensure session is initialized
     setTimeout(() => {
       this.loginCheck();
-    }, 400); // Delay of 2 seconds
+      this.loading = false;
+    }, 800);
   },
 };
 </script>
@@ -157,14 +176,15 @@ export default {
 <style scoped>
 .login-container {
   padding: 1rem;
-  background-color: #445560;
+  background-color: var(--panel);
   font-family: "Oxanium", monospace;
   font-size: larger;
   border-radius: 6px;
   margin-top: 0.5rem;
 }
 .login-container h2 {
-  margin: 0.5rem 1rem 1rem 1rem;
+  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
 }
 .login-display {
   padding: 1rem;
@@ -175,18 +195,21 @@ export default {
 #errorIndicator {
   margin-bottom: 1rem;
   padding: 0.2rem 0.2rem;
-  border: 2px solid #d72920;
+  border: 2px solid var(--border);
   border-radius: 5px;
   font-size: 14px;
   font-style: italic;
-  background-color: #ffcccc;
+  background-color: var(--error);
 }
 .input-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
+  color: var(--text-secondary);
   gap: 10px;
+}
+.input-row :deep(v-input__control) {
+  color: var(--text-secondary);
 }
 .form-row {
   width: 100%;
@@ -200,21 +223,56 @@ export default {
 }
 .logged-in {
   padding: 0.2rem 0.2rem;
-  border: 2px solid #307104;
+  border: 2px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
   font-style: italic;
-  background-color: #9fe8b7; /* Highlighted background color */
+  background-color: var(--success);
   margin: 0;
 }
 #new-pod {
   margin-left: 1.5rem;
   margin-bottom: 0.5rem;
 }
-button:hover {
-  background-color: #bda6fd;
+.new-pod-btn {
+  background-color: var(--panel-elev);
+  color: var(--text-secondary);
 }
-button:active {
-  background-color: #9b77ff;
+.new-pod-btn:hover {
+  background-color: var(--hover);
+}
+
+/* Pod lodaing spinner */
+.loading-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  margin: 0 0.25rem 0.25rem 0.25rem;
+  padding: 1rem;
+  margin-left: 8px;
+}
+.loading-text {
+  font-family: "Oxanium", monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+.spinner {
+  border: 4px solid rgba(63, 1, 117, 0.3);
+  border-top: 4px solid #754ff6;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

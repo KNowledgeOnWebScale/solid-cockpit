@@ -443,11 +443,11 @@ export default {
 
 <style scoped>
 .item {
-  background-color: #28353e;
+  background-color: var(--panel);
   border-radius: 6px;
   padding: 0.5rem;
   margin: 0.5rem 0;
-  border: 3px solid #1e1e1e;
+  border: 3px solid var(--border);
 }
 .guide {
   text-align: Left;
@@ -470,11 +470,11 @@ p {
 body {
   line-height: 1.6;
   margin: 15px;
-  background-color: #28353e;
+  background-color: var(--panel);
 }
 code {
-  background: #28353e;
-  border: 1px solid #ddd;
+  background: var(--bg);
+  color: var(--text-secondary);
   padding: 10px;
   border-radius: 5px;
   overflow-x: auto;
@@ -497,7 +497,7 @@ ol li {
   align-items: Left;
 }
 a {
-  color: #9b7efa;
+  color: var(--primary);
   text-decoration: none;
 }
 a:hover {
@@ -511,13 +511,13 @@ a:hover {
   max-width: 100%;
   margin: 0 1rem;
   padding: 0.5rem 1rem;
-  background: #445560;
+  background: var(--panel);
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-1);
 }
 .guide-item {
   border-radius: 6px;
-  border: 1px solid #ede7f6;
+  border: 1px solid var(--border);
   margin: 0 0 0.5rem 0;
 }
 .triple-content {
@@ -526,12 +526,12 @@ a:hover {
 .triple-item {
   padding: 0.5rem;
   border-radius: 6px;
-  border: 1px solid #445560;
+  border: 1px solid var(--border);
   margin: 0 0 0.5rem 0;
 }
 /* Dropdown style */
 .dropdown-toggle {
-  color: #ede7f6;
+  color: var(--text-secondary);
   font-family: "Oxanium", monospace;
   font-size: 12pt;
   font-weight: 600;
@@ -545,24 +545,24 @@ a:hover {
   justify-content: space-between;
 }
 .dropdown-toggle:hover {
-  background: #37474f;
-  color: #fff;
+  background: var(--muted);
+  color: var(--text-secondary);
 }
 .dropdown-arrow {
   font-size: 1.5em;
   margin-left: 0.5em;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .dropdown-content {
   margin: 0 0 0.5rem 0;
-  background: #28353e;
+  background: var(--panel);
   border-radius: 6px;
   padding: 0.5rem 0.5rem;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .arrow-bullet {
   font-size: 1.1em;
-  color: #ede7f6;
+  color: var(--text-secondary);
   margin-right: 0.5em;
   vertical-align: middle;
 }

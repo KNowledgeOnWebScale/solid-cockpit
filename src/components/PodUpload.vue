@@ -1,114 +1,114 @@
 <template>
-  <!-- The data upload card is only shown after login -->
-
   <!-- Title bar -->
   <div class="title-container">
     <span>Data Upload</span>
   </div>
 
   <div class="pod-chooseContainer">
-    <PodRegistration @pod-selected="handlePodSelected" />
+    <PodRegistration />
   </div>
 
-  <!-- Container location bar -->
-  <div class="container-location" v-show="currentPod !== ''">
-    <!-- Left Navigation Bar -->
-    <div class="nav-container">
-      <ul>
-        <li><span>Location</span></li>
+  <div class="path-container" v-show="selectedPodUrl !== ''">
+    <!-- Container location bar -->
+    <div class="container-location" v-show="selectedPodUrl !== ''">
+      <!-- Left Navigation Bar -->
+      <div class="nav-container">
+        <ul>
+          <li><span>Location</span></li>
+          <li>
+            <button
+              id="top-button"
+              :class="{ highlight: inputType === 'newPath' }"
+              @click="inputType = 'newPath'"
+            >
+              New Input Path
+            </button>
+          </li>
+          <li>
+            <button
+              :class="{ highlight: inputType === 'existingPath' }"
+              @click="inputType = 'existingPath'"
+            >
+              Use Existing Path
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- User input path -->
+      <ul class="path-selection">
         <li>
-          <button
-            id="top-button"
-            :class="{ highlight: inputType === 'newPath' }"
-            @click="inputType = 'newPath'"
-          >
-            New Input Path
-          </button>
+          <span class="upload-location-label"><b>Upload Location:</b> </span>
         </li>
-        <li>
-          <button
-            :class="{ highlight: inputType === 'existingPath' }"
-            @click="inputType = 'existingPath'"
-          >
-            Use Existing Path
-          </button>
+
+        <!-- User typed input -->
+        <li class="user-list" v-if="inputType == 'newPath'">
+          <v-text-field
+            class="input-path"
+            v-model="uploadPath"
+            :rules="urlRules"
+            label="Pod Path"
+            outlined
+            clearable
+          />
+        </li>
+
+        <!-- Browse existing path -->
+        <li class="existing-list" v-if="inputType == 'existingPath'">
+          <container-nav
+            :currentPod="selectedPodUrl"
+            @path-selected="handleSelectedContainer"
+          />
+        </li>
+
+        <!-- Select the path and make sure it is a valid URL -->
+        <li v-if="inputType == 'newPath'">
+          <div class="check-path-row">
+            <v-btn
+              class="path-registerButton"
+              variant="tonal"
+              rounded="xs"
+              @click="validPathCheck"
+            >
+              Check Path
+              <v-tooltip activator="parent" location="top"
+                >Click to check if this path is a valid URL
+              </v-tooltip>
+            </v-btn>
+            <div v-if="inputType == 'newPath'" class="sel-pod">
+              <v-icon class="check-mark" color="green" v-if="vaildURL">
+                mdi-check
+              </v-icon>
+              <!-- When the URL is invalid -->
+              <v-icon class="check-mark" color="red" v-if="vaildURL == false">
+                mdi-close
+              </v-icon>
+            </div>
+          </div>
         </li>
       </ul>
     </div>
-
-    <!-- User input path -->
-    <ul class="path-selection">
-      <li>
-        <span class="upload-location-label"><b>Upload Location:</b> </span>
-      </li>
-
-      <!-- User typed input -->
-      <li class="user-list" v-if="inputType == 'newPath'">
-        <v-text-field
-          class="input-path"
-          v-model="uploadPath"
-          :rules="urlRules"
-          label="Pod Path"
-          outlined
-          clearable
-        />
-      </li>
-
-      <!-- Browse existing path -->
-      <li class="existing-list" v-if="inputType == 'existingPath'">
-        <container-nav
-          :currentPod="currentPod"
-          @path-selected="handleSelectedContainer"
-        />
-      </li>
-
-      <!-- Select the path and make sure it is a valid URL -->
-      <li v-if="inputType == 'newPath'">
-        <div class="check-path-row">
-          <v-btn
-            class="path-registerButton"
-            variant="tonal"
-            rounded="xs"
-            @click="validPathCheck"
-          >
-            Check Path
-            <v-tooltip activator="parent" location="top"
-              >Click to check if this path is a valid URL
-            </v-tooltip>
-          </v-btn>
-          <div v-if="inputType == 'newPath'" class="sel-pod">
-            <v-icon class="check-mark" color="green" v-if="vaildURL">
-              mdi-check
-            </v-icon>
-            <!-- When the URL is invalid -->
-            <v-icon class="check-mark" color="red" v-if="vaildURL == false">
-              mdi-close
-            </v-icon>
-          </div>
-        </div>
-      </li>
-    </ul>
-  </div>
-  <div class="displayPath-container" v-if="currentPod !== ''">
-    <ul>
-      <li>
-        <span>Current upload path:</span>
-      </li>
-      <li>
-        <i>{{ uploadPath }}</i>
-      </li>
-    </ul>
+    <div class="displayPath-container" v-if="selectedPodUrl !== ''">
+      <ul>
+        <li>
+          <span>Current upload path:</span>
+        </li>
+        <li>
+          <i>{{ uploadPath }}</i>
+        </li>
+      </ul>
+    </div>
   </div>
   <div class="upload-container">
-    <div v-if="currentPod !== '' && currentPod !== undefined">
-      <!-- Card that contains the data upload field
-       TODO: clear files from upload box once uploaded -->
+    <div v-if="selectedPodUrl !== '' && selectedPodUrl !== undefined">
+      <!-- Card that contains the data upload field -->
       <div class="upload-section">
         <span class="upload-title">Add Files to Pod</span>
-        <!-- The file input section -->
         
+        <!-- The file input section -->
         <form id="writeForm">
           <v-file-input
+            :key="inputKey"
             class="input-box"
             clearable
             label="Click to select file(s) OR drag and drop file(s) here"
@@ -144,7 +144,13 @@
           <!-- Button that sends the uploaded file to the connected Pod -->
           <div class="upload-btn-row">
             <div>
-              <v-btn class="upload-btn" variant="tonal" rounded="xs" @click="submitUpload" :disabled="uploading">
+              <v-btn
+                class="upload-btn"
+                variant="tonal"
+                rounded="xs"
+                @click="submitUpload"
+                :disabled="uploading"
+              >
                 Upload
               </v-btn>
             </div>
@@ -152,38 +158,71 @@
               <div class="spinner"></div>
             </div>
             <div v-if="!uploading" class="upload-result-row">
-              <!-- Session timeout error -->
-              <div v-if="currentPod === 'Error: probably not logged in'" class="result-message error-message">
+              <!-- TODO: Fix this Session timeout error -->
+              <div
+                v-if="selectedPodUrl === 'Error: probably not logged in'"
+                class="result-message error-message"
+              >
                 <span>
                   There was an error with the file(s) upload!
                   <v-tooltip activator="parent" location="top" open-on-click>
-                    There is an error here somewhere. Try logging out and logging back in? (also could try clearing your browser cookies if problem reoccurs)
+                    There is an error here somewhere. Try logging out and
+                    logging back in? (also could try clearing your browser
+                    cookies if problem reoccurs)
                   </v-tooltip>
-                  <v-icon small color="#754ff6" style="margin-left: 6px; vertical-align: middle; cursor: pointer;">mdi-information</v-icon>
+                  <v-icon
+                    small
+                    color="#754ff6"
+                    style="
+                      margin-left: 6px;
+                      vertical-align: middle;
+                      cursor: pointer;
+                    "
+                    >mdi-information</v-icon
+                  >
                 </span>
               </div>
               <!-- When item is already uploaded -->
               <div v-else>
-                <li class="check-exists" v-for="(f, index) in filesUploaded" :key="index">
+                <li
+                  class="check-exists"
+                  v-for="(f, index) in filesUploaded"
+                  :key="index"
+                >
                   <template>
                     {{ checkExists(f) }}
                   </template>
-                  <div v-if="alreadyPresent" class="result-message duplicate-message">
+                  <div
+                    v-if="alreadyPresent"
+                    class="result-message duplicate-message"
+                  >
                     <span>
-                      The file <i><b>{{ files[index].name }}</b></i>
-                      already exists in the container <b>{{ uploadPath }}</b>
+                      The file
+                      <i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
+                      >
+                      <u> already exists</u> in the container <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
-                  <div v-else-if="uploadSuccessful" class="result-message error-message">
+                  <div
+                    v-else-if="!uploadSuccessful"
+                    class="result-message error-message"
+                  >
                     <span>
-                      There was an error uploading file <i><b>{{ files[index].name }}</b></i>
-                      to <b>{{ uploadPath }}</b>
+                      There was an <u>error</u> uploading file
+                      <i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
+                      >
+                      to <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
                   <div v-else class="result-message success-message">
                     <span>
-                      The file <i><b>{{ files[index].name }}</b></i>
-                      can be found in your pod at <b>{{ uploadPath }}</b>
+                      The file
+                      <i
+                        ><b>{{ uploadedFiles[index].name }}</b></i
+                      >
+                      can be found in your pod at <b>{{ uploadedPath }}</b>
                     </span>
                   </div>
                 </li>
@@ -191,51 +230,35 @@
             </div>
           </div>
         </form>
-
       </div>
     </div>
   </div>
 
-  <!-- Guide for file uploading -->
   <div class="use-guide">
-    <div class="guide-container">
-      <h2 class="guide">Data Upload Guide</h2>
-
-      <hr class="line" />
-      
-      <ol class="list-container">
-        <li class="req">Select the pod you want to upload your file(s) to</li>
-        <li class="req">
-          Select or input the directory you want to upload the file(s) to
-        </li>
-        <li class="req">
-          Click the <b>"File Input"</b> bar or drag and drop a file from your
-          local machine
-        </li>
-        <li class="req">Click the <b>"Upload"</b> button</li>
-      </ol>
-    </div>
+    <DataUploadGuide />
   </div>
 </template>
 
 <script lang="ts">
 import { handleFiles, uploadSuccess, alreadyExistsCheck } from "./fileUpload";
-import { currentWebId } from "./login";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
+import DataUploadGuide from "./Guides/DataUploadGuide.vue";
+import { useAuthStore } from "../stores/auth";
 
 export default {
   components: {
     ContainerNav,
     PodRegistration,
+    DataUploadGuide,
   },
   data() {
     return {
-      webId: "" as string,
-      currentPod: "" as string,
       uploadPath: "" as string,
       filesUploaded: [],
-      files: FileList,
+      uploadedFiles: [] as File[],
+      uploadedPath: "" as string,
+      files: [] as File[],
       uploadSuccessful: false,
       alreadyPresent: false,
       uploading: false,
@@ -253,17 +276,24 @@ export default {
         },
       ],
       vaildURL: null as boolean | null,
+      inputKey: 0,
     };
   },
-  methods: {
-    /*
-    Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-    Obtains 'pod' variable (URL path to user's Pod).
-    */
-    async getWebId() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
     },
-
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
+  },
+  methods: {
     /*
     checks if the value 'already exists' is present in this.fileUploaded
     */
@@ -292,8 +322,11 @@ export default {
     Calls uploadFile() from fileUpload.ts to upload a file to the user's pod.
     obtains 'files' variable (a FileList that contains references to all files selected using the upload UI).
     */
-    uploadFile(event: FileList) {
-      this.files = event.target.files;
+    uploadFile(event: Event) {
+      const target = event.target as HTMLInputElement;
+      if (target.files) {
+        this.files = target.files;
+      }
     },
 
     /*
@@ -311,55 +344,46 @@ export default {
         alert("Please select a file to upload.");
         return;
       }
+      this.uploadedFiles = [...this.files];
+      this.uploadedPath = this.uploadPath;
       this.uploading = true;
       this.filesUploaded = await handleFiles(
         this.files,
         this.uploadPath,
-        this.currentPod
+        this.selectedPodUrl()
       );
       this.uploadSuccessful = uploadSuccess(this.filesUploaded);
       this.uploading = false;
+
+      this.clearFiles();
     },
 
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.uploadPath = this.currentPod;
+    clearFiles() {
+      this.files = [];
+      this.$nextTick(() => { this.inputKey++; });
     },
+
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer: string) {
       this.uploadPath = selectedContainer;
     },
   },
   mounted() {
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
-    setTimeout(() => {
-      this.getWebId();
-    }, 200);
-  },
+    // Set initial upload path to the selected Pod URL
+    if (this.selectedPodUrl !== "") {
+      this.uploadPath = this.selectedPodUrl;
+    }
+  }
 };
 </script>
 
 <style scoped>
-body {
-  line-height: 1.6;
-  margin: 15px;
-  font-family: "Oxanium", monospace;
-  font-size: 13px;
-  max-width: 80%;
-  margin: auto;
-  margin-top: 20px;
-  padding: 20px;
-  background-color: #445560;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
 /* Title bar */
 .title-container {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin: 0.5rem 0.5rem;
+  color: var(--text-secondary);
 }
 .title-container span {
   font-size: 30pt;
@@ -371,28 +395,30 @@ body {
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
+  background: var(--panel);
   border-radius: 8px;
   margin: 0rem 0.5rem;
   padding: 0.2rem 0 0 1rem;
 }
 
+.path-container {
+  margin: 0rem 0.5rem 0.5rem 0.5rem;
+  border: 4px solid var(--border);
+  border-radius: 6px;
+}
 /* Upload location nav container */
 .container-location {
   display: flex;
-  background-color: #445560;
-  border-radius: 8px;
-  margin: 0.5rem 0.5rem 0 0.5rem;
+  background-color: var(--panel);
 }
 .container-location .nav-container {
   display: flex;
-  background-color: #28353e;
-  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   justify-content: left;
   min-width: fit-content;
-  
 }
 .nav-container ul {
   list-style-type: none;
@@ -403,24 +429,28 @@ body {
 .nav-container li span {
   font-size: 18pt;
   font-weight: bold;
-  padding: 0px 8px 5px 8px;
+  padding: 0px 8px 3px 8px;
   text-decoration: none;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
 }
 #top-button {
   margin-top: 10px;
 }
 .nav-container li button {
   display: block;
-  color: #ede7f6;
+  color: var(--text-secondary);
   border-radius: 4px;
   padding: 10px 10px;
   width: 100%;
   text-decoration: none;
 }
+.nav-container li button:hover {
+  background-color: var(--panel-elev);
+}
 .nav-container .highlight {
-  background-color: #754ff6;
-  color: #ede7f6;
+  background-color: var(--primary);
+  color: var(--main-white);
 }
 
 /* upload path input/selection */
@@ -431,6 +461,7 @@ body {
   list-style-type: none;
   padding: 0;
   margin: 0;
+  color: var(--text-secondary);
 }
 .path-selection span {
   font-size: 18pt;
@@ -476,11 +507,10 @@ body {
 /* container that displays current upload path */
 .displayPath-container {
   font-family: "Oxanium", monospace;
-  margin: 0.1rem 0.5rem 0.1rem 0.5rem;
   padding: 20px;
-  background: #445560;
-  border-radius: 6px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  background: var(--panel);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-1);
 }
 .displayPath-container ul {
   display: flex;
@@ -501,7 +531,7 @@ body {
 /* Data upload container */
 .upload-container {
   margin: 0rem 0.5rem 0.5rem 0.5rem;
-  background-color: #445560;
+  background-color: var(--bg-secondary);
   border-radius: 6px;
 }
 .container {
@@ -510,12 +540,12 @@ body {
   margin: auto;
   padding: 20px;
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-1);
 }
 .upload-section {
   font-family: "Oxanium", monospace;
   border-radius: 8px;
-  background-color: #445560;
+  background-color: var(--bg-secondary);
 }
 .upload-title {
   font-size: 16pt;
@@ -524,7 +554,7 @@ body {
   margin-top: 10px;
   padding-left: 20px;
   padding-right: 20px;
-  color: #ede7f6;
+  color: var(--text-secondary);
   display: block;
   margin-bottom: 10px;
 }
@@ -534,7 +564,7 @@ body {
 }
 #writeForm {
   margin-left: 10px;
-  color: #ede7f6;
+  color: var(--text-secondary);
 }
 .input-box {
   width: 99%;
@@ -574,37 +604,6 @@ body {
     transform: rotate(360deg);
   }
 }
-
-/* The how to use guide */
-.use-guide {
-  margin: 0;
-}
-.guide-container {
-  font-family: "Oxanium", monospace;
-  font-size: 16pt;
-  margin: 0 0.5rem;
-  padding: 0.5rem 0rem 0.5rem 0.5rem;
-  background: #445560;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-.guide {
-  text-align: Left;
-  font-size: 18pt;
-  margin: 0.5rem;
-}
-.line {
-  margin-right: 0.5rem;
-}
-.list-container {
-  margin: 0 1.5rem;
-}
-.req {
-  margin: 1rem 0.5rem;
-  font-size: 14pt;
-  list-style-type: upper-roman;
-  align-items: Left;
-}
 .upload-location-label {
   padding-left: 5px;
   display: inline-block;
@@ -622,21 +621,27 @@ body {
   gap: 18px;
   margin-left: 10px;
 }
+.upload-result-row b {
+  color: var(--yasqe-operator);
+}
 .result-message {
   display: flex;
   align-items: center;
   font-size: 1rem;
   font-family: "Oxanium", monospace;
   margin-right: 10px;
+  padding: 0.5rem;
+  border-radius: 6px;
+  color: var(--text-secondary);
 }
 .error-message {
-  color: #ea7272;
+  border: 3px solid var(--error);
 }
 .duplicate-message {
-  color: #ffd700;
+  border: 3px solid var(--warning);
 }
 .success-message {
-  color: #3dcc9f;
+  border: 3px solid var(--yasqe-string);
 }
 /* Spinner styles */
 .spinner-container {
@@ -660,5 +665,10 @@ body {
     transform: rotate(360deg);
   }
 }
-
+.use-guide {
+  margin: 0 0.5rem;
+}
+.use-guide :deep(.container) {
+  margin: 0;
+}
 </style>

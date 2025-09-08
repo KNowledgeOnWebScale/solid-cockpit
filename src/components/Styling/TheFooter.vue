@@ -74,8 +74,8 @@ export default defineComponent({
   font-size: 0.8rem;
   text-align: center;
   padding: 0.5rem;
-  background-color: #445560;
-  color: #EDE7F6;
+  background-color: var(--panel);
+  color: var(--text-primary);
   z-index: 1000;
   font-family: Oxanium;
   font-weight: 700;

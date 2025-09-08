@@ -14,16 +14,16 @@ export type CoiFetchOptions = {
    * without trying to rewrite headers (mirrors SW behavior).
    */
   passthroughOpaque?: boolean;
+  /**
+   * If true, the "Access-Control-Allow-Origin" header will not be added to the response.
+   */
+  noCors?: boolean;
 };
 
 export function createCoiFetch(
   baseFetch: typeof fetch = fetch,
   opts: CoiFetchOptions = {}
 ): typeof fetch {
-  const {
-    coepCredentialless = true,
-    passthroughOpaque = true,
-  } = opts;
 
   const coiFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     // Normalize to a Request so we can inspect mode/cache/etc.
@@ -37,7 +37,7 @@ export function createCoiFetch(
 
     // If credentialless is set and this is a no-cors request, drop credentials.
     const requestToSend =
-      coepCredentialless && originalRequest.mode === "no-cors"
+      opts.coepCredentialless && originalRequest.mode === "no-cors"
         ? new Request(originalRequest, { credentials: "omit" })
         : originalRequest;
 
@@ -45,7 +45,7 @@ export function createCoiFetch(
 
     // Opaque responses (status 0) can’t be inspected; return as-is unless you
     // want to force a rewrap (which would still be opaque and useless).
-    if (passthroughOpaque && (response as any).status === 0) {
+    if (opts.passthroughOpaque && (response as any).status === 0) {
       return response;
     }
 
@@ -55,16 +55,20 @@ export function createCoiFetch(
     // Cross-Origin-Embedder-Policy: credentialless or require-corp
     newHeaders.set(
       "Cross-Origin-Embedder-Policy",
-      coepCredentialless ? "credentialless" : "require-corp"
+      opts.coepCredentialless ? "credentialless" : "require-corp"
     );
 
     // Cross-Origin-Resource-Policy: only set when not credentialless (matches the SW)
-    if (!coepCredentialless) {
+    if (!opts.coepCredentialless) {
       newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
     }
 
     // Cross-Origin-Opener-Policy: same-origin
     newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+
+    if (!opts.noCors) {
+      newHeaders.set("Access-Control-Allow-Origin", "*");
+    }
 
     // Important: we must stream the body through; Response.body is a ReadableStream.
     // If the body has been used elsewhere, this will throw—callers should not consume

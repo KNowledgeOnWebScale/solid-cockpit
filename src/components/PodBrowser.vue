@@ -8,12 +8,19 @@
     <span>Pod Data Browser</span>
   </div>
 
+  <div v-if="deletionSuccess" class="success-popup">
+    <span>{{ deletedItemType }} deleted successfully!</span>
+    <button @click="deletionSuccess = false" class="close-popup-button">
+      <i class="material-icons">close</i>
+    </button>
+  </div>
+
   <div class="pod-chooseContainer">
-    <PodRegistration @pod-selected="handlePodSelected" />
+    <PodRegistration />
   </div>
 
   <body class="content-body">
-    <div class="container-location" v-if="currentPod !== ''">
+    <div class="container-location" v-if="selectedPodUrl !== ''">
       <div class="nav-container">
         <div class="path-selection">
           <ul>
@@ -26,15 +33,12 @@
             <!-- Browse existing path -->
             <li class="container-choose">
               <container-nav
-                :currentPod="currentPod"
+                :currentPod="selectedPodUrl"
                 @path-selected="handleSelectedContainer"
               />
             </li>
             <li>
-              <button
-                @click="getItems(displayPath)"
-                class="icon-button right"
-              >
+              <button @click="getItems(displayPath)" class="icon-button right">
                 <i class="material-icons not-colored right">refresh</i>
                 <v-tooltip activator="parent" location="end"
                   >Refresh directory contents
@@ -46,7 +50,7 @@
       </div>
 
       <div class="pod-directories">
-        <div class="container-fluid">
+        <div class="container-fluid" :key="renderKey">
           <div class="items-label">
             <span><b>Items:</b></span>
           </div>
@@ -54,45 +58,87 @@
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div class="card-panel folder">
-                <i class="material-icons not-colored left">{{
-                  containerCheck(url) ? "folder" : "description"
-                }}</i>
-                {{ url }}
                 <button
-                  @click="toggleInfo(index), getItemInfo(url)"
-                  class="icon-button right"
+                  @click="toggleInfo(index, url)"
+                  class="icon-button full-width"
                 >
-                  <i class="material-icons not-colored right">
-                    {{
-                      showInfoIndex === null
-                        ? "chevron_right"
-                        : "keyboard_arrow_down"
-                    }}</i
-                  >
+                  <div class="icon-hash">
+                    <i class="material-icons not-colored left">{{
+                      containerCheck(url) ? "folder" : "description"
+                    }}</i>
+                    {{ url }}
+                  </div>
+                  <div class="info-icon">
+                    <i class="material-icons not-colored info-icon">
+                      {{
+                        showInfoIndex === index
+                          ? "keyboard_arrow_down info"
+                          : "chevron_right info"
+                      }}</i
+                    >
+                  </div>
                 </button>
 
-                <!--TODO: Item Info -->
-                <div v-if="showInfoIndex === index" class="form-container">
-                  <!-- TODO: Edit Data (rename / delete) -->
-                  <!-- TODO: If RDF data: provide an RDF editor -->
-                  <div class="info-display">
-                    <li>Source IRI: {{ info.sourceIri }}</li>
-                    <li>Type: {{ info.linkedResources.type }}</li>
-                    <li>
-                      Described By: {{ info.linkedResources.describedby }}
-                    </li>
+                <!-- Item Info -->
+                <div v-if="showInfoIndex === index" class="item-info-container">
+                  <div v-if="info === null" class="info-row">
+                    <strong class="info-label">No info to display</strong>
                   </div>
+                  <div v-else class="info-row">
+                    <strong class="info-label">Source IRI:</strong>
+                    <div class="info-value-container">
+                      <span class="info-value iri" :title="info.sourceIri">{{
+                        info.sourceIri
+                      }}</span>
+                      <button
+                        @click="copyToClipboard(info.sourceIri)"
+                        class="copy-button"
+                      >
+                        <i class="material-icons">content_copy</i>
+                        <v-tooltip activator="parent" location="end"
+                          >Copy IRI</v-tooltip
+                        >
+                      </button>
+                    </div>
+                  </div>
+                  <div class="info-row">
+                    <strong class="info-label">Type:</strong>
+                    <span class="info-value">{{
+                      containerCheck(url) ? "Container" : "Resource"
+                    }}</span>
+                  </div>
+                  <div
+                    class="info-row"
+                    v-if="info && info.linkedResources.describedby"
+                  >
+                    <strong class="info-label">Metadata:</strong>
+                    <div class="info-value-container">
+                      <a
+                        :href="info.linkedResources.describedby"
+                        target="_blank"
+                        class="info-value link"
+                        :title="info.linkedResources.describedby"
+                        >{{ info.linkedResources.describedby }}</a
+                      >
+                    </div>
+                  </div>
+                  <!-- TODO: figure out if this works and what edit does -->
                   <div class="edit-delete">
                     <button
                       @click="confirmAndDelete(info.sourceIri)"
                       class="delete-button"
-                      :disabled="deletionSuccess"
                     >
                       Delete
                     </button>
-                    <button @click="toggleForm(index)" class="edit-button">
-                      Edit ...
-                    </button>
+                    <!-- TODO: Add an edit button for renaming / moving item -->
+                    <!-- <button
+                      @click="toggleForm(index, url)"
+                      class="delete-button"
+                    >
+                      Edit
+                    </button> -->
+
+                    <!-- TODO: add an RDF editor for RDF data ...  -->
                   </div>
                 </div>
               </div>
@@ -103,39 +149,20 @@
     </div>
   </body>
 
-  <div class="use-guide">
-    <!-- TODO: Make these drop downs (with more in-depth guides for non-experts) -->
-    <div class="guide-container">
-      <h2 class="guide">Pod Browser Guide</h2>
-
-      <hr class="line" />
-      <ol class="list-container">
-        <li class="req">Select the Pod you want to Browse.</li>
-
-        <li class="req">Navigate to the directory you want to browse.</li>
-
-        <li class="req">
-          Click the <i class="material-icons not-colored">chevron_right</i> to
-          see resource information.
-        </li>
-
-        <li class="req">
-          Future work: Graphical browser (as an interactive knowledge graph) /
-          Data Deletion / RDF data + Metadata editing (with syntax checking) /
-          View filtering / Search bar (for quick searching)
-        </li>
-      </ol>
-    </div>
-  </div>
+  <PodBrowserGuide />
 </template>
 
 <script lang="ts">
-import { currentWebId } from "./login";
 import { fetchData, WorkingData } from "./getData";
 import { deleteFromPod, deleteContainer } from "./fileUpload";
-import { getContainedResourceUrlAll } from "@inrupt/solid-client";
+import {
+  getContainedResourceUrlAll,
+  internal_AclRule,
+} from "@inrupt/solid-client";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
+import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
+import { useAuthStore } from "../stores/auth";
 
 interface info {
   sourceIri: string;
@@ -149,14 +176,12 @@ export default {
   components: {
     ContainerNav,
     PodRegistration,
+    PodBrowserGuide,
   },
   data() {
     return {
-      loggedIn: false,
-      webId: "",
-      currentPod: "",
-      displayPath: "",
-      currentLocation: "",
+      displayPath: "" as string,
+      currentLocation: "" as string,
       showInfoIndex: null as number | null,
       showEditIndex: null as number | null,
       podData: null,
@@ -168,18 +193,27 @@ export default {
       resourceUrls: [] as string[],
       container: [] as string[],
       queryItems: null as WorkingData | null,
-      deletionSuccess: false as boolean,
+      newName: "" as string,
+      renderKey: 0 as number,
+      deletionSuccess: false,
+      deletedItemType: "" as "Resource" | "Container" | "",
     };
   },
-  methods: {
-    /*
-    Calls getPodURLs() from fileUpload.ts to obtain a list of pods from the logged-in user's webID.
-    Obtains 'pod' variable (URL path to user's Pod).
-    */
-    async getPodURL() {
-      this.webId = currentWebId(); // fetches user webID from login.ts
+  computed: {
+    authStore() {
+      return useAuthStore(); // Access the store
     },
-
+    loggedIn() {
+      return this.authStore.loggedIn; // Access loggedIn state
+    },
+    webId() {
+      return this.authStore.webId; // Access webId state
+    },
+    selectedPodUrl() {
+      return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
+  },
+  methods: {
     /*
     Calls executeQuery from queryPod.ts to obtain all data from logged-in user's Pod.
     Obtains items variable (IRIs of all Pod data).
@@ -188,7 +222,6 @@ export default {
     async podContentsQuery() {
       this.queryItems = null;
     },
-
     /*
     TODO: Filters the binding stream to show only useful stuff...
     */
@@ -204,9 +237,12 @@ export default {
      * @param fileUrl The URL of the resource to delete.
      */
     confirmAndDelete(fileUrl: string) {
-      const userConfirmed = window.confirm(
-        "Are you sure you want to delete this resource? This action cannot be undone."
-      );
+      const isContainer = fileUrl.endsWith("/");
+      const message = isContainer
+        ? "Are you sure you want to delete this container and all its contents? This action cannot be undone."
+        : "Are you sure you want to delete this resource? This action cannot be undone.";
+
+      const userConfirmed = window.confirm(message);
 
       if (userConfirmed) {
         this.deleteResource(fileUrl);
@@ -217,42 +253,83 @@ export default {
 
     /*
     Deleted the resource at the given URL.
-    TODO: Add protections/recursion for deleting containers ...
+    TODO: Add capability to delete containers that contain containers ...
+
     */
     async deleteResource(fileUrl: string) {
-      this.deletionSuccess = true;
       try {
-        // for container deletion
-        if (fileUrl.endsWith("/")) {
-          this.deletionSuccess = await deleteContainer(fileUrl);
-          this.urls = this.urls.filter((url) => url !== fileUrl);
-          await this.getItems(this.displayPath);
-        } else {
-          this.deletionSuccess = await deleteFromPod(fileUrl);
-        }
+        const success = fileUrl.endsWith("/")
+          ? await deleteContainer(fileUrl)
+          : await deleteFromPod(fileUrl);
 
-        if (this.deletionSuccess) {
-          this.urls = this.urls.filter((url) => url !== fileUrl);
+        // 2) Refetch with cache-busting to avoid stale SolidDataset
+        if (success) {
+          this.deletedItemType = fileUrl.endsWith("/")
+            ? "Container"
+            : "Resource";
+          this.deletionSuccess = true;
+          this.showInfoIndex = null;
           await this.getItems(this.displayPath);
+          this.urls = [...this.urls.filter((url) => url !== fileUrl)];
+          this.separateUrls();
+          this.renderKey += 1; // Force re-render
         } else {
           this.deletionSuccess = false;
-          console.error(`Failed to delete resource: ${fileUrl}`);
         }
-      } catch (error) {
-        this.deletionSuccess = false;
-        console.error(`Error deleting resource: ${fileUrl}`, error);
-      } finally {
-        this.deletionSuccess = false;
+      } catch (err) {
+        console.error(`Error deleting resource: ${fileUrl}`, err);
+        alert(`An error occurred while deleting resource: ${fileUrl}`);
       }
+    },
+
+    // TODO: Strategy -->
+    // Copy existing resource to an object
+    // Delete existing resource
+    // Upload resource object using new name / dir path
+    async handleRename(sourceUrl: string) {
+      if (!this.newName || this.newName.trim() === "") {
+        alert("Please provide a new name.");
+        return;
+      }
+
+      const isContainer = sourceUrl.endsWith("/");
+      const url = new URL(sourceUrl);
+      const path = url.pathname;
+      const lastSlash = path.endsWith("/")
+        ? path.slice(0, -1).lastIndexOf("/")
+        : path.lastIndexOf("/");
+      const parentPath = path.substring(0, lastSlash + 1);
+      const destinationUrl =
+        url.origin +
+        parentPath +
+        this.newName.trim() +
+        (isContainer ? "/" : "");
+
+      if (sourceUrl === destinationUrl) {
+        this.showEditIndex = null;
+        return; // Name hasn't changed
+      }
+
+      // try {
+      //   await moveFile(sourceUrl, destinationUrl);
+      //   alert("Resource renamed successfully!");
+      //   this.showEditIndex = null;
+      //   this.newName = "";
+      //   await this.getItems(this.displayPath);
+      // } catch (error) {
+      //   console.error("Error renaming resource:", error);
+      //   alert(`Failed to rename resource. See console for details: ${error}`);
+      // }
     },
 
     async getItems(path: string) {
       try {
         this.dirContents = await fetchData(path); // value is SolidDataset
-        this.urls = getContainedResourceUrlAll(this.dirContents);
+        const urls = getContainedResourceUrlAll(this.dirContents);
+        this.urls = [...urls];
         this.separateUrls();
       } catch (e) {
-        console.error("Could not fetch data info from the URL provided...");
+        // console.error("Could not fetch data info from the URL provided...");
       }
     },
 
@@ -274,11 +351,11 @@ export default {
       this.containerUrls = this.urls.filter((url: string) => url.endsWith("/"));
       this.resourceUrls = this.urls.filter((url: string) => !url.endsWith("/"));
       if (
-        this.currentLocation === this.currentPod &&
-        !this.urls.includes(this.currentPod)
+        this.currentLocation === this.selectedPodUrl() &&
+        !this.urls.includes(this.selectedPodUrl())
       ) {
-        this.urls.push(this.currentPod);
-        this.containerUrls.push(this.currentPod);
+        this.urls.push(this.selectedPodUrl());
+        this.containerUrls.push(this.selectedPodUrl());
       }
       this.urls = this.urls.sort((a: string, b: string) => a.length - b.length);
       this.container = this.urls.sort(
@@ -290,43 +367,64 @@ export default {
     },
 
     /*
+    Copies text to the clipboard
+    */
+    copyToClipboard(text: string) {
+      navigator.clipboard.writeText(text).catch((err) => {
+        console.error("Failed to copy: ", err);
+      });
+    },
+
+    /*
     Two methods for controlling the UI
     */
-    toggleForm(index: number) {
+    toggleForm(index: number, url: string) {
       if (this.showEditIndex === index) {
         this.showEditIndex = null; // Hide the form if it's already shown
       } else {
         this.showEditIndex = index; // Show the form for the clicked item
+        const name = url.split("/").filter(Boolean).pop() || "";
+        this.newName = name;
       }
     },
-    toggleInfo(index: number) {
+    toggleInfo(index: number, url: string) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
       } else {
         this.showInfoIndex = index; // Show the form for the clicked item
+        this.getItemInfo(url);
       }
     },
-    /* Takes in the emitted value from PodRegistration.vue */
-    handlePodSelected(selectedPod: string) {
-      this.currentPod = selectedPod;
-      this.displayPath = this.currentPod;
-      this.getItems(this.displayPath);
-    },
     /* Takes in the emitted value from ContainerNav.vue */
-    handleSelectedContainer(selectedContainer: string) {
+    async handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
-      this.getItems(this.displayPath);
+      await this.getItems(this.displayPath);
     },
   },
   mounted() {
+    if (this.selectedPodUrl) {
+      this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
+      this.getItems(this.displayPath); // Fetch items for the initial path
+    }
     // Delays the execution of these functions on page reload (to avoid async-related errors)
+  },
+  watch: {
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.getItems(this.selectedPodUrl); // Fetch items for the initial path
+      }
+    },
   },
 };
 </script>
 
 <style scoped>
+button:focus {
+  background-color: transparent !important;
+}
+
 body {
-  background-color: #a9a7ad;
+  background-color: var(--bg);
   font-size: 13px;
   border-radius: 6px;
 }
@@ -338,7 +436,7 @@ body {
 
 /* Title bar */
 .title-container {
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin: 0.5rem 0.5rem;
 }
@@ -348,22 +446,23 @@ body {
   font-weight: 500;
   padding-left: 20px;
   padding-right: 20px;
+  color: var(--text-primary);
 }
 
 /* General container */
 .container-location {
   padding: 1rem 0.5rem;
-  background-color: #445560;
+  background-color: var(--panel);
   border-radius: 8px;
   margin: 0.25rem 0.5rem 0rem 0.5rem;
 }
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: #445560;
+  background: var(--panel);
   border-radius: 8px;
   margin: 0rem 0.5rem;
-  padding: 0.2rem 0 0 1rem;
+  padding: 0.2rem 0 0 0;
 }
 
 /* Container for directory navigation */
@@ -373,7 +472,6 @@ body {
   font-family: "Oxanium", monospace;
   justify-content: space-between;
   align-items: center;
-  
 }
 .nav-container ul {
   list-style-type: none;
@@ -386,6 +484,7 @@ body {
   align-items: center;
   list-style-type: none;
   width: 100%;
+  color: var(--text-primary);
 }
 .path-selection ul {
   display: flex;
@@ -413,7 +512,8 @@ body {
   box-shadow: none;
 }
 .dir-nav {
-  background-color: #445560;
+  background-color: var(--panel);
+  color: var(--text-secondary);
   font-family: "Oxanium", monospace;
   border-radius: 6px;
   display: flex;
@@ -427,24 +527,31 @@ body {
   font-weight: 400;
   font-size: 18pt;
   margin-left: 0.5rem;
+  color: var(--text-primary);
 }
 .pod-directories {
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow: auto;
   scroll-behavior: smooth;
-  max-height: 40em;
+  scrollbar-width: thin;
+  height: 40em;
+  min-height: 20em;
+  resize: vertical;
 }
 .card-panel {
-  background-color: #28353e;
+  background-color: var(--muted);
   margin: 0.2rem;
-  padding: 1.7rem;
+  padding: 1rem;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
   border-radius: 6px;
-  outline: 0.5px solid #ede7f6;
+  outline: 0.5px solid var(--text-muted);
 }
 .card-panel:hover {
-  outline: 0.1px solid #754ff6;
+  outline: 0.1px solid var(--primary);
+}
+.delete-button {
+  padding: 0.5rem 0.75rem !important;
 }
 .delete-button:hover {
   background-color: #555;
@@ -457,7 +564,87 @@ body {
   margin-top: -2px;
 }
 .card-panel .not-colored {
-  color: #ede7f6;
+  color: var(--text-muted);
+}
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+.icon-hash {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+}
+.info-icon {
+  margin-left: auto;
+}
+
+.item-info-container {
+  background-color: var(--bg);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 12pt;
+}
+
+.info-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: 1rem;
+  min-width: 100px;
+}
+
+.info-value-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.info-value {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.info-value.link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.info-value.link:hover {
+  text-decoration: underline;
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 0 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.copy-button .material-icons {
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.copy-button:hover .material-icons {
+  color: var(--primary);
 }
 
 /* Delete button */
@@ -465,8 +652,8 @@ body {
   font-family: "Oxanium", monospace;
   padding: 0.75rem;
   margin: 0.5rem 0.5rem 0 0.5rem;
-  color: #28353e;
-  background-color: #ede7f6;
+  color: var(--panel-elev);
+  background-color: var(--text-muted);
   border-radius: 5px;
 }
 
@@ -501,5 +688,56 @@ body {
   font-size: 14pt;
   list-style-type: upper-roman;
   align-items: Left;
+}
+
+.edit-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.edit-input {
+  flex-grow: 1;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text-primary);
+}
+.edit-button {
+  font-family: "Oxanium", monospace;
+  padding: 0.5rem 1rem;
+  color: var(--panel-elev);
+  background-color: var(--primary);
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+.edit-button.cancel {
+  background-color: var(--text-muted);
+}
+
+/* Deletion success pop-up */
+.success-popup {
+  font-family: "Oxanium", monospace;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: var(--success);
+  color: var(--main-white);
+  padding: 1rem;
+  border-radius: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-1);
+}
+.close-popup-button {
+  background: none;
+  border: none;
+  color: var(--main-white);
+  cursor: pointer;
+  margin-left: 1rem;
 }
 </style>
