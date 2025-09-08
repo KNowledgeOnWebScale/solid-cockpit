@@ -144,7 +144,7 @@ export default {
       const authStore = useAuthStore();
       authStore.clearAuth();
       this.notloggedOut = await logOut();
-      window.location.href = '/';
+      window.location.href = 'https://knowledgeonwebscale.github.io/solid-cockpit/';
     },
     homepageRedir(): void {
       redirectToHomepage();

@@ -25,6 +25,8 @@ jobs:
          run: |
            yarn i
            yarn run build
+       - name: Add 404 fallback for SPA 🔁
+         run: cp dist/index.html dist/404.html
        - name: Deploy 🚀
          uses: JamesIves/github-pages-deploy-action@releases/v4
          with:

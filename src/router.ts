@@ -15,7 +15,7 @@ import { useAuthStore } from "./stores/auth";
  * The router here allows for navigation between different functional pages of the TRIPLE App
  */
 const router = createRouter({
-  history: createWebHistory('/solid-cockpit/'),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       name: "Home",
@@ -47,11 +47,6 @@ const router = createRouter({
       path: "/privacy",
       components: { default: EditPrivacy },
     },
-    { 
-      name: "CatchAll",
-      path: '/:notFound(.*)',
-      components: NotFound,
-    }
   ],
 });
 
