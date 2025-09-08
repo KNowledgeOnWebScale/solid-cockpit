@@ -1,0 +1,14 @@
+const r=`# Datasources: https://sparql.rhea-db.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?chebi ?rhea ?equation ?uniprot WHERE {
+  VALUES ?chebi { <http://purl.obolibrary.org/obo/CHEBI_15930> } # from IDSM
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:equation ?equation .
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  #
+  # the ChEBI can be used either as a small molecule, the reactive part of a macromolecule or as a polymer.
+  #
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi . # ?chebi comes from IDSM higher
+}`;export{r as default};
