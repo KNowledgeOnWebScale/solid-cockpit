@@ -81,7 +81,10 @@
 
                 <!-- Item Info -->
                 <div v-if="showInfoIndex === index" class="item-info-container">
-                  <div class="info-row">
+                  <div v-if="info === null" class="info-row">
+                    <strong class="info-label">No info to display</strong>
+                  </div>
+                  <div v-else class="info-row">
                     <strong class="info-label">Source IRI:</strong>
                     <div class="info-value-container">
                       <span class="info-value iri" :title="info.sourceIri">{{
@@ -408,7 +411,7 @@ export default {
   watch: {
     selectedPodUrl(newValue, oldValue) {
       if (newValue !== oldValue) {
-        window.location.reload();
+        this.getItems(this.selectedPodUrl); // Fetch items for the initial path
       }
     },
   },

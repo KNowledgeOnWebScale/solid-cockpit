@@ -1315,11 +1315,6 @@ export default {
       },
       deep: true,
     },
-    selectedPodUrl(newValue, oldValue) {
-      if (newValue !== oldValue) {
-        window.location.reload();
-      }
-    },
   },
   beforeUnmount() {
     if (this.worker) this.worker.terminate();
@@ -1332,7 +1327,6 @@ export default {
       showQueryButton: false,
     });
     this.yasqe.setValue(this.currentQuery.query);
-
     this.yasqe.on("change", (instance) => {
       this.currentQuery.query = instance.getValue();
     });
