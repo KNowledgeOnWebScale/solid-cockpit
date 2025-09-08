@@ -290,10 +290,6 @@ export async function createInboxWithACL(
     await saveSolidDatasetAt(userWebId, profileDataset, { fetch });
     console.log(`Added ldp:inbox (${inboxUrl}) to ${userWebId}`);
 
-    // Grant append access to anyone (foaf:Agent)
-    const solidDataWAcl = await getSolidDatasetWithAcl(inboxUrl, {
-      fetch: fetch,
-    });
     // // Apply the public append ACL rule
     const access = {
       read: false,
@@ -301,10 +297,14 @@ export async function createInboxWithACL(
       write: false,
       control: false,
     };
-    const updatedAclDataset = setPublicResourceAccess(aclDataset, access);
-    const aupdatedAcl = setPublicDefaultAccess(updatedAclDataset, access);
-    // // Save the updated ACL dataset
-    await saveAclFor(solidDataWAcl, aupdatedAcl);
+    // Grant append access to anyone (foaf:Agent)
+    // const solidDataWAcl = await getSolidDatasetWithAcl(inboxUrl, {
+    //   fetch: fetch,
+    // });
+    // const updatedAclDataset = setPublicResourceAccess(aclDataset, access);
+    // const aupdatedAcl = setPublicDefaultAccess(updatedAclDataset, access);
+    // // // Save the updated ACL dataset
+    // await saveAclFor(solidDataWAcl, aupdatedAcl);
 
     // Initialize the sharedWithMe.ttl file
     const mefileName = "sharedWithMe.ttl";
@@ -315,6 +315,15 @@ export async function createInboxWithACL(
     );
     await saveSolidDatasetAt(inboxUrl + mefileName, newDataset, { fetch });
     console.log(`CREATED sharedWithMe.ttl`);
+
+    // Grant append access (for sharedWithMe.ttl) to anyone (foaf:Agent)
+    const swmeAcl = await getSolidDatasetWithAcl(inboxUrl + mefileName, {
+      fetch: fetch,
+    });
+    const swmeaclDataset = await generateAcl(inboxUrl + mefileName, userWebId);
+    const updatedswmeAcl = setPublicResourceAccess(swmeaclDataset, access);
+    await saveAclFor(swmeAcl, updatedswmeAcl);
+    console.log(`ADDED .acl for sharedWithMe.ttl`);
 
     // Initialize the sharedWithOthers.ttl file
     const othersfileName = "sharedWithOthers.ttl";

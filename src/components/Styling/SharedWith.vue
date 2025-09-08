@@ -85,7 +85,7 @@
       <span class="shared-title">Shared With Others</span>
 
       <div class="no-items" v-if="sharedItems.length === 0">
-        <p>You havbe not shared any resources with others.</p>
+        <p>You have not shared any resources with others.</p>
       </div>
       <div v-else>
         <!-- Iterates over list of resources in sharedWithOthers.tll -->
