@@ -160,12 +160,12 @@ export default {
       /* For TRIPLE consortium */
       if (this.customPodUrl === "") {
         await webIdDataset(currentWebId(), this.customPodUrl);
-        this.$forceUpdate(); // Forces a re-render of the component
+        await this.findPodList();
       } else {
         /* For provided URL */
         if (!checkUrl(this.customPodUrl, this.currentPod)) {
           await webIdDataset(currentWebId(), this.customPodUrl);
-          this.$forceUpdate(); // Forces a re-render of the component
+          await this.findPodList();
         } else {
           /* For invalid URL 
           TODO: make this a little prettier */

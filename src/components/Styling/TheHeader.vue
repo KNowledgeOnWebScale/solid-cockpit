@@ -144,7 +144,7 @@ export default {
       const authStore = useAuthStore();
       authStore.clearAuth();
       this.notloggedOut = await logOut();
-      window.location.reload();
+      window.location.href = '/';
     },
     homepageRedir(): void {
       redirectToHomepage();

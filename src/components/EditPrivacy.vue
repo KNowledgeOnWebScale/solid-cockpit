@@ -1081,6 +1081,7 @@ export default {
     /* creates files and directories if not already present */
     async createStuff() {
       await createInboxWithACL(this.selectedPodUrl, this.webId);
+      await this.getGeneralData();
       this.$forceUpdate(); // Forces a re-render of the component
     },
     /* Takes in the emitted value from ContainerNav.vue */

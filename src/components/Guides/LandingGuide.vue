@@ -19,7 +19,7 @@
           <i class="material-icons arrow-bullet">chevron_right</i> Manage files
           in your pod
         </h3>
-        <p>Upload, delete, and move resources in your Solid Pod.</p>
+        <p>Upload and delete resources in your Solid Pod.</p>
         <h3 class="req">
           <i class="material-icons arrow-bullet">chevron_right</i> Query your
           pod (and SPARQL endpoints you specify)
@@ -37,11 +37,11 @@
           notify others of the changes.
         </p>
         <p class="middle-line">
-          Save query and results to a query cache in your pod
+          Save SPARQL queries and results to a query cache in your pod
         </p>
         <p class="last-line">
           Share queries and results from your query cache and improve query
-          performance with the cache
+          performance by using the cache
         </p>
       </div>
     </div>
@@ -110,36 +110,6 @@
             </p>
 
             <div class="triple-item">
-              <button class="dropdown-toggle" @click="toggleObjectives">
-                <h4>🎯 Objectives of This Guide</h4>
-                <i class="material-icons dropdown-arrow">
-                  {{
-                    objectivesOpen ? "keyboard_arrow_down" : "chevron_right"
-                  }}</i
-                >
-              </button>
-              <div v-if="objectivesOpen">
-                <ol>
-                  <li>
-                    Setting up a Solid Pod (that is accessible via the internet)
-                  </li>
-                  <li>
-                    Logging into your Pod at any time (after setting it up)
-                  </li>
-                  <li>
-                    Understanding the features and functionalities of the Solid
-                    Cockpit app.
-                  </li>
-                  <li>
-                    Overview of future capabilities, such as managing pod
-                    contents, adjusting data privacy, and querying data using
-                    SPARQL.
-                  </li>
-                </ol>
-              </div>
-            </div>
-
-            <div class="triple-item">
               <button class="dropdown-toggle" @click="toggleSetupPod">
                 <h4>🌐 Setting Up a Solid Pod (Online)</h4>
                 <i class="material-icons dropdown-arrow">
@@ -167,10 +137,7 @@
                         >https://triple.ilabt.imec.be/</a
                       >
                     </p>
-                    <p>Use the following credentials to enter the site:</p>
-                    <ul>
-                      <li><strong>Password</strong>: <code>triple</code></li>
-                    </ul>
+                    <p>Use the Password: <code>triple</code></p>
                   </li>
                   <li>
                     <strong>🔐 Sign Up to make a Pod</strong>
@@ -221,10 +188,7 @@
                         >https://triple.ilabt.imec.be/</a
                       >
                     </p>
-                    <p>Use the following credentials to enter the site:</p>
-                    <ul>
-                      <li><strong>Password</strong>: <code>triple</code></li>
-                    </ul>
+                    <p>Use the Password: <code>triple</code></p>
                   </li>
                   <li>
                     <strong>Login using your credentials</strong>
@@ -273,29 +237,19 @@
                   managing and interacting with your Solid Pod.
                 </p>
 
-                <button
-                  class="dropdown-toggle"
-                  @click="toggleAvailableFeatures"
+                <h3>✨ Available Features</h3>
+                <i class="material-icons dropdown-arrow">
+                  {{
+                    availableFeaturesOpen
+                      ? "keyboard_arrow_down"
+                      : "chevron_right"
+                  }}</i
                 >
-                  <h5>✨ Available Features</h5>
-                  <i class="material-icons dropdown-arrow">
-                    {{
-                      availableFeaturesOpen
-                        ? "keyboard_arrow_down"
-                        : "chevron_right"
-                    }}</i
-                  >
-                </button>
-                <div v-if="availableFeaturesOpen">
+                <div>
                   <ol>
                     <li>
                       <strong>📝 Data Upload</strong>
                       <p>Upload data to your Pod.</p>
-                      <p>
-                        When uploading RDF data, file validity can be assessed
-                        before uploading.
-                      </p>
-                      <p>Specify and modify the metadata of uploaded files.</p>
                     </li>
                     <li>
                       <strong>🗂️ Data Browser</strong> (under construction)
