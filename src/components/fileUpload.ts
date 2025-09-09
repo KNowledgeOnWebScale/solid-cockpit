@@ -276,8 +276,16 @@ export async function alreadyExists(
   // const containerContents = await fetchData(uploadUrl);
   try {
     const containerContents = await getSolidDataset(uploadUrl, { fetch });
-    const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`);
-    return true;
+    const containedUrls = getContainedResourceUrlAll(containerContents);
+
+    // See if it exists in the list
+    if (containedUrls.includes(uploadUrl + file.name)) {
+      console.log("Found a match!");
+      return true;
+    } else {
+      console.log("No match found.");
+      return false;
+    }
   } catch (e) {
     // console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
     return false;
