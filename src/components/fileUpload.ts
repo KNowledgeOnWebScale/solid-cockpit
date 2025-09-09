@@ -277,7 +277,6 @@ export async function alreadyExists(
   try {
     const containerContents = await getSolidDataset(uploadUrl, { fetch });
     const allegedFile = getThing(containerContents, `${uploadUrl}${file.name}`);
-    // console.log(`The file ${allegedFile.url} already exists...`)
     return true;
   } catch (e) {
     // console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
