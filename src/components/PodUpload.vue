@@ -368,6 +368,13 @@ export default {
       this.uploadPath = selectedContainer;
     },
   },
+  watch: {
+    selectedPodUrl(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.uploadPath = this.selectedPodUrl;
+      }
+    },
+  },
   mounted() {
     // Set initial upload path to the selected Pod URL
     if (this.selectedPodUrl !== "") {
