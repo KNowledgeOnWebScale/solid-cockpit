@@ -350,7 +350,7 @@ export default {
       this.filesUploaded = await handleFiles(
         this.files,
         this.uploadPath,
-        this.selectedPodUrl()
+        this.selectedPodUrl
       );
       this.uploadSuccessful = uploadSuccess(this.filesUploaded);
       this.uploading = false;
