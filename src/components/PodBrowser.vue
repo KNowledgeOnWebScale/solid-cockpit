@@ -402,16 +402,23 @@ export default {
     },
   },
   mounted() {
-    if (this.selectedPodUrl) {
-      this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
-      this.getItems(this.displayPath); // Fetch items for the initial path
-    }
+    setTimeout(() => {
+      if (this.selectedPodUrl) {
+        this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
+        this.getItems(this.displayPath); // Fetch items for the initial path
+      }
+    }, 200);
     // Delays the execution of these functions on page reload (to avoid async-related errors)
   },
   watch: {
     selectedPodUrl(newValue, oldValue) {
       if (newValue !== oldValue) {
         this.getItems(this.selectedPodUrl); // Fetch items for the initial path
+      }
+    },
+    dirContents(newValue) {
+      if (newValue) {
+        this.getItems(this.displayPath);
       }
     },
   },
