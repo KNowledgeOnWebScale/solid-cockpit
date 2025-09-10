@@ -270,9 +270,9 @@ export default {
           this.deletionSuccess = true;
           this.showInfoIndex = null;
           await this.getItems(this.displayPath);
-          this.urls = [...this.urls.filter((url) => url !== fileUrl)];
-          this.separateUrls();
-          this.renderKey += 1; // Force re-render
+          // this.urls = [...this.urls.filter((url) => url !== fileUrl)];
+          // this.separateUrls();
+          // this.renderKey += 1; // Force re-render
         } else {
           this.deletionSuccess = false;
         }
@@ -329,7 +329,7 @@ export default {
         this.urls = [...urls];
         this.separateUrls();
       } catch (e) {
-        // console.error("Could not fetch data info from the URL provided...");
+        console.error("Could not fetch data info from the URL provided...");
       }
     },
 
@@ -348,22 +348,18 @@ export default {
      * Sorts container URLs and resource URLs into different lists
      */
     separateUrls() {
-      this.containerUrls = this.urls.filter((url: string) => url.endsWith("/"));
-      this.resourceUrls = this.urls.filter((url: string) => !url.endsWith("/"));
+      this.containerUrls = [...this.urls.filter((url: string) => url.endsWith("/"))];
+      this.resourceUrls = [...this.urls.filter((url: string) => !url.endsWith("/"))];
       if (
-        this.currentLocation === this.selectedPodUrl() &&
-        !this.urls.includes(this.selectedPodUrl())
+        this.currentLocation === this.selectedPodUrl &&
+        !this.urls.includes(this.selectedPodUrl)
       ) {
-        this.urls.push(this.selectedPodUrl());
-        this.containerUrls.push(this.selectedPodUrl());
+        this.urls.push(this.selectedPodUrl);
+        this.containerUrls.push(this.selectedPodUrl);
       }
-      this.urls = this.urls.sort((a: string, b: string) => a.length - b.length);
-      this.container = this.urls.sort(
-        (a: string, b: string) => a.length - b.length
-      );
-      this.resourceUrls = this.urls.sort(
-        (a: string, b: string) => a.length - b.length
-      );
+      this.urls = [...this.urls.sort((a: string, b: string) => a.length - b.length)];
+      this.container = [...this.urls.sort((a: string, b: string) => a.length - b.length)];
+      this.resourceUrls = [...this.urls.sort((a: string, b: string) => a.length - b.length)];
     },
 
     /*
