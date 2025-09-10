@@ -685,6 +685,7 @@ export default {
       aclUrl: "" as string,
       postedMe: false as boolean,
       hasAccess: {} as AccessData,
+      agentAccess: {} as AccessData,
       publicAccess: {} as { [permission: string]: boolean },
       uploadedSharingDoc: "" as string,
       container: [] as string[],
@@ -967,7 +968,7 @@ export default {
      */
     async getGeneralData() {
       this.dirContents = await fetchData(this.selectedPodUrl);
-      this.urls = getContainedResourceUrlAll(this.dirContents);
+      this.urls = [...getContainedResourceUrlAll(this.dirContents)];
       this.separateUrls();
     },
     /**
@@ -977,13 +978,13 @@ export default {
      */
     async getSpecificData(path: string) {
       this.dirContents = await fetchData(path);
-      this.urls = getContainedResourceUrlAll(this.dirContents);
+      this.urls = [...getContainedResourceUrlAll(this.dirContents)];
       this.separateUrls();
-      this.hasAccess = await fetchAclAgents(path);
+      this.agentAccess = await fetchAclAgents(path);
       this.publicAccess = await fetchPublicAccess(path);
       this.hasAccess = {
         Public: this.publicAccess,
-        ...this.hasAccess,
+        ...this.agentAccess,
       };
     },
     /**
@@ -999,11 +1000,11 @@ export default {
       try {
         this.hasAcl = await fetchPermissionsData(url); // value is either .acl obj OR null (if .acl does not exist)
         if (this.hasAcl !== null) {
-          this.hasAccess = await fetchAclAgents(url);
+          this.agentAccess = await fetchAclAgents(url);
           this.publicAccess = await fetchPublicAccess(url);
           this.hasAccess = {
             Public: this.publicAccess,
-            ...this.hasAccess,
+            ...this.agentAccess,
           };
           this.cannotMakeAcl = false;
         }
@@ -1529,10 +1530,12 @@ input[type="checkbox"]:checked::before {
   width: 100%;
   border-radius: 5px;
 }
-.access-choose button:focus {
-  background-color: var(--primary) !important;
+.access-choose button.highlight {
+  background-color: VAR(--primary) !important;
   color: var(--main-white);
+  border-radius: 6px;
 }
+
 form input[type="text"] {
   padding: 3px;
   margin-bottom: 5px;
