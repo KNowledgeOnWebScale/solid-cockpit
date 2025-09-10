@@ -416,11 +416,6 @@ export default {
         this.getItems(this.selectedPodUrl); // Fetch items for the initial path
       }
     },
-    dirContents(newValue) {
-      if (newValue) {
-        this.getItems(this.displayPath);
-      }
-    },
   },
 };
 </script>
