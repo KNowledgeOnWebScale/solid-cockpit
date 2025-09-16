@@ -5,7 +5,7 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     loggedIn: false,
     webId: "" as string,
-    selectedPodUrl: "" as string, // New state for selected Pod URL
+    selectedPodUrl: "" as string,
   }),
   actions: {
     initializeAuth() {
