@@ -13,7 +13,6 @@ export default defineConfig(({ command }) => {
       },
     },
     base: isDev ? "./" : "/solid-cockpit/",
-    transpileDependencies: true,
     build: {
       outDir: "dist",
     },

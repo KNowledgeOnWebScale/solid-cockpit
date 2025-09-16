@@ -1,5 +1,5 @@
-import { cpSync } from 'fs';
-import vueConfig from './vite.config.js';
+import { cpSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 const routes = [
   "/home",
@@ -10,8 +10,9 @@ const routes = [
   "/privacy",
 ];
 
-const dir = vueConfig.build.outDir;
-console.log(dir)
+const dir = 'dist';
 for (const route of routes) {
-  cpSync(dir + "/index.html", dir + route + "/index.html");
+  const target = join(dir, route);
+  mkdirSync(target, { recursive: true });
+  cpSync(join(dir, 'index.html'), join(target, 'index.html'));
 }
