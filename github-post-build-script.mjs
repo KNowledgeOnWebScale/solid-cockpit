@@ -1,4 +1,5 @@
 import { cpSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 const routes = [
   "/home",
