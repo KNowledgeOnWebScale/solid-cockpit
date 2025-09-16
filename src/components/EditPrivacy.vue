@@ -1384,6 +1384,8 @@ button:focus {
 .resource-name {
   font-family: "Oxanium", monospace;
   color: var(--text-secondary);
+  user-select: text;
+  cursor: text;
 }
 .info-icon {
   margin-left: auto;

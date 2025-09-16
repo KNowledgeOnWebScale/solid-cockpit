@@ -57,16 +57,24 @@
           <ul>
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
-              <div class="card-panel folder">
+              <div
+                v-if="loadingIndex === index"
+                class="loading-spinner-container"
+              >
+                <div class="spinner"></div>
+                <span class="loading-text">Loading access rights...</span>
+              </div>
+              <div v-else class="card-panel folder">
                 <button
                   @click="toggleInfo(index, url)"
                   class="icon-button full-width"
                 >
+                
                   <div class="icon-hash">
                     <i class="material-icons not-colored left">{{
                       containerCheck(url) ? "folder" : "description"
                     }}</i>
-                    {{ url }}
+                    <span class="highlightable-text">{{ url }}</span>
                   </div>
                   <div class="info-icon">
                     <i class="material-icons not-colored info-icon">
@@ -112,7 +120,7 @@
                     v-if="info && info.linkedResources.describedby"
                   >
                     <strong class="info-label">Metadata:</strong>
-                    <div class="info-value-container">
+                    <div v-if="checkUrl(url)" class="info-value-container">
                       <a
                         :href="info.linkedResources.describedby"
                         target="_blank"
@@ -120,6 +128,9 @@
                         :title="info.linkedResources.describedby"
                         >{{ info.linkedResources.describedby }}</a
                       >
+                    </div>
+                    <div v-else class="info-value-container">
+                      <span>{{ info.linkedResources.describedby }}</span>
                     </div>
                   </div>
                   <!-- TODO: figure out if this works and what edit does -->
@@ -163,6 +174,7 @@ import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 import { useAuthStore } from "../stores/auth";
+import { checkUrl } from "./privacyEdit";
 
 interface info {
   sourceIri: string;
@@ -197,6 +209,7 @@ export default {
       renderKey: 0 as number,
       deletionSuccess: false,
       deletedItemType: "" as "Resource" | "Container" | "",
+      loadingIndex: null as number | null,
     };
   },
   computed: {
@@ -383,18 +396,37 @@ export default {
         this.newName = name;
       }
     },
-    toggleInfo(index: number, url: string) {
+    async toggleInfo(index: number, url: string) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
       } else {
+        try {
+          this.showInfoIndex = index;
+          this.loadingIndex = index;
+          await this.getItemInfo(url);
+        } catch (error) {
+          this.dirContents = null;
+          this.info = {
+            sourceIri: "error fetching info",
+            linkedResources: {
+              type: "error fetching info",
+              describedby: "error fetching info",
+            },
+          };
+          console.error("Error fetching item info:", error);
+        } finally {
+          this.loadingIndex = null;
+        }
         this.showInfoIndex = index; // Show the form for the clicked item
-        this.getItemInfo(url);
       }
     },
     /* Takes in the emitted value from ContainerNav.vue */
     async handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
       await this.getItems(this.displayPath);
+    },
+    checkUrl(url: string) {
+      return checkUrl(url, this.currentLocation);
     },
   },
   mounted() {
@@ -581,6 +613,42 @@ body {
 .info-icon {
   margin-left: auto;
 }
+.highlightable-text {
+  user-select: text;
+  cursor: text;
+}
+
+/* Loading spinner */
+.loading-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  margin: 20px 0;
+}
+.spinner {
+  border: 4px solid var(--border);
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+.loading-text {
+  margin-top: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: 14pt;
+  color: var(--text-secondary);
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 
 .item-info-container {
   background-color: var(--bg);
@@ -610,6 +678,10 @@ body {
   gap: 0.5rem;
   overflow: hidden;
 }
+.info-value-container span {
+  color: var(--text-secondary);
+}
+
 
 .info-value {
   color: var(--text-secondary);
