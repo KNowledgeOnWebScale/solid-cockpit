@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Solid Cockpit</title>
+
+    <!-- section to help make the Z3 solver work in a browser setting -->
+    <script src="/z3-built.js"></script>
+    <script>
+      globalThis.global = { initZ3: globalThis.initZ3 };
+    </script>
+
+    <meta property="og:title" content="Solid Cockpit" />
+    <meta 
+      name="description" 
+      content="An applicaiton for accessing, editing, and querying data in Solid pods"
+    />
+    <meta
+      property="og:description"
+      content="An applicaiton for accessing, editing, and querying data in Solid pods"
+    />
+    <meta property="og:image" content="favicon.ico" />
+    <meta name="author" content="KNoWS, IDLab - Ghent University" />
+    <meta name="keywords" content="Solid, RDF, SPARQL Querying, Privacy Editing" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+  </head>
+  <body>
+    <noscript>
+      <strong>We're sorry but this app doesn't work properly without JavaScript enabled.
+        Please enable it to continue.</strong>
+    </noscript>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+  </body>
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Oxanium:wght@200..800&display=swap" rel="stylesheet">
+  
+  <script type="module" src="/src/main.ts"></script>
+</html>
