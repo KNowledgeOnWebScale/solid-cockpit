@@ -56,29 +56,26 @@ const router = createRouter({
 });
 
 /**
- * A timeout here is necessary because the isLoggedin() function relies on an async function handleRedirectAfterPageLoad() to return boolean
- * The result is the routing of the web page flow from the login page to the functional parts of the app
- * (and returning to the login page if logged out at any point)
+ * Initialize auth/session state before running protected-route checks.
  */
 const publicPages = ["Home", "Login Page", "Query"];
 
-setTimeout(() => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
-  router.beforeEach(async (to, from, next) => {
+  if (!authStore.authReady || authStore.authLoading) {
+    await authStore.initializeAuth();
+  }
 
-    // make sure the user is authenticated
-    if (publicPages.includes(to.name as string)) {
-      // Always allow public pages
-      return next();
-    }
-    // If not logged in, redirect to login
-    if (!authStore.loggedIn) {
-      return next({ name: "Login Page" });
-    }
-    // Otherwise allow navigation
-    next();
-  });
-}, 100);
+  if (publicPages.includes(to.name as string)) {
+    return true;
+  }
+
+  if (!authStore.loggedIn) {
+    return { name: "Login Page" };
+  }
+
+  return true;
+});
 
 /* router.afterEach(function (to, from) {
   // sending analytics data

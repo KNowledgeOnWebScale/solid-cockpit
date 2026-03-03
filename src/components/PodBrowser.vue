@@ -429,14 +429,11 @@ export default {
       return checkUrl(url, this.currentLocation);
     },
   },
-  mounted() {
-    setTimeout(() => {
-      if (this.selectedPodUrl) {
-        this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
-        this.getItems(this.displayPath); // Fetch items for the initial path
-      }
-    }, 200);
-    // Delays the execution of these functions on page reload (to avoid async-related errors)
+  async mounted() {
+    if (this.selectedPodUrl) {
+      this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
+      await this.getItems(this.displayPath); // Fetch items for the initial path
+    }
   },
   watch: {
     selectedPodUrl(newValue, oldValue) {

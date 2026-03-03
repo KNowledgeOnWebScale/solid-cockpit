@@ -95,8 +95,8 @@
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, session, handleRedirectAfterPageLoad } from "./login";
-import { provide, watch } from "vue";
+import { startLogin, isLoggedin, currentWebId, session } from "./login";
+import { provide } from "vue";
 import { useAuthStore } from "../stores/auth";
 
 export default {
@@ -136,11 +136,7 @@ export default {
       if (stat === "error") {
         this.error = "Cannot login properly...";
       } else {
-        await handleRedirectAfterPageLoad();
-        const authStore = useAuthStore(); // Access the store
-        authStore.setAuth(true, currentWebId()); // Update the store
-        this.isLoggedIn = isLoggedin();
-        this.currWebId = currentWebId();
+        await this.loginCheck();
       }
     },
     /*
@@ -149,8 +145,9 @@ export default {
     */
     async loginCheck() {
       const authStore = useAuthStore(); // Access the store
-      this.isLoggedIn = isLoggedin();
-      this.currWebId = currentWebId();
+      await authStore.initializeAuth(true);
+      this.isLoggedIn = authStore.loggedIn || isLoggedin();
+      this.currWebId = authStore.webId || currentWebId();
       authStore.setAuth(this.isLoggedIn, this.currWebId); // Regularly update the store
     },
     /*
@@ -163,12 +160,9 @@ export default {
       );
     },
   },
-  mounted() {
-    // Delay login check to ensure session is initialized
-    setTimeout(() => {
-      this.loginCheck();
-      this.loading = false;
-    }, 800);
+  async mounted() {
+    await this.loginCheck();
+    this.loading = false;
   },
 };
 </script>

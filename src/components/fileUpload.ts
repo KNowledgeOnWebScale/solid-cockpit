@@ -14,7 +14,14 @@ import {
   getUrlAll,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-import { mimeTypes } from "./mime_types.js";
+import {
+  getMimeType,
+  alreadyExistsCheck,
+  uploadSuccess,
+  derefrenceFile,
+} from "./fileUploadUtils";
+
+export { getMimeType, alreadyExistsCheck, uploadSuccess, derefrenceFile };
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() inrupt method.
@@ -45,17 +52,6 @@ export async function handleFiles(
     }
   }
   return outputList;
-}
-
-/**
- * Converts a file extension into a MIME Type for use in HTTP PUT requests.
- * The function relies on the hash map contained in the file 'mime_types.js'.
- *
- * @param fileExtension The file extension string of the file for which the MIME Type should be found.
- * @returns The MIME Type string of the file of interest or 'application/octet-stream' if not in the hash map.
- */
-export function getMimeType(fileExtension: string) {
-  return mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
 }
 
 /**
@@ -289,59 +285,5 @@ export async function alreadyExists(
   } catch (e) {
     // console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
     return false;
-  }
-}
-
-/**
- * Takes in a file name and returns whether it already exists in the specified container or not.
- *
- * @param uploadMessage the file name (could also be "already exists")
- *
- * @return A boolean representing whether the file to be uploaded alreay exists in the current directory
- */
-export function alreadyExistsCheck(uploadMessage: string): boolean {
-  if (uploadMessage == "already exists") {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
- * Checks if the files uploaded from submitUpload() have .name properties (which proves upload was success).
- *
- * @param uploadedFiles is a list of files obtained from the upload process
- *
- * @returns a boolean value that indicated if the file uploads have been successful or not
- */
-export function uploadSuccess(uploadedFiles: string[]): boolean {
-  let success = false;
-  uploadedFiles.forEach((up: string) => {
-    if (up !== undefined || up !== "error") {
-      success = true;
-    } else {
-      success = false;
-    }
-  });
-  return success;
-}
-
-/**
- * Function that returns different bits of information about a file
- *
- * @param inputFile the file that info is to be determined from
- *
- * @returns the file NAME, the file SIZE, and the file's URI (URL)
- */
-export function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
-  try {
-    return [
-      inputFile.name,
-      String(inputFile.size),
-      inputFile.internal_resourceInfo.sourceIri,
-    ];
-  } catch (error) {
-    console.error("Error", error);
-    return ["error"];
   }
 }

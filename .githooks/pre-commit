@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -e
+
+if [ "$SKIP_TEST_COMPLIANCE" = "1" ]; then
+  echo "Skipping unit-test compliance (SKIP_TEST_COMPLIANCE=1)."
+  exit 0
+fi
+
+echo "Running unit-test compliance checks..."
+yarn test:compliance

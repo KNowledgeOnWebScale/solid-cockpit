@@ -21,7 +21,6 @@
 </template>
 
 <script lang="ts">
-import { handleRedirectAfterPageLoad } from "./login";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import LandingGuide from "./Guides/LandingGuide.vue";
@@ -55,13 +54,11 @@ export default {
   },
   methods: {
     async credentials(): Promise<void> {
-      handleRedirectAfterPageLoad();
+      await this.authStore.initializeAuth();
     },
   },
-  mounted() {
-    setTimeout(() => {
-      this.credentials();
-    }, 500); // Delay to ensure authStore is ready
+  async mounted() {
+    await this.credentials();
   },
 };
 </script>

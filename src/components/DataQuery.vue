@@ -1321,7 +1321,8 @@ export default {
     if (this.yasqe) this.yasqe.destroy();
     if (this.yasr && (this.yasr as any).destroy) (this.yasr as any).destroy();
   },
-  mounted() {
+  async mounted() {
+    await this.authStore.initializeAuth();
     this.loadExampleQueries();
     this.yasqe = new Yasqe(document.getElementById("yasqe-container")!, {
       showQueryButton: false,
@@ -1330,10 +1331,7 @@ export default {
     this.yasqe.on("change", (instance) => {
       this.currentQuery.query = instance.getValue();
     });
-
-    setTimeout(() => {
-      this.handleDelay();
-    }, 520);
+    this.handleDelay();
   },
 };
 </script>

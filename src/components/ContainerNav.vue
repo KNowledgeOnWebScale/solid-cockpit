@@ -94,6 +94,9 @@ export default defineComponent({
      * Obtains the containers within the root directory of a user's pod.
      */
     async getGeneralData(): Promise<void> {
+      if (!this.currentPod) {
+        return;
+      }
       try {
         this.dirContents = await fetchData(this.currentPod);
         this.urls = getContainedResourceUrlAll(this.dirContents);
@@ -139,15 +142,23 @@ export default defineComponent({
       this.$emit("path-selected", selectedPath);
     },
   },
-  mounted() {
+  async mounted() {
     this.podURL();
-    setTimeout(() => {
-      try {
-        this.getGeneralData();
-      } catch (err) {
-        console.log(err);
+    try {
+      await this.getGeneralData();
+    } catch (err) {
+      console.log(err);
+    }
+  },
+  watch: {
+    async currentPod(newValue: string, oldValue: string) {
+      if (!newValue || newValue === oldValue) {
+        return;
       }
-    }, 500);
+      this.currentLocation = newValue;
+      this.currentUrl = null;
+      await this.getGeneralData();
+    },
   },
 });
 </script>

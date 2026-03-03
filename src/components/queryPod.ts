@@ -20,9 +20,19 @@ import {
   getDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-import { Parser as SparqlParser } from "sparqljs";
 import { changeAclPublic, generateAcl, Permissions } from "./privacyEdit";
 import { fetchPermissionsData } from "./getData";
+import {
+  stopQuery,
+  cleanSourcesUrlsForCache,
+  generateHash,
+  generateSeededHash,
+  parseSparqlQuery,
+  cleanSourcesUrls as cleanSourcesUrlsInternal,
+  type ComunicaSources as UtilityComunicaSources,
+} from "./queryPodUtils";
+
+export { stopQuery, cleanSourcesUrlsForCache, generateHash, generateSeededHash, parseSparqlQuery };
 
 export interface QueryResultJson {
   head: { vars: string[] };
@@ -39,10 +49,7 @@ export interface CacheOutput {
   provenanceOutput: ProvenanceData | null;
   resultsOutput: QueryResultJson;
 }
-export interface ComunicaSources {
-  value: string;
-  context?: Record<string, any>;
-}
+export type ComunicaSources = UtilityComunicaSources;
 export interface CachedQuery {
   hash: string;
   queryFile: string;
@@ -68,19 +75,6 @@ export interface CoiFetchOptions {
 }
 
 /**
- * Stops an ongoing query by destroying a main thread binding stream.
- * @param bindingStream - The Comunica bindings stream to destroy.
- */
-export function stopQuery(bindingStream: any) {
-  if (bindingStream && typeof bindingStream.destroy === "function") {
-    // Destroy the main thread binding stream
-    bindingStream.destroy();
-    return true;
-  }
-  return false;
-}
-
-/**
  * Cleans an array of source URLs by removing angle brackets ("<" and ">")
  * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
  *
@@ -88,47 +82,7 @@ export function stopQuery(bindingStream: any) {
  * @returns A new array of cleaned source URLs without angle brackets.
  */
 export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
-  const betterSources: string[] = [];
-  const comunicasources: ComunicaSources[] = [];
-
-  dirtySources.forEach((url) => {
-    // removes unwanted URI indicating characters
-    if (url.startsWith("<") && url.endsWith(">")) {
-      betterSources.push(url.slice(1, -1));
-    } else {
-      betterSources.push(url);
-    }
-  });
-  betterSources.forEach((url) => {
-    // TODO: fix --> currently very dumb way of doing this
-    if (url.includes("sparql") || url.includes("endpoint")) {
-      comunicasources.push({ value: url });
-    } else {
-      comunicasources.push({ value: url, context: { fetch: fetch } });
-    }
-  });
-  return comunicasources;
-}
-
-/**
- * Cleans an array of source URLs by removing angle brackets ("<" and ">")
- * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
- *
- * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
- * @returns A new array of cleaned source URLs without angle brackets.
- */
-export function cleanSourcesUrlsForCache(dirtySources: string[]): string[] {
-  const betterSourcesCache: string[] = [];
-
-  dirtySources.forEach((url) => {
-    // removes unwanted URI indicating characters
-    if (url.startsWith("<") && url.endsWith(">")) {
-      betterSourcesCache.push(url.slice(1, -1));
-    } else {
-      betterSourcesCache.push(url);
-    }
-  });
-  return betterSourcesCache;
+  return cleanSourcesUrlsInternal(dirtySources, fetch);
 }
 
 /**
@@ -384,67 +338,6 @@ export async function executeQueryInMainThread(
   } catch (err) {
     return err;
   }
-}
-
-/**
- * Generates a unique 6-character hash using alphanumeric characters.
- * @param length - Length for the hash
- * @returns A string representing the hash.
- */
-export function generateHash(length: number): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let hash = "";
-  for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * charset.length);
-    hash += charset.charAt(randomIndex);
-  }
-  return hash;
-}
-
-/**
- * Generates a deterministic alphanumeric hash of given length using a seed.
- * @param seedValue - The string used to seed the hash generation
- * @param length - Length of the output hash (default: 10)
- * @returns A deterministic hash string
- */
-export function generateSeededHash(seedValue: string, length = 10): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const seed = stringToSeed(seedValue);
-  const random = mulberry32(seed);
-
-  let hash = "";
-  for (let i = 0; i < length; i++) {
-    const index = Math.floor(random() * charset.length);
-    hash += charset.charAt(index);
-  }
-  return hash;
-}
-
-/**
- * Creates a seeded pseudorandom number generator.
- * Mulberry32 is fast and well-suited for small tasks like this.
- */
-function mulberry32(seed: number): () => number {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/**
- * Converts a string into a numeric seed.
- */
-function stringToSeed(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
 }
 
 /**
@@ -716,48 +609,6 @@ export async function uploadQueryFile(
   } catch (error) {
     console.error(`Error uploading ${fileName}:`, error);
     throw error;
-  }
-}
-
-/**
- * Parses a SPARQL query file for SERVICE clauses and returns any federation source URLs.
- *
- * @param queryString The SPARQL query as a string.
- * @returns An object containing the prefixes and the query body.
- */
-export function parseSparqlQuery(queryString: string): string[] {
-  const parser = new SparqlParser();
-
-  try {
-    // Parse the SPARQL query string into a structured object
-    const parsedQuery = parser.parse(queryString);
-
-    // Initialize an array to store service sources
-    const serviceSources: string[] = [];
-
-    // Helper function to recursively search for SERVICE clauses
-    function findServiceClauses(pattern: any) {
-      if (pattern.type === "service" || pattern.type === "SERVICE") {
-        // Add the service source (URL) to the array
-        serviceSources.push(pattern.name.value);
-      } else if (pattern.type === "group" || pattern.type === "union") {
-        // Recursively check patterns in groups or unions
-        pattern.patterns.forEach(findServiceClauses);
-      } else if (pattern.type === "optional") {
-        // Recursively check optional patterns
-        findServiceClauses(pattern.pattern);
-      }
-    }
-
-    // Start searching for SERVICE clauses in the query's WHERE clause
-    if (parsedQuery.type === "query" && parsedQuery.where) {
-      parsedQuery.where.forEach(findServiceClauses);
-    }
-
-    return serviceSources;
-  } catch (error) {
-    console.error("Error parsing SPARQL query for SERVICE clauses:", error);
-    return [];
   }
 }
 

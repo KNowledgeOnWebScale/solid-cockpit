@@ -51,6 +51,7 @@ export async function logOut(): Promise<boolean> {
       return session.info.isLoggedIn
     } catch (error) {
       console.error('Error:', error);
+      return session.info.isLoggedIn
     }
   } else {
     return session.info.isLoggedIn
@@ -117,5 +118,4 @@ export async function handleRedirectAfterPageLoad(): Promise<void> {
     console.error("Error during session restoration:", error);
   }
 }
-
 

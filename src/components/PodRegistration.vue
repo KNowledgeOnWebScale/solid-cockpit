@@ -181,12 +181,9 @@ export default {
       this.podList = await getPodURLs();
       if (this.podList !== null) {
         this.currentPod = this.podList[0];
-        //TODO: make this error display in DOM
-        try {
-          this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
-        } catch (err) {
-          console.log(err);
-        }
+        this.podAccess = this.podList.length !== 0;
+      } else {
+        this.podAccess = false;
       }
     },
     /* Toggles the Custom URL field */
@@ -204,13 +201,12 @@ export default {
       authStore.setSelectedPodUrl(""); // Clear the selected Pod URL
     },
   },
-  mounted() {
-    setTimeout(() => {
-      this.findPodList();
-    }, 200);
-    setTimeout(() => {
+  async mounted() {
+    try {
+      await this.findPodList();
+    } finally {
       this.toggleDelay();
-    }, 250);
+    }
   },
 };
 </script>

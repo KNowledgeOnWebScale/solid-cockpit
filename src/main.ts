@@ -3,6 +3,7 @@ import { createApp } from 'vue'
 import App from './App.vue';
 import router from './router';
 import { createPinia } from 'pinia';
+import { useAuthStore } from "./stores/auth";
 
 import 'vuetify/styles';
 import { createVuetify } from 'vuetify';
@@ -45,9 +46,10 @@ const vuetify = createVuetify({
   },
 })
 
-const app = createApp(App).use(vuetify);
+const app = createApp(App);
+app.use(pinia);
 app.use(router);
-app.use(createPinia());
+app.use(vuetify);
 
 // Set theme based on data-theme attribute
 const observer = new MutationObserver(() => {
@@ -64,4 +66,13 @@ if (initialTheme) {
   vuetify.theme.global.name.value = initialTheme;
 }
 
-app.mount('#app');
+async function bootstrap() {
+  const authStore = useAuthStore(pinia);
+  await authStore.initializeAuth();
+  await router.isReady();
+  app.mount('#app');
+}
+
+bootstrap().catch((error) => {
+  console.error("Application bootstrap failed:", error);
+});

@@ -123,6 +123,7 @@ export default {
       menu: false as boolean,
       message: false as boolean,
       notloggedOut: false as boolean,
+      loginStatusIntervalId: null as number | null,
     };
   },
   computed: {
@@ -160,9 +161,15 @@ export default {
     this.loginCheck(); // Perform login check on component mount
 
     // Regularly check login status
-    setInterval(() => {
+    this.loginStatusIntervalId = window.setInterval(() => {
       this.loginCheck();
     }, 30000); // Check every 30 seconds
+  },
+  beforeUnmount() {
+    if (this.loginStatusIntervalId !== null) {
+      window.clearInterval(this.loginStatusIntervalId);
+      this.loginStatusIntervalId = null;
+    }
   },
 };
 </script>
