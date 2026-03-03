@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 
 const args = new Set(process.argv.slice(2));
 const enforce = args.has("--enforce");
+const quiet = args.has("--quiet");
 
 const lineThreshold = Number(process.env.UNIT_COVERAGE_LINES ?? "98");
 const branchThreshold = Number(process.env.UNIT_COVERAGE_BRANCHES ?? "90");
@@ -37,10 +38,16 @@ const nodeResult = spawnSync(
   { encoding: "utf8" }
 );
 
-if (nodeResult.stdout) process.stdout.write(nodeResult.stdout);
-if (nodeResult.stderr) process.stderr.write(nodeResult.stderr);
+if (!quiet) {
+  if (nodeResult.stdout) process.stdout.write(nodeResult.stdout);
+  if (nodeResult.stderr) process.stderr.write(nodeResult.stderr);
+}
 
 if (nodeResult.status !== 0) {
+  if (quiet) {
+    if (nodeResult.stdout) process.stdout.write(nodeResult.stdout);
+    if (nodeResult.stderr) process.stderr.write(nodeResult.stderr);
+  }
   process.exit(nodeResult.status ?? 1);
 }
 
@@ -122,13 +129,13 @@ reportText += `Average: lines=${average.linePct.toFixed(2)} branches=${average.b
 if (missingFiles.length > 0) {
   reportText += `Missing from coverage report: ${missingFiles.join(", ")}\n`;
 }
-if (advisoryMetrics.length > 0) {
+if (advisoryMetrics.length > 0 && !quiet) {
   reportText += "Advisory Coverage (non-gating)\n";
   for (const metric of advisoryMetrics) {
     reportText += `- ${metric.file}: lines=${metric.linePct.toFixed(2)} branches=${metric.branchPct.toFixed(2)} funcs=${metric.funcPct.toFixed(2)}\n`;
   }
 }
-if (missingAdvisoryFiles.length > 0) {
+if (missingAdvisoryFiles.length > 0 && !quiet) {
   reportText += `Missing advisory files from coverage report: ${missingAdvisoryFiles.join(", ")}\n`;
 }
 
@@ -162,4 +169,8 @@ if (failures.length > 0) {
   console.error("\nCoverage compliance failed:");
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
+}
+
+if (quiet) {
+  console.log("Unit coverage compliance: PASS");
 }

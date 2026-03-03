@@ -14,22 +14,14 @@ This application was developed in the context of the CHIST-ERA TRIPLE project.
 
 ## Table of Contents
 
-- [Project Overview](#project-overview)
-- [Quick Start](#quick-start)
-- [Scripts](#scripts)
-- [Unit Test Suite](#unit-test-suite)
-- [Git Workflow](#git-workflow)
-- [Web-App Version Tags](#web-app-version-tags)
-- [Deployment](#deployment)
-- [Dependency Versions](#dependency-versions)
-- [Ways to Get a Solid Pod](#ways-to-get-a-solid-pod)
-- [Guides](#guides)
-- [Contributing](#contributing)
-- [Contact](#contact)
+- [Users](#users)
+- [Developers](#developers)
 
-## Project Overview
+## Users
 
-### Main capabilities
+### What Solid Cockpit Does
+
+Main capabilities:
 
 - Solid Pod login and registration flow
 - File upload and pod resource operations
@@ -37,7 +29,51 @@ This application was developed in the context of the CHIST-ERA TRIPLE project.
 - Query caching support
 - Privacy/ACL access management
 
-### Tech stack
+### Accessing the App
+
+Public deployment:
+
+- <https://knowledgeonwebscale.github.io/solid-cockpit>
+
+If you want to run locally, see [Developers](#developers).
+
+### Ways to Get a Solid Pod
+
+- [Community Solid Server](https://communitysolidserver.github.io/CommunitySolidServer/latest/): host a Pod locally or on your own server
+- [Solidcommunity.net](https://solidcommunity.net/): community-hosted Solid Pods
+- [Other Solid Pod Hosting Services](https://solidproject.org/for-developers#hosted-pod-services)
+
+### Usage Guides
+
+TRIPLE onboarding guide:
+
+- [TRIPLE-guide.md](./TRIPLE-guide.md)
+
+Solid Pod VoID file generation:
+
+- <https://github.com/JervenBolleman/void-generator/tree/solid-pod-support>
+
+Example:
+
+```bash
+mvn package
+java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
+  --from-solid-pod [URL-to-solid-pod] \
+  --void-file void.ttl \
+  -i [URL-to-solid-pod]/void.ttl \
+  --repository [URL-to-solid-pod]
+```
+
+Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
+
+### Contact and Support
+
+- Discussions: <https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions>
+- Issues: <https://github.com/KNowledgeOnWebScale/solid-cockpit/issues>
+
+## Developers
+
+### Tech Stack
 
 - Vue 3 + Vite 6
 - TypeScript
@@ -46,38 +82,38 @@ This application was developed in the context of the CHIST-ERA TRIPLE project.
 - Inrupt Solid client/auth libraries
 - Comunica SPARQL engine
 
-## Quick Start
-
 ### Prerequisites
 
 - Node.js 20+
 - Yarn 1.x (repo currently uses `yarn.lock`)
 
-### Install
+### Local Setup
+
+Install dependencies:
 
 ```bash
 yarn install
 ```
 
-### Run locally
+Run locally:
 
 ```bash
 yarn dev
 ```
 
-### Build production assets
+Build production assets:
 
 ```bash
 yarn build
 ```
 
-### Preview production build
+Preview production build:
 
 ```bash
 yarn serve
 ```
 
-## Scripts
+### Scripts
 
 | Script | Description |
 | --- | --- |
@@ -88,46 +124,32 @@ yarn serve
 | `yarn test:unit:watch` | Run unit tests in watch mode |
 | `yarn test:unit:coverage` | Run unit tests with coverage report generation |
 | `yarn test:unit:compliance` | Enforce unit-test + coverage thresholds |
+| `yarn test:unit:compliance:quiet` | Enforce unit coverage with concise output |
 | `yarn test:component` | Run Vue component tests (`.vue`) via Vitest |
 | `yarn test:component:watch` | Run Vue component tests in watch mode |
 | `yarn test:component:coverage` | Run Vue component tests with coverage |
 | `yarn test:component:compliance` | Enforce Vue component test coverage thresholds |
-| `yarn test:compliance` | Run both unit and component compliance checks |
+| `yarn test:component:compliance:quiet` | Enforce component coverage with concise output |
+| `yarn test:compliance` | Run full (unit + component) compliance checks |
+| `yarn test:compliance:quiet` | Run full compliance checks with concise output |
 | `yarn hooks:install` | Configure local git hooks path (`.githooks`) |
 | `yarn github-post-build` | Create route-compatible `index.html` copies in `dist/` |
 | `yarn deploy` | Publish `dist/` to GitHub Pages |
 
-## Unit Test Suite
+### Testing and Coverage
 
-The project includes a unit test suite under `tests/unit/`.
+Unit test suite:
 
-### Current coverage focus
+- Location: `tests/unit/`
+- Command: `yarn test:unit`
 
-- Upload helper behavior (`fileUploadUtils.ts`)
-- Query utility behavior (`queryPodUtils.ts`)
-- COI fetch wrapper behavior (`z3-headers.ts`)
-- Auth/session workflow behavior (`login.ts`)
-- Data-access error-path behavior (`getData.ts`)
-- Privacy utility/error-path behavior (`privacyEdit.ts`)
+Component test suite:
 
-### Run tests
+- Location: `tests/components/`
+- Command: `yarn test:component`
+- Includes focused `ThemeSwitch` + `TheFooter` tests and full `.vue` smoke mounts in `tests/components/AllComponentsSmoke.test.ts`
 
-```bash
-yarn test:unit
-```
-
-### Run Vue component tests
-
-```bash
-yarn test:component
-```
-
-Component suite includes:
-
-- focused behavior tests for `ThemeSwitch` and `TheFooter` inside `tests/components/AllComponentsSmoke.test.ts`
-- an all-components smoke suite in the same file that mounts every `.vue` file under `src/components/**`
-
-### Coverage tracker
+Coverage tracker:
 
 ```bash
 yarn test:unit:coverage
@@ -135,24 +157,17 @@ yarn test:unit:coverage
 
 This command:
 
-- runs the full unit-test suite with Node coverage enabled
+- runs the unit test suite with Node coverage enabled
 - writes machine-readable output to `coverage/unit-coverage-summary.json`
 - writes a readable summary to `coverage/unit-coverage-summary.txt`
 
-### Compliance thresholds
-
-```bash
-yarn test:unit:compliance
-yarn test:component:compliance
-```
-
-Default enforced thresholds for tracked files:
+Compliance thresholds (gating):
 
 - line coverage: `98%`
 - branch coverage: `90%`
 - function coverage: `100%`
 
-Tracked (gating) files:
+Tracked files:
 
 - `src/components/fileUploadUtils.ts`
 - `src/components/mime_types.js`
@@ -165,21 +180,19 @@ Advisory (non-gating) coverage is also reported for:
 - `src/components/getData.ts`
 - `src/components/privacyEdit.ts`
 
-You can override thresholds with env vars:
+Override thresholds with env vars:
 
 - `UNIT_COVERAGE_LINES`
 - `UNIT_COVERAGE_BRANCHES`
 - `UNIT_COVERAGE_FUNCS`
 
-## Git Workflow
+### Git Workflow
 
-### Commit-time compliance check
+Commit-time compliance check:
 
-A pre-commit hook is defined at `.githooks/pre-commit` and runs:
-
-```bash
-yarn test:compliance
-```
+- Hook file: `.githooks/pre-commit`
+- Command run by hook: `node ./scripts/precommit-compliance.mjs`
+- Hook output is intentionally concise on pass and detailed on failure.
 
 Install hooks locally:
 
@@ -187,38 +200,31 @@ Install hooks locally:
 yarn hooks:install
 ```
 
-If automatic hook setup is blocked in your environment, run:
+If automatic hook setup is blocked in your environment:
 
 ```bash
 git config --local core.hooksPath .githooks
 ```
 
-### CI compliance check
+CI compliance check:
 
-GitHub Actions workflow `.github/workflows/unit-test-compliance.yml` also enforces:
+- Workflow: `.github/workflows/unit-test-compliance.yml`
+- Enforces unit tests, component tests, and coverage thresholds.
 
-- unit tests passing
-- component tests passing
-- coverage thresholds passing
+### Web-App Version Tags
 
-## Web-App Version Tags
-
-### Current app version
+Current app version:
 
 - `package.json` version: `1.0.0`
 - web-app release tag convention: `web-app-v<version>`
 - current computed web-app tag: `web-app-v1.0.0`
 
-### In-app visibility
+In-app visibility:
 
-The footer displays both:
+- Footer displays semantic version (`vX.Y.Z`) and computed release tag (`web-app-vX.Y.Z`)
+- Values are injected at build time from `package.json` via Vite defines
 
-- semantic app version (`vX.Y.Z`)
-- computed web-app release tag (`web-app-vX.Y.Z`)
-
-Both values are injected at build time from `package.json` via Vite defines.
-
-### Recommended release workflow
+Recommended release workflow:
 
 1. Update version:
 
@@ -241,19 +247,19 @@ git tag web-app-vX.Y.Z
 git push origin vX.Y.Z web-app-vX.Y.Z
 ```
 
-## Deployment
+### Deployment
 
-The project is configured for GitHub Pages deployment.
+GitHub Pages deployment setup:
 
 - `vite.config.js` uses `/solid-cockpit/` base path for production
 - `yarn github-post-build` prepares route folders in `dist/`
 - `yarn deploy` publishes `dist/` via `gh-pages`
 
-## Dependency Versions
+### Dependency Versions
 
-Below are the direct dependency versions currently declared in `package.json`.
+Direct dependency versions currently declared in `package.json`.
 
-### Runtime dependencies
+Runtime dependencies:
 
 | Package | Version |
 | --- | --- |
@@ -280,59 +286,27 @@ Below are the direct dependency versions currently declared in `package.json`.
 | `vuetify` | `^3.5.14` |
 | `z3-solver` | `^4.15.3` |
 
-### Development dependencies
+Development dependencies:
 
 | Package | Version |
 | --- | --- |
 | `@tsconfig/node20` | `^20.1.5` |
 | `@typescript-eslint/eslint-plugin` | `^5.4.0` |
 | `@typescript-eslint/parser` | `^5.4.0` |
+| `@vitest/coverage-v8` | `2.1.9` |
+| `@vue/test-utils` | `2.4.6` |
 | `eslint` | `^7.32.0` |
 | `eslint-config-prettier` | `^8.3.0` |
 | `eslint-plugin-prettier` | `^4.0.0` |
 | `eslint-plugin-vue` | `^8.0.3` |
 | `gh-pages` | `^5.0.0` |
+| `jsdom` | `24.1.3` |
 | `prettier` | `^2.4.1` |
 | `typescript` | `^5.0.0` |
+| `vitest` | `2.1.9` |
 
-## Ways to Get a Solid Pod
-
-- [Community Solid Server](https://communitysolidserver.github.io/CommunitySolidServer/latest/): host a Pod locally or on your own server
-- [Solidcommunity.net](https://solidcommunity.net/): community-hosted Solid Pods
-- [Other Solid Pod Hosting Services](https://solidproject.org/for-developers#hosted-pod-services)
-
-## Guides
-
-### TRIPLE guide
-
-See [TRIPLE-guide.md](./TRIPLE-guide.md).
-
-### Solid Pod VoID file generation
-
-Tool reference:
-
-- <https://github.com/JervenBolleman/void-generator/tree/solid-pod-support>
-
-Example:
-
-```bash
-mvn package
-java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
-  --from-solid-pod [URL-to-solid-pod] \
-  --void-file void.ttl \
-  -i [URL-to-solid-pod]/void.ttl \
-  --repository [URL-to-solid-pod]
-```
-
-Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
-
-## Contributing
+### Contributing
 
 - Open pull requests against the `main` branch
 - Use GitHub Issues for bug reports
 - Use GitHub Discussions for broader questions and ideas
-
-## Contact
-
-- Discussions: <https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions>
-- Issues: <https://github.com/KNowledgeOnWebScale/solid-cockpit/issues>
