@@ -124,8 +124,8 @@ yarn test:component
 
 Component suite includes:
 
-- focused behavior tests for `ThemeSwitch` and `TheFooter`
-- an all-components smoke suite in `tests/components/AllComponentsSmoke.test.ts` that mounts every `.vue` file under `src/components/**`
+- focused behavior tests for `ThemeSwitch` and `TheFooter` inside `tests/components/AllComponentsSmoke.test.ts`
+- an all-components smoke suite in the same file that mounts every `.vue` file under `src/components/**`
 
 ### Coverage tracker
 

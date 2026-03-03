@@ -1,6 +1,9 @@
-import { RouterLinkStub, shallowMount } from "@vue/test-utils";
+import { RouterLinkStub, mount, shallowMount } from "@vue/test-utils";
 import { createPinia } from "pinia";
+import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import TheFooter from "../../src/components/Styling/TheFooter.vue";
+import ThemeSwitch from "../../src/components/Styling/ThemeSwitch.vue";
 
 vi.mock("../../src/components/login.ts", () => ({
   session: {
@@ -152,6 +155,11 @@ const componentEntries = Object.entries(componentModules).sort(([a], [b]) =>
   a.localeCompare(b)
 );
 
+const flushPromises = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 function makeProps(path: string): Record<string, unknown> {
   if (path.endsWith("/Styling/SharedWith.vue")) {
     return {
@@ -175,6 +183,97 @@ function makeProps(path: string): Record<string, unknown> {
 
   return {};
 }
+
+describe("Focused Styling Component Tests", () => {
+  it("ThemeSwitch initializes from saved localStorage theme", async () => {
+    localStorage.setItem("app-theme", "light");
+
+    const wrapper = mount(ThemeSwitch);
+    await nextTick();
+
+    const button = wrapper.get("button.theme-switch");
+    expect(button.attributes("data-mode")).toBe("light");
+    expect(button.attributes("aria-checked")).toBe("false");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  it("ThemeSwitch defaults to dark and toggles theme on click", async () => {
+    const wrapper = mount(ThemeSwitch);
+    await nextTick();
+
+    const button = wrapper.get("button.theme-switch");
+    expect(button.attributes("data-mode")).toBe("dark");
+    expect(localStorage.getItem("app-theme")).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+
+    await button.trigger("click");
+    expect(button.attributes("data-mode")).toBe("light");
+    expect(button.attributes("aria-checked")).toBe("false");
+    expect(localStorage.getItem("app-theme")).toBe("light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  it("ThemeSwitch toggles theme on keyboard handlers", async () => {
+    const wrapper = mount(ThemeSwitch);
+    await nextTick();
+
+    const button = wrapper.get("button.theme-switch");
+    expect(button.attributes("data-mode")).toBe("dark");
+
+    await button.trigger("keydown.enter");
+    expect(button.attributes("data-mode")).toBe("light");
+
+    await button.trigger("keydown.space");
+    expect(button.attributes("data-mode")).toBe("dark");
+  });
+
+  it("TheFooter renders version metadata and shows last modified date after fetch", async () => {
+    const fetchMock = vi.fn(async () => ({
+      json: async () => [
+        {
+          commit: { committer: { date: "2026-02-20T10:20:30.000Z" } },
+        },
+      ],
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const wrapper = mount(TheFooter);
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain("Last Modified: 2026-02-20");
+    });
+
+    expect(wrapper.text()).toContain("Version: v1.0.0");
+    expect(wrapper.text()).toContain("web-app-v1.0.0");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("TheFooter keeps last-modified hidden when commit API returns no entries", async () => {
+    const fetchMock = vi.fn(async () => ({
+      json: async () => [],
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const wrapper = mount(TheFooter);
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Last Modified:");
+  });
+
+  it("TheFooter handles fetch failures without crashing", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network failure");
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const wrapper = mount(TheFooter);
+    await flushPromises();
+
+    expect(wrapper.exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("Last Modified:");
+    expect(errorSpy).toHaveBeenCalled();
+  });
+});
 
 describe("All Vue Components Smoke Tests", () => {
   beforeEach(() => {
