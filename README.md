@@ -66,6 +66,31 @@ java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
 
 Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
 
+### Citation
+
+If you use this tool in an academic publication, you can cite:
+
+`Crum, E. (2026). Solid Cockpit (Version 1.0.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
+
+BibTeX:
+
+```bibtex
+@misc{solidcockpit_2026,
+  author       = {Crum, Elias},
+  title        = {{Solid Cockpit}},
+  year         = {2026},
+  version      = {1.0.0},
+  publisher    = {GitHub},
+  howpublished = {\url{https://github.com/KNowledgeOnWebScale/solid-cockpit}},
+  note         = {Software. Web app: \url{https://knowledgeonwebscale.github.io/solid-cockpit}. Accessed: 2026-03-04}
+}
+```
+
+You can also use:
+
+- `CITATION.cff` for GitHub-style citation metadata
+- `CITATION.bib` for direct BibTeX import
+
 ### Contact and Support
 
 - Discussions: <https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions>
