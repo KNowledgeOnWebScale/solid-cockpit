@@ -1,5 +1,6 @@
 import {
   WithResourceInfo,
+  getFile,
   overwriteFile,
   saveFileInContainer,
   createContainerAt,
@@ -130,6 +131,174 @@ export async function deleteContainer(containerUrl: string): Promise<boolean> {
     console.error(`Error deleting ${containerUrl}:`, error);
     return false;
   }
+}
+
+/**
+ * Moves a resource or container to another container inside the user's pod.
+ *
+ * Resources are copied to the destination and then deleted from the source.
+ * Containers are recreated recursively at the destination and then removed.
+ *
+ * @param sourceUrl The current URL of the resource or container.
+ * @param destinationContainerUrl The target container URL where the item should be moved.
+ * @param podUrl The root pod URL used to validate and create intermediate containers.
+ * @returns A Promise that resolves to the new URL when successful, or "error" when the move fails.
+ */
+export async function movePodItem(
+  sourceUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  try {
+    if (!destinationContainerUrl.endsWith("/")) {
+      destinationContainerUrl = `${destinationContainerUrl}/`;
+    }
+    await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+
+    if (sourceUrl.endsWith("/")) {
+      return await moveContainerToPod(sourceUrl, destinationContainerUrl, podUrl);
+    }
+
+    return await moveResourceToPod(sourceUrl, destinationContainerUrl, podUrl);
+  } catch (error) {
+    console.error(`Error moving ${sourceUrl} to ${destinationContainerUrl}:`, error);
+    return "error";
+  }
+}
+
+async function moveResourceToPod(
+  sourceUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+  const sourceFile = await getFile(sourceUrl, { fetch });
+  const fileName = sourceUrl.split("/").pop() || sourceFile.name || "resource";
+  const fileToMove = new File([sourceFile], fileName, {
+    type: sourceFile.type || "application/octet-stream",
+  });
+  const targetUrl = `${destinationContainerUrl}${fileName}`;
+
+  const savedFile = await overwriteFile(targetUrl, fileToMove, {
+    contentType: fileToMove.type,
+    fetch,
+  });
+  await deleteFromPod(sourceUrl);
+
+  return savedFile.internal_resourceInfo.sourceIri;
+}
+
+async function moveContainerToPod(
+  sourceContainerUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+  const containerName =
+    sourceContainerUrl.split("/").filter(Boolean).pop() || "container";
+  const targetContainerUrl = `${destinationContainerUrl}${containerName}/`;
+
+  try {
+    await createContainerAt(targetContainerUrl, { fetch });
+  } catch (error) {
+    // The destination container may already exist, which is safe to continue with.
+  }
+
+  const sourceDataset = await getSolidDataset(sourceContainerUrl, { fetch });
+  const containedResources = getContainedResourceUrlAll(sourceDataset);
+
+  for (const resourceUrl of containedResources) {
+    await movePodItem(resourceUrl, targetContainerUrl, podUrl);
+  }
+
+  await deleteSolidDataset(sourceContainerUrl, { fetch });
+  return targetContainerUrl;
+}
+
+/**
+ * Renames a resource or container within its current parent container.
+ *
+ * The implementation reuses the same copy-then-delete strategy as move operations,
+ * but targets a new sibling name inside the source parent container.
+ *
+ * @param sourceUrl The current URL of the resource or container.
+ * @param newName The new item name without path segments.
+ * @param podUrl The root pod URL used to validate any intermediate container handling.
+ * @returns A Promise that resolves to the renamed URL when successful, or "error" when the rename fails.
+ */
+export async function renamePodItem(
+  sourceUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  const sanitizedName = newName.trim().replace(/^\/+|\/+$/g, "");
+  if (!sanitizedName || sanitizedName.includes("/")) {
+    return "error";
+  }
+
+  const isContainer = sourceUrl.endsWith("/");
+  const normalizedSourceUrl = isContainer ? sourceUrl.slice(0, -1) : sourceUrl;
+  const parentContainerUrl =
+    normalizedSourceUrl.substring(0, normalizedSourceUrl.lastIndexOf("/") + 1);
+
+  try {
+    if (isContainer) {
+      return await renameContainerInPod(sourceUrl, parentContainerUrl, sanitizedName, podUrl);
+    }
+
+    return await renameResourceInPod(sourceUrl, parentContainerUrl, sanitizedName, podUrl);
+  } catch (error) {
+    console.error(`Error renaming ${sourceUrl} to ${sanitizedName}:`, error);
+    return "error";
+  }
+}
+
+async function renameResourceInPod(
+  sourceUrl: string,
+  parentContainerUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, parentContainerUrl, fetch);
+  const sourceFile = await getFile(sourceUrl, { fetch });
+  const fileToRename = new File([sourceFile], newName, {
+    type: sourceFile.type || "application/octet-stream",
+  });
+  const targetUrl = `${parentContainerUrl}${newName}`;
+
+  const savedFile = await overwriteFile(targetUrl, fileToRename, {
+    contentType: fileToRename.type,
+    fetch,
+  });
+  await deleteFromPod(sourceUrl);
+
+  return savedFile.internal_resourceInfo.sourceIri;
+}
+
+async function renameContainerInPod(
+  sourceContainerUrl: string,
+  parentContainerUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, parentContainerUrl, fetch);
+  const targetContainerUrl = `${parentContainerUrl}${newName}/`;
+
+  try {
+    await createContainerAt(targetContainerUrl, { fetch });
+  } catch (error) {
+    // The destination container may already exist, which is safe to continue with.
+  }
+
+  const sourceDataset = await getSolidDataset(sourceContainerUrl, { fetch });
+  const containedResources = getContainedResourceUrlAll(sourceDataset);
+
+  for (const resourceUrl of containedResources) {
+    await movePodItem(resourceUrl, targetContainerUrl, podUrl);
+  }
+
+  await deleteSolidDataset(sourceContainerUrl, { fetch });
+  return targetContainerUrl;
 }
 
 /**

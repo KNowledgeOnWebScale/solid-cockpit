@@ -1,535 +1,608 @@
 <template>
-  <div class="title-container">
-    <span>Data Query</span>
-  </div>
-
-  <!-- delay div prevents flashing of login and pod selection box -->
-  <div class="loading-spinner-container" v-if="delay">
-    <div class="spinner"></div>
-    <span class="loading-text">Checking login status ...</span>
-  </div>
-
-  <div class="delay-placeholder" v-if="!delay">
-    <div v-if="!loggedIn" class="login-container">
-      <pod-login />
-    </div>
-
-    <div v-if="loggedIn" class="pod-chooseContainer">
-      <PodRegistration />
-    </div>
-
-    <!-- Input field for custom cache path -->
-    <div class="custom-cache-container">
-      <div class="custom-cache-path">
-        <div class="custom-cache-guide">
-          <v-icon>mdi-help-circle</v-icon>
-          <v-tooltip class="tool-tip" activator="parent" location="top"
-            >Provide a custom query cache URL to use (defaults to the connected
-            pod)
-          </v-tooltip>
-        </div>
-        <div class="custom-cache-checkbox">
-          <v-checkbox
-            v-model="useCustomCachePath"
-            label="Use Custom Cache Path"
-            hide-details
-          ></v-checkbox>
-        </div>
-        <div class="custom-cache-input">
-          <v-text-field
-            id="cachePathInput"
-            v-show="useCustomCachePath"
-            v-model="customCachePath"
-            label="Cache URL"
-            placeholder="Enter custom cache location (optional)"
-            :disabled="!useCustomCachePath"
-            variant="outlined"
-            dense
-            hide-details
-            @blur="validateCustomCachePath"
-          ></v-text-field>
-        </div>
-      </div>
-      <div v-if="cacheError != null" class="custom-cache-error">
-        <span>{{ cacheError }}</span>
+  <section class="query-page">
+    <div class="title-container">
+      <div>
+        <span>Data Query</span>
+        <p class="page-summary">
+          Run SPARQL queries, review saved query history, and inspect cached
+          results inside your pod.
+        </p>
       </div>
     </div>
-  </div>
 
-  <div class="general-container">
-    <!-- Left Navigation Bar -->
-    <div class="nav-container">
-      <ul>
-        <li><span>Query Views</span></li>
-
-        <li>
-          <button
-            id="top-button"
-            :class="{ highlight: currentView === 'newQuery' }"
-            @click="currentView = 'newQuery'"
-          >
-            New Query
-          </button>
-        </li>
-        <li>
-          <button
-            :class="{ highlight: currentView === 'previousQueries' }"
-            @click="previousQueriesView"
-          >
-            Past Queries
-          </button>
-        </li>
-      </ul>
+    <!-- Delay div prevents flashing of login and pod selection box. -->
+    <div class="loading-spinner-container" v-if="delay">
+      <div class="spinner"></div>
+      <span class="loading-text">Checking login status ...</span>
     </div>
 
-    <!-- Main Content -->
-    <div class="query-container">
-      <div v-show="currentView === 'newQuery'">
-        <ul>
-          <div class="top-container">
-            <span class="top-label">Input a New Query</span>
+    <div class="delay-placeholder" v-if="!delay">
+      <!-- Query setup card keeps session, pod selection, and cache destination together. -->
+      <div class="query-access-shell">
+        <div v-if="!loggedIn" class="login-container">
+          <pod-login />
+        </div>
 
-            <!-- Example Queries -->
-            <!-- TODO: Add more example queries here -->
-            <div class="example-dropdown">
-              <v-select
-                class="example-queries"
-                :item-props="itemPropsExampleQueries"
-                :items="exampleQueries"
-                v-model="selectedExample"
-                @update:modelValue="onSelectExample"
-                density="compact"
-                rounded
-                flat
-                label="Sample Queries"
-              ></v-select>
+        <div v-if="loggedIn" class="pod-chooseContainer">
+          <PodRegistration />
+        </div>
+
+        <div class="custom-cache-container">
+          <div class="custom-cache-header">
+            <div>
+              <p class="section-kicker">Query cache</p>
+              <h3>Saved query location</h3>
+            </div>
+            <div class="custom-cache-actions">
+              <div class="custom-cache-guide">
+                <v-icon>mdi-help-circle</v-icon>
+                <v-tooltip class="tool-tip" activator="parent" location="top"
+                  >Provide a custom query cache URL to use (defaults to the
+                  connected pod)
+                </v-tooltip>
+              </div>
+              <!-- Cache settings stay hidden by default to keep the setup area compact. -->
+              <button
+                class="cache-toggle-button"
+                @click="showCustomCache = !showCustomCache"
+                :aria-expanded="showCustomCache"
+                type="button"
+              >
+                <span>{{
+                  showCustomCache ? "Hide cache options" : "Custom cache"
+                }}</span>
+                <i class="material-icons">
+                  {{ showCustomCache ? "expand_less" : "expand_more" }}
+                </i>
+              </button>
             </div>
           </div>
 
-          <!-- Source Designation -->
-          <div class="source-selection">
-            <span>Datasources: </span>
-            <v-combobox
-              class="autocomplete"
-              v-model="currentQuery.sources"
-              :items="possibleSources"
-              label="Source(s)"
-              variant="plain"
-              chips
-              closable-chips
-              hide-details
-              hide-no-data
-              hide-selected
-              multiple
-              single-line
-              clearable
-            ></v-combobox>
+          <div v-if="showCustomCache" class="custom-cache-body">
+            <div class="custom-cache-path">
+              <div class="custom-cache-checkbox">
+                <v-checkbox
+                  v-model="useCustomCachePath"
+                  label="Use Custom Cache Path"
+                  hide-details
+                ></v-checkbox>
+              </div>
+              <div class="custom-cache-input">
+                <v-text-field
+                  id="cachePathInput"
+                  v-show="useCustomCachePath"
+                  v-model="customCachePath"
+                  label="Cache URL"
+                  placeholder="Enter custom cache location (optional)"
+                  :disabled="!useCustomCachePath"
+                  variant="outlined"
+                  dense
+                  hide-details
+                  @blur="validateCustomCachePath"
+                ></v-text-field>
+              </div>
+            </div>
+            <div v-if="cacheError != null" class="custom-cache-error">
+              <span>{{ cacheError }}</span>
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
 
-          <!-- Actual query -->
-          <div id="yasqe-container"></div>
-
-          <!-- execute query -->
-          <div class="bottom-container">
+    <div
+      class="general-container"
+      :class="{
+        'nav-collapsed': effectiveQueryNavCollapsed,
+        'nav-compact-layout': isCompactQueryLayout,
+      }"
+    >
+      <!-- Query mode navigation stays compact and matches the newer page side rails. -->
+      <aside class="nav-container">
+        <ul>
+          <li class="nav-header-row">
+            <span v-if="!effectiveQueryNavCollapsed">Query Views</span>
+            <div
+              v-if="effectiveQueryNavCollapsed && isCompactQueryLayout"
+              class="nav-header-spacer"
+            ></div>
             <button
-              v-show="!loading"
-              class="execute-button"
-              @click="runExecuteQuery"
-              :disabled="loading"
+              class="nav-toggle-button"
+              type="button"
+              :aria-expanded="!effectiveQueryNavCollapsed"
+              @click="queryNavCollapsed = !queryNavCollapsed"
             >
-              Execute Query
+              <i class="material-icons">
+                {{
+                  isCompactQueryLayout
+                    ? effectiveQueryNavCollapsed
+                      ? "chevron_left"
+                      : "expand_less"
+                    : effectiveQueryNavCollapsed
+                      ? "chevron_right"
+                      : "chevron_left"
+                }}
+              </i>
             </button>
-            <button
-              v-show="loading"
-              class="execute-button"
-              @click="cancelQuery"
-              :disabled="!loading"
-            >
-              Cancel Query
-            </button>
+          </li>
+          <li class="nav-copy">
+            Switch between writing a query and reviewing saved cache entries.
+          </li>
 
-            <div class="save-query" v-show="selectedPodUrl !== ''">
-              <v-checkbox
-                class="save-checkbox"
-                v-model="saveQuery"
-                color="#EDE7F6"
-                label="Save Query?"
-                hide-details
-              ></v-checkbox>
-              <div class="save-info">
-                <v-icon>mdi-information</v-icon>
-                <v-tooltip class="tool-tip" activator="parent" location="bottom"
-                  >Check this box if you would like to save the query and any
-                  results to your pod</v-tooltip
-                >
+          <li>
+            <button
+              id="top-button"
+              :class="{ highlight: currentView === 'newQuery' }"
+              @click="currentView = 'newQuery'"
+              :title="effectiveQueryNavCollapsed ? 'New Query' : undefined"
+            >
+              <i class="material-icons nav-button-icon">edit_note</i>
+              <span v-show="!effectiveQueryNavCollapsed">New Query</span>
+            </button>
+          </li>
+          <li>
+            <button
+              :class="{ highlight: currentView === 'previousQueries' }"
+              @click="previousQueriesView"
+              :title="effectiveQueryNavCollapsed ? 'Past Queries' : undefined"
+            >
+              <i class="material-icons nav-button-icon">history</i>
+              <span v-show="!effectiveQueryNavCollapsed">Past Queries</span>
+            </button>
+          </li>
+        </ul>
+      </aside>
+
+      <!-- Main content card mirrors the polished PodUpload and PodBrowser layout. -->
+      <section class="query-container">
+        <div v-show="currentView === 'newQuery'">
+          <ul>
+            <div class="top-container">
+              <div>
+                <p class="section-kicker">Query editor</p>
+                <span class="top-label">Input a new query</span>
+              </div>
+
+              <div class="example-dropdown">
+                <v-select
+                  class="example-queries"
+                  :item-props="itemPropsExampleQueries"
+                  :items="exampleQueries"
+                  v-model="selectedExample"
+                  @update:modelValue="onSelectExample"
+                  density="compact"
+                  rounded
+                  flat
+                  label="Sample Queries"
+                ></v-select>
               </div>
             </div>
 
-            <div class="sparql-guide">
+            <!-- Source designation stays above the editor, but now reads as part of the same setup card. -->
+            <div class="source-selection">
+              <span>Datasources: </span>
+              <v-combobox
+                class="autocomplete"
+                v-model="currentQuery.sources"
+                :items="possibleSources"
+                label="Source(s)"
+                variant="plain"
+                chips
+                closable-chips
+                hide-details
+                hide-no-data
+                hide-selected
+                multiple
+                single-line
+                clearable
+              ></v-combobox>
+            </div>
+
+            <!-- Query input styling intentionally remains unchanged. -->
+            <div id="yasqe-container"></div>
+
+            <div class="bottom-container">
               <button
-                v-show="currentQuery.query != ''"
-                class="clear-button"
-                @click="clearQuery"
+                v-show="!loading"
+                class="execute-button"
+                @click="runExecuteQuery"
                 :disabled="loading"
               >
-                Clear Query
+                Execute Query
+              </button>
+              <button
+                v-show="loading"
+                class="execute-button"
+                @click="cancelQuery"
+                :disabled="!loading"
+              >
+                Cancel Query
               </button>
 
-              <v-tooltip text="SPARQL query writing guide" location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    variant="text"
-                    aria-label="Open SPARQL query writing guide"
-                    href="https://www.wikidata.org/wiki/Wikidata:SPARQL_tutorial"
-                    target="_blank"
-                    rel="noopener"
+              <div class="save-query" v-show="selectedPodUrl !== ''">
+                <v-checkbox
+                  class="save-checkbox"
+                  v-model="saveQuery"
+                  color="#EDE7F6"
+                  label="Save Query?"
+                  hide-details
+                ></v-checkbox>
+                <div class="save-info">
+                  <v-icon>mdi-information</v-icon>
+                  <v-tooltip class="tool-tip" activator="parent" location="bottom"
+                    >Check this box if you would like to save the query and any
+                    results to your pod</v-tooltip
                   >
-                    <v-icon>mdi-help-circle</v-icon>
-                  </v-btn>
-                </template>
-              </v-tooltip>
-            </div>
-          </div>
-          <!-- TODO: an alert or something here if there is a [syntax] error -->
-        </ul>
-      </div>
-
-      <div v-if="deletionSuccess" class="success-popup">
-        <span>Cached record: {{ deletedQuery }} was deleted successfully!</span>
-        <button @click="deletionSuccess = false" class="close-popup-button">
-          <i class="material-icons">close</i>
-        </button>
-      </div>
-
-      <div v-if="currentView === 'previousQueries'">
-        <span class="no-pod" v-if="selectedPodUrl == ''"
-          >Please connect your pod if you wish to look at your Query Cache...
-          <br />(simply click the "select pod" button above.)</span
-        >
-        <span class="no-pod" v-if="selectedPodUrl !== '' && !queriesCacheExists"
-          >No query cache found in your pod. To create a query cache, simply
-          execute a query with the <b>"Save Query?"</b> checkbox checked.</span
-        >
-        <ul>
-          <div
-            class="cached-container"
-            v-if="selectedPodUrl != '' && queriesCacheExists"
-            :key="renderKey"
-          >
-            <span class="cached-title">Cached Queries</span>
-
-            <!-- Iterates over list queries in Query Cache -->
-            <div class="no-cached-queries" v-if="cachedQueries.length === 0">
-              <span> There are no saved queries in your cache... <br />To create a query cache, simply
-                execute a query with the <b>"Save Query?"</b> checkbox checked.</span>
-            </div>
-            <li v-for="(query, index) in cachedQueries" :key="index">
-              <div class="card-panel folder">
-                <div class="folder-header">
-                  <button
-                    @click="toggleQuery(index)"
-                    class="icon-button full-width"
-                  >
-                    <div class="icon-hash">
-                      <i class="material-icons not-colored left">{{
-                        "search"
-                      }}</i>
-                      <span>{{ query.hash }}</span>
-                    </div>
-                    <i class="material-icons not-colored info-icon">
-                      {{
-                        showQueryIndex === index
-                          ? "keyboard_arrow_down info"
-                          : "chevron_right info"
-                      }}</i
-                    >
-                  </button>
                 </div>
-                <!-- Shows individual query details -->
-                <div class="specific-query" v-show="showQueryIndex === index">
-                  <!-- When query was executed -->
-                  <div class="query-time">
-                    <span class="user-tag">Date: <br /></span>
-                    <span class="the-user"
-                      ><i>{{ query.created }}</i></span
-                    >
-                  </div>
+              </div>
 
-                  <!-- The SPARQL query that was executed -->
-                  <div class="query-file-container">
-                    <span class="user-tag">Query File: <br /></span>
+              <div class="sparql-guide">
+                <button
+                  v-show="currentQuery.query != ''"
+                  class="clear-button"
+                  @click="clearQuery"
+                  :disabled="loading"
+                >
+                  Clear Query
+                </button>
+
+                <v-tooltip text="SPARQL query writing guide" location="top">
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      icon
+                      variant="text"
+                      aria-label="Open SPARQL query writing guide"
+                      href="https://www.wikidata.org/wiki/Wikidata:SPARQL_tutorial"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <v-icon>mdi-help-circle</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+              </div>
+            </div>
+          </ul>
+        </div>
+
+        <div v-if="deletionSuccess" class="success-popup">
+          <span>Cached record: {{ deletedQuery }} was deleted successfully!</span>
+          <button @click="deletionSuccess = false" class="close-popup-button">
+            <i class="material-icons">close</i>
+          </button>
+        </div>
+
+        <div v-if="currentView === 'previousQueries'">
+          <div class="no-pod" v-if="selectedPodUrl == ''">
+            <span
+              >Please connect your pod if you wish to look at your query cache.
+              <br />(Simply click the "select pod" button above.)</span
+            >
+          </div>
+          <div class="no-pod" v-if="selectedPodUrl !== '' && !queriesCacheExists">
+            <span
+              >No query cache found in your pod. To create a query cache,
+              simply execute a query with the <b>"Save Query?"</b> checkbox
+              checked.</span
+            >
+          </div>
+          <ul>
+            <div
+              class="cached-container"
+              v-if="selectedPodUrl != '' && queriesCacheExists"
+              :key="renderKey"
+            >
+              <div class="cached-header">
+                <div>
+                  <p class="section-kicker">Saved queries</p>
+                  <span class="cached-title">Query cache inside your pod</span>
+                </div>
+                <span class="cached-meta">{{ cachedQueries.length }} entries</span>
+              </div>
+
+              <div class="no-cached-queries" v-if="cachedQueries.length === 0">
+                <span>
+                  There are no saved queries in your cache...
+                  <br />
+                  To create a query cache, simply execute a query with the
+                  <b>"Save Query?"</b> checkbox checked.
+                </span>
+              </div>
+              <li v-for="(query, index) in cachedQueries" :key="index">
+                <div class="card-panel folder">
+                  <div class="folder-header">
                     <button
-                      @click="
-                        fetchQuery(
-                          cachedQueries[index].hash,
-                          selectedPodUrl + 'querycache/'
-                        )
-                      "
-                      class="drop-down"
+                      @click="toggleQuery(index)"
+                      class="icon-button full-width"
                     >
-                      <div class="query-file-info">
-                        <span class="the-user"
-                          ><i>{{ query.queryFile }}</i></span
-                        >
-                        <i class="material-icons not-colored">{{
-                          showRetrievedQuery
-                            ? "keyboard_arrow_down"
-                            : "chevron_right"
+                      <div class="icon-hash">
+                        <i class="material-icons not-colored left">{{
+                          "search"
                         }}</i>
+                        <span>{{ query.hash }}</span>
                       </div>
+                      <i class="material-icons not-colored info-icon">
+                        {{
+                          showQueryIndex === index
+                            ? "keyboard_arrow_down info"
+                            : "chevron_right info"
+                        }}</i
+                      >
                     </button>
-
-                    <div
-                      class="sparql-box"
-                      v-if="showRetrievedQuery && retrievedQuery != null"
-                    >
-                      <pre><code>{{ retrievedQuery }}</code></pre>
-                    </div>
                   </div>
+                  <div class="specific-query" v-show="showQueryIndex === index">
+                    <div class="query-time">
+                      <span class="user-tag">Date: <br /></span>
+                      <span class="the-user"
+                        ><i>{{ query.created }}</i></span
+                      >
+                    </div>
 
-                  <!-- The results of the Query -->
-                  <div class="query-results-container">
-                    <span class="user-tag">Results File: <br /></span>
-                    <div class="query-results">
+                    <div class="query-file-container">
+                      <span class="user-tag">Query File: <br /></span>
                       <button
                         @click="
-                          fetchResults(
+                          fetchQuery(
                             cachedQueries[index].hash,
                             selectedPodUrl + 'querycache/'
                           )
                         "
                         class="drop-down"
                       >
-                        <span class="the-user"
-                          ><i>{{ query.resultsFile }}</i></span
-                        >
-                        <i class="material-icons not-colored">{{
-                          showRetrievedResults
-                            ? "keyboard_arrow_down"
-                            : "chevron_right"
-                        }}</i>
+                        <div class="query-file-info">
+                          <span class="the-user"
+                            ><i>{{ query.queryFile }}</i></span
+                          >
+                          <i class="material-icons not-colored">{{
+                            showRetrievedQuery
+                              ? "keyboard_arrow_down"
+                              : "chevron_right"
+                          }}</i>
+                        </div>
                       </button>
-                    </div>
-                    <!-- Table for Displaying Results -->
-                    <div
-                      class="table-container"
-                      v-if="showRetrievedResults && retrievedResults != null"
-                    >
-                      <div class="scroll-wrapper">
-                        <table class="result-table">
-                          <thead>
-                            <tr>
-                              <th
-                                v-for="(varName, index) in retrievedResults.head
-                                  .vars"
-                                :key="index"
-                              >
-                                {{ varName }}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr
-                              v-for="(binding, rowIndex) in retrievedResults
-                                .results.bindings"
-                              :key="rowIndex"
-                            >
-                              <td
-                                v-for="(varName, colIndex) in retrievedResults
-                                  .head.vars"
-                                :key="colIndex"
-                              >
-                                {{ binding[varName]?.value || "0" }}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+
+                      <div
+                        class="sparql-box"
+                        v-if="showRetrievedQuery && retrievedQuery != null"
+                      >
+                        <pre><code>{{ retrievedQuery }}</code></pre>
                       </div>
                     </div>
-                    <div
-                      class="null-results"
-                      v-if="showRetrievedResults && retrievedResults == null"
-                    >
-                      <span>This query had no results 🙃</span>
+
+                    <div class="query-results-container">
+                      <span class="user-tag">Results File: <br /></span>
+                      <div class="query-results">
+                        <button
+                          @click="
+                            fetchResults(
+                              cachedQueries[index].hash,
+                              selectedPodUrl + 'querycache/'
+                            )
+                          "
+                          class="drop-down"
+                        >
+                          <span class="the-user"
+                            ><i>{{ query.resultsFile }}</i></span
+                          >
+                          <i class="material-icons not-colored">{{
+                            showRetrievedResults
+                              ? "keyboard_arrow_down"
+                              : "chevron_right"
+                          }}</i>
+                        </button>
+                      </div>
+                      <div
+                        class="table-container"
+                        v-if="showRetrievedResults && retrievedResults != null"
+                      >
+                        <div class="scroll-wrapper">
+                          <table class="result-table">
+                            <thead>
+                              <tr>
+                                <th
+                                  v-for="(varName, resultIndex) in retrievedResults.head
+                                    .vars"
+                                  :key="resultIndex"
+                                >
+                                  {{ varName }}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr
+                                v-for="(binding, rowIndex) in retrievedResults
+                                  .results.bindings"
+                                :key="rowIndex"
+                              >
+                                <td
+                                  v-for="(varName, colIndex) in retrievedResults
+                                    .head.vars"
+                                  :key="colIndex"
+                                >
+                                  {{ binding[varName]?.value || "0" }}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div
+                        class="null-results"
+                        v-if="showRetrievedResults && retrievedResults == null"
+                      >
+                        <span>This query had no results 🙃</span>
+                      </div>
+                    </div>
+
+                    <div class="query-sources">
+                      <span class="user-tag">Sources: <br /></span>
+                      <ul>
+                        <li v-for="(source, i) in query.sourceUrls" :key="i">
+                          <a>{{ source }}</a>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div class="edit-delete">
+                      <button
+                        @click="confirmAndDelete(query.hash)"
+                        class="delete-button"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-
-                  <!-- The query sources -->
-                  <div class="query-sources">
-                    <span class="user-tag">Sources: <br /></span>
-                    <ul>
-                      <li v-for="(source, i) in query.sourceUrls" :key="i">
-                        <a>{{ source }}</a>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <!-- TODO: Add deletion of cached query function here -->
-                  <div class="edit-delete">
-                    <button
-                      @click="confirmAndDelete(query.hash)"
-                      class="delete-button"
-                    >
-                      Delete
-                    </button>
-                  </div>
                 </div>
-              </div>
-            </li>
-          </div>
-        </ul>
-      </div>
+              </li>
+            </div>
+          </ul>
+        </div>
+      </section>
     </div>
-  </div>
 
-  <div v-show="currentView != 'previousQueries'">
-    <div
-      class="results-container"
-      v-if="
-        loading ||
-        (currentQuery.output != null && typeof currentQuery.output !== 'string')
-      "
-    >
-      <!-- Loading Spinner -->
-      <div v-if="loading" class="spinner-container">
-        <div class="spinner"></div>
-        <p>Loading query results...</p>
-      </div>
-
-      <div class="results-text">
-        <span class="top-label" v-show="!loading">Query results</span>
-      </div>
-
-      <!-- Display Query Cache Informaton -->
+    <div v-show="currentView != 'previousQueries'">
       <div
-        class="cache-header"
+        class="results-container"
         v-if="
-          !loading &&
-          currentQuery.output != null &&
-          currentQuery.output.provenanceOutput != null
+          loading ||
+          (currentQuery.output != null && typeof currentQuery.output !== 'string')
         "
       >
-        <div class="cached-container">
-          <div class="folder-header">
-            <button
-              @click="toggleResultsQuery(currentCachedQueryHash)"
-              class="icon-button full-width"
-            >
-              <span
-                >Executed query is
-                <i>
-                  {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
-                </i>
-                cached query:</span
-              >
-              <div class="query-hash">
-                <span>{{ currentCachedQueryHash }}</span>
-              </div>
-              <i class="querycache-icon material-icons not-colored info-icon">
-                {{
-                  showResultQuery
-                    ? "keyboard_arrow_down info"
-                    : "chevron_right info"
-                }}</i
-              >
-            </button>
+        <div class="results-header">
+          <div>
+            <p class="section-kicker">Results</p>
+            <span class="results-title">Query results</span>
           </div>
-          <div class="specific-query" v-if="showResultQuery">
-            <!-- When query was executed -->
-            <div class="query-time">
-              <span class="user-tag">Date Executed: <br /></span>
-              <span class="the-user"
-                ><i>{{ cachedQueries[cachedQueryIndex].created }}</i></span
-              >
-            </div>
+          <span v-if="loading" class="results-status">Running query</span>
+        </div>
 
-            <!-- The SPARQL query that was executed -->
-            <div class="query-file-container">
-              <span class="user-tag">Query File: <br /></span>
+        <div v-if="loading" class="spinner-container">
+          <div class="spinner"></div>
+          <p>Loading query results...</p>
+        </div>
+
+        <div
+          class="cache-header"
+          v-if="
+            !loading &&
+            currentQuery.output != null &&
+            currentQuery.output.provenanceOutput != null
+          "
+        >
+          <div class="cached-container">
+            <div class="folder-header">
               <button
-                @click="fetchQuery(currentCachedQueryHash, cachePath)"
-                class="drop-down"
+                @click="toggleResultsQuery(currentCachedQueryHash)"
+                class="icon-button full-width"
               >
-                <div class="query-file-info">
-                  <span class="the-user"
-                    ><i>{{
-                      cachedQueries[cachedQueryIndex].queryFile
-                    }}</i></span
-                  >
-                  <i class="material-icons not-colored">{{
-                    showRetrievedQuery ? "keyboard_arrow_down" : "chevron_right"
-                  }}</i>
-                </div>
-              </button>
-
-              <!-- Query text -->
-              <div
-                class="sparql-box"
-                v-if="showRetrievedQuery && retrievedQuery != null"
-              >
-                <pre><code>{{ retrievedQuery }}</code></pre>
-              </div>
-            </div>
-
-            <!-- Query sources -->
-            <div class="query-sources">
-              <span class="user-tag">Sources: <br /></span>
-              <ul>
-                <li
-                  v-for="(source, i) in cachedQueries[cachedQueryIndex]
-                    .sourceUrls"
-                  :key="i"
+                <span
+                  >Executed query is
+                  <i>
+                    {{ provType(currentQuery.output.provenanceOutput.algorithm) }}
+                  </i>
+                  cached query:</span
                 >
-                  <a>{{ source }}</a>
-                </li>
-              </ul>
+                <div class="query-hash">
+                  <span>{{ currentCachedQueryHash }}</span>
+                </div>
+                <i class="querycache-icon material-icons not-colored info-icon">
+                  {{
+                    showResultQuery
+                      ? "keyboard_arrow_down info"
+                      : "chevron_right info"
+                  }}</i
+                >
+              </button>
+            </div>
+            <div class="specific-query" v-if="showResultQuery">
+              <div class="query-time">
+                <span class="user-tag">Date Executed: <br /></span>
+                <span class="the-user"
+                  ><i>{{ cachedQueries[cachedQueryIndex].created }}</i></span
+                >
+              </div>
+
+              <div class="query-file-container">
+                <span class="user-tag">Query File: <br /></span>
+                <button
+                  @click="fetchQuery(currentCachedQueryHash, cachePath)"
+                  class="drop-down"
+                >
+                  <div class="query-file-info">
+                    <span class="the-user"
+                      ><i>{{
+                        cachedQueries[cachedQueryIndex].queryFile
+                      }}</i></span
+                    >
+                    <i class="material-icons not-colored">{{
+                      showRetrievedQuery ? "keyboard_arrow_down" : "chevron_right"
+                    }}</i>
+                  </div>
+                </button>
+
+                <div
+                  class="sparql-box"
+                  v-if="showRetrievedQuery && retrievedQuery != null"
+                >
+                  <pre><code>{{ retrievedQuery }}</code></pre>
+                </div>
+              </div>
+
+              <div class="query-sources">
+                <span class="user-tag">Sources: <br /></span>
+                <ul>
+                  <li
+                    v-for="(source, i) in cachedQueries[cachedQueryIndex]
+                      .sourceUrls"
+                    :key="i"
+                  >
+                    <a>{{ source }}</a>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Display results of query -->
-      <div
-        class="table-container"
-        v-show="
-          !loading &&
-          resultsForYasr != null &&
-          resultsForYasr.results.bindings.length > 0
-        "
-      >
-        <div id="yasr-container"></div>
-      </div>
-      <!-- Display message if there were no results -->
-      <div
-        class="null-results"
-        v-show="
-          !loading &&
-          resultsForYasr != null &&
-          resultsForYasr.results.bindings.length === 0
-        "
-      >
-        <span>This query produced no results 🙃</span>
-      </div>
-
-      <!-- Display error if there was an error -->
-      <div class="null-results" v-show="!loading && queryError != null">
-        <span
-          >There was a(n)
-          <b
-            ><i>{{ queryError }}</i></b
-          >
-          error when executing this query <br />(open the browser console to see
-          more details.)</span
+        <div
+          class="table-container"
+          v-show="
+            !loading &&
+            resultsForYasr != null &&
+            resultsForYasr.results.bindings.length > 0
+          "
         >
+          <div id="yasr-container"></div>
+        </div>
+        <div
+          class="null-results"
+          v-show="
+            !loading &&
+            resultsForYasr != null &&
+            resultsForYasr.results.bindings.length === 0
+          "
+        >
+          <span>This query produced no results 🙃</span>
+        </div>
+
+        <div class="null-results" v-show="!loading && queryError != null">
+          <span
+            >There was a(n)
+            <b
+              ><i>{{ queryError }}</i></b
+            >
+            error when executing this query <br />(open the browser console to see
+            more details.)</span
+          >
+        </div>
       </div>
     </div>
-  </div>
-  <!-- Guide for file uploading -->
-  <div class="use-guide">
-    <DataQueryGuide />
-  </div>
+
+    <div class="use-guide">
+      <DataQueryGuide />
+    </div>
+  </section>
 </template>
 
 <script lang="ts">
@@ -641,12 +714,15 @@ export default {
       containsSolidSources: false as boolean,
       customCachePath: "" as string,
       useCustomCachePath: false as boolean,
+      showCustomCache: false as boolean,
       cacheError: null as string | null,
       invalidUrl: false as boolean,
       authenticationFailed: false as boolean,
       deletedQuery: null as string | null,
       deletionSuccess: null as boolean | null,
       renderKey: 0 as number,
+      isCompactQueryLayout: false as boolean,
+      queryNavCollapsed: false as boolean,
     };
   },
   computed: {
@@ -662,10 +738,17 @@ export default {
     selectedPodUrl() {
       return this.authStore.selectedPodUrl; // Access selected Pod URL
     },
+    effectiveQueryNavCollapsed() {
+      return this.queryNavCollapsed;
+    },
   },
   methods: {
     handleDelay() {
       this.delay = false;
+    },
+    updateQueryLayoutMode() {
+      if (typeof window === "undefined") return;
+      this.isCompactQueryLayout = window.innerWidth <= 1080;
     },
     provType(p: string) {
       return p === "equality" ? "equivalent to" : "a specialization of";
@@ -1295,6 +1378,16 @@ export default {
     },
   },
   watch: {
+    useCustomCachePath(newValue) {
+      if (newValue) {
+        this.showCustomCache = true;
+      }
+    },
+    cacheError(newValue) {
+      if (newValue) {
+        this.showCustomCache = true;
+      }
+    },
     currentQuery: {
       handler(newQuery) {
         this.$nextTick(() => {
@@ -1317,6 +1410,7 @@ export default {
     },
   },
   beforeUnmount() {
+    window.removeEventListener("resize", this.updateQueryLayoutMode);
     if (this.worker) this.worker.terminate();
     if (this.yasqe) this.yasqe.destroy();
     if (this.yasr && (this.yasr as any).destroy) (this.yasr as any).destroy();
@@ -1331,6 +1425,8 @@ export default {
     this.yasqe.on("change", (instance) => {
       this.currentQuery.query = instance.getValue();
     });
+    this.updateQueryLayoutMode();
+    window.addEventListener("resize", this.updateQueryLayoutMode);
     this.handleDelay();
   },
 };
@@ -1354,39 +1450,71 @@ body {
   font-family: "Oxanium", monospace;
 }
 
+.query-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 /* Title bar */
 .title-container {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
-  margin: 0.5rem 0.5rem 0 0.5rem;
+  margin: 0.4rem 0.5rem 0 0.5rem;
+  padding: 1.15rem 1.35rem;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 9%, var(--bg-secondary)) 0%,
+      var(--bg-secondary) 58%
+    );
+  box-shadow: var(--shadow-1);
 }
 .title-container span {
-  font-size: 30pt;
+  display: block;
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
   font-family: "Oxanium", monospace;
-  font-weight: 500;
-  padding-left: 20px;
-  padding-right: 20px;
+  font-weight: 600;
   color: var(--text-primary);
 }
+.page-summary {
+  margin: 0.35rem 0 0;
+  max-width: 48rem;
+  font-family: "Oxanium", monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.delay-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.query-access-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
 .login-container {
-  margin: 0.5rem 0.25rem 0 0.25rem;
+  margin: 0 0.5rem;
 }
 
 /* loading spinner for login-check */
 .loading-spinner-container {
   display: flex;
-  background-color: var(--panel);
-  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 18px;
   align-items: center;
   justify-content: flex-start;
   gap: 24px;
-  margin: 0.5rem 0.5rem 0 0.5rem;
-  padding: 1rem;
-  margin-left: 8px;
+  margin: 0.4rem 0.5rem 0 0.5rem;
+  padding: 0.9rem 1.1rem;
+  box-shadow: var(--shadow-1);
 }
 .loading-text {
   font-family: "Oxanium", monospace;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-primary);
@@ -1394,57 +1522,120 @@ body {
 
 /* Container pod-chooser bar */
 .pod-chooseContainer {
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  padding: 0 0 0 1rem;
-  margin: 0.5rem 0.5rem 0 0.5rem;
+  margin: 0 0.5rem;
 }
 .custom-cache-container {
   background-color: var(--bg-secondary);
-  margin: 0 0.5rem 0 0.5rem;
-  border-radius: 6px;
+  margin: 0 0.5rem;
+  padding: 1rem 1.15rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+.custom-cache-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.custom-cache-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.section-kicker {
+  margin: 0 0 0.35rem;
+  font-family: "Oxanium", monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.custom-cache-header h3 {
+  margin: 0;
+  font-family: "Oxanium", monospace;
+  font-size: clamp(0.95rem, 1.55vw, 1.1rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cache-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: "Oxanium", monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background-color: color-mix(in srgb, var(--panel) 78%, transparent);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.cache-toggle-button:hover {
+  background-color: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.custom-cache-body {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
 }
 .custom-cache-path {
   display: flex;
+  flex-wrap: wrap;
   font-family: "Oxanium", monospace;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 0.85rem;
 }
 .custom-cache-guide {
-  margin-left: 1rem;
   color: var(--text-muted);
 }
 .custom-cache-checkbox {
   min-width: fit-content;
-  margin-left: 1rem;
-  padding: 0 0.5rem;
+  padding: 0;
   color: var(--text-secondary);
 }
 .custom-cache-input {
-  width: 100%;
-  margin-right: 1rem;
-  padding: 0.5rem;
+  flex: 1 1 22rem;
+  min-width: 16rem;
+  padding: 0;
   color: var(--text-secondary);
 }
 .custom-cache-error {
   display: flex;
   font-family: "Oxanium", monospace;
-  padding: 0.5rem 0;
-  justify-content: center;
+  padding-top: 0.6rem;
+  justify-content: flex-start;
 }
 .custom-cache-error span {
-  padding: 0.5rem;
-  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 999px;
   background-color: var(--danger);
   color: var(--main-white);
 }
 /* Whole nav and query container */
 .general-container {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
-  margin: 0.5rem;
+  margin: 0.4rem 0.5rem;
   display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 6%, var(--bg-secondary)) 0%,
+      var(--bg-secondary) 32%,
+      color-mix(in srgb, var(--panel) 84%, transparent) 100%
+    );
+  box-shadow: var(--shadow-1);
+}
+.general-container.nav-collapsed {
+  gap: 0.6rem;
 }
 
 /* Left nav bar */
@@ -1453,37 +1644,125 @@ body {
 }
 .nav-container {
   display: flex;
-  background-color: var(--panel);
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 8%, var(--panel)) 0%,
+      color-mix(in srgb, var(--panel) 92%, transparent) 100%
+    );
+  border: 1px solid var(--border);
+  border-radius: 24px;
   font-family: "Oxanium", monospace;
   font-size: 14pt;
-  min-width: fit-content;
+  width: 14rem;
+  min-width: 14rem;
+  box-shadow: none;
+  transition: width 0.22s ease, min-width 0.22s ease;
+}
+.general-container.nav-collapsed .nav-container {
+  width: 4.5rem;
+  min-width: 4.5rem;
 }
 .nav-container ul {
   list-style-type: none;
-  padding: 10px;
+  padding: 1rem 1.05rem;
   height: 100%;
   overflow: auto;
   color: var(--text-secondary);
 }
 .nav-container li span {
-  font-size: 18pt;
-  font-weight: bold;
-  padding: 10px 8px 4px 8px;
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 600;
   text-decoration: none;
+}
+.nav-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--border);
 }
+.nav-header-row span {
+  flex: 1;
+  align-items: center;
+  margin-bottom: 0;
+  border-bottom: none;
+  padding: 0;
+}
+.nav-header-spacer {
+  flex: 1;
+}
+.nav-toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel) 90%, transparent) 0%,
+      color-mix(in srgb, var(--primary) 8%, var(--panel)) 100%
+    );
+  color: var(--text-secondary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.nav-toggle-button:hover {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 12%, var(--panel)) 0%,
+      color-mix(in srgb, var(--primary) 18%, var(--panel)) 100%
+    );
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.nav-toggle-button .material-icons {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.general-container.nav-collapsed .nav-header-row {
+  justify-content: center;
+}
+.nav-copy {
+  margin: 0 0 0.8rem;
+  font-family: "Oxanium", monospace;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.general-container.nav-collapsed .nav-copy {
+  display: none;
+}
 #top-button {
-  margin-top: 10px;
+  margin-top: 0;
 }
 .nav-container li button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   color: var(--text-secondary);
-  width: 100%;
-  border-radius: 4px;
-  padding: 0.8rem 1.2rem;
+  border-radius: 16px;
+  padding: 0.8rem 0.95rem;
   text-decoration: none;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.nav-button-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.general-container.nav-collapsed .nav-container ul {
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+.general-container.nav-collapsed .nav-container li button {
+  justify-content: center;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
 }
 .nav-container li button.active {
   background-color: var(--success);
@@ -1492,7 +1771,6 @@ body {
 .nav-container li button:hover:not(.active) {
   background-color: var(--hover);
   color: var(--text-muted);
-  width: 100%;
 }
 .nav-container .highlight {
   background-color: var(--primary);
@@ -1501,29 +1779,44 @@ body {
 
 /* Query elements */
 .query-container {
-  padding: 0.5rem 1rem;
-  height: fit-content;
+  padding: 1.1rem 1.2rem;
   width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: "Oxanium", monospace;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-secondary) 94%, var(--panel)) 0%,
+      var(--bg-secondary) 100%
+    );
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: none;
+  position: relative;
 }
 
 .example-dropdown {
-  min-width: 20dvw;
+  min-width: min(22rem, 100%);
 }
 .query-container ul {
   list-style-type: none;
   height: 100%;
   overflow: auto;
+  padding: 0;
+  margin: 0;
 }
 .query-container .top-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 .example-queries {
   margin-left: auto;
-  max-width: 40dvw;
-  margin: 0.5rem 0 1rem 0;
+  max-width: 24rem;
+  margin: 0;
 }
 .example-queries :deep(.v-input__details) {
   display: none;
@@ -1534,16 +1827,11 @@ body {
   justify-content: space-between;
   color: var(--text-secondary);
 }
-.top-container .top-label span {
-  display: flex;
-  align-items: center;
-  padding: 0;
-}
-.query-container .top-container span {
-  font-size: 18pt;
-  font-weight: bold;
-  padding: 0px 0.5rem 0rem 0.5rem;
-  text-decoration: none;
+.top-label {
+  display: block;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 /* Query Container Customizations */
 #yasqe-container {
@@ -1630,22 +1918,33 @@ body {
 .source-selection {
   display: flex;
   align-items: center;
-  border-radius: 4px;
-  margin: 0.2rem 0.2rem 0.4rem 0.2rem;
-  outline: 3px solid var(--yasqe-bg);
+  border-radius: 16px;
+  margin: 0 0 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
   color: var(--text-secondary);
+  overflow: hidden;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 8%, var(--panel)) 0%,
+      color-mix(in srgb, var(--panel) 86%, transparent) 100%
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .source-selection span {
-  font-size: 16pt;
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 4px 8px 4px 8px;
+  padding: 0.7rem 0.9rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  border-right: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
 }
 .source-selection .autocomplete {
-  padding: 0;
+  padding: 0.15rem 0.5rem 0.15rem 0.15rem;
+  width: 100%;
 }
 .source-selection :deep(.v-field__input) {
-  padding: 0 !important;
+  padding: 0.35rem 0 !important;
 }
 .source-selection :deep(.v-field__clearable) {
   padding: 0 !important;
@@ -1663,12 +1962,14 @@ body {
 .bottom-container {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 /* execute */
 .execute-button {
-  padding: 8px 14px;
+  padding: 0.65rem 0.9rem;
   border: 2px solid var(--yasqe-bg);
-  border-radius: 8px;
+  border-radius: 14px;
   color: var(--text-secondary);
 }
 .cancel-query {
@@ -1686,15 +1987,16 @@ body {
   cursor: not-allowed;
 }
 .sparql-guide {
-  padding-left: 0.5rem;
   margin-left: auto;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
 }
 .clear-button {
-  padding: 8px 14px;
-  margin-right: 1rem;
+  padding: 0.65rem 0.9rem;
+  margin-right: 0.5rem;
   border: 2px solid var(--yasqe-bg);
-  border-radius: 8px;
+  border-radius: 14px;
   color: var(--text-secondary);
 }
 .query-container .clear-button:hover {
@@ -1707,15 +2009,15 @@ body {
 .save-query {
   display: flex;
   align-items: center;
-  margin-left: 1rem;
-  gap: 1rem;
+  gap: 0.75rem;
   color: var(--text-secondary);
+  padding: 0.1rem 0.25rem;
 }
 .save-checkbox {
-  padding: 0px 0px 0px 20px;
+  padding: 0 0 0 0.5rem;
 }
 .save-info {
-  padding: 0px 0px 0px 10px;
+  padding: 0;
   color: var(--text-muted);
 }
 /* message in past queries when no pod is connected */
@@ -1723,8 +2025,12 @@ body {
   color: var(--text-secondary);
   display: block;
   text-align: center;
-  font-size: 1.2rem;
-  padding: 2rem;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  padding: 1.4rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  background-color: color-mix(in srgb, var(--panel) 72%, transparent);
 }
 
 /* Past Queries Display */
@@ -1745,21 +2051,35 @@ body {
   display: flex;
   max-width: 100%;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
 }
 .cached-container {
   width: 100%;
 }
+.cached-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
 .cached-title {
-  font-size: 24px;
-  font-weight: bold;
+  display: block;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 20px;
+}
+.cached-meta {
+  font-size: 0.88rem;
+  color: var(--text-muted);
 }
 .no-cached-queries {
   color: var(--text-secondary);
-  font-size: 1.2rem;
-  padding: 2rem;
+  font-size: 0.98rem;
+  padding: 1.4rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  background-color: color-mix(in srgb, var(--panel) 72%, transparent);
 }
 /* Query List Items */
 ul {
@@ -1771,14 +2091,15 @@ ul {
   display: flex;
   flex-direction: column;
   width: 100%;
-  background-color: var(--bg);
-  border-radius: 8px;
-  padding: 16px;
-  margin: 10px 0;
+  background-color: color-mix(in srgb, var(--panel) 74%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 0.85rem;
+  margin: 0.65rem 0;
   transition: all 0.3s ease-in-out;
 }
 .folder:hover {
-  background-color: var(--panel);
+  background-color: color-mix(in srgb, var(--panel) 92%, transparent);
   cursor: pointer;
 }
 /* Folder Header */
@@ -1842,10 +2163,10 @@ ul {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: var(--panel);
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-secondary) 84%, transparent);
+  padding: 0.75rem;
+  margin-top: 0.7rem;
+  border-radius: 14px;
   color: var(--text-secondary);
 }
 /* Query Details Spacing */
@@ -1885,7 +2206,7 @@ ul {
 }
 .delete-button {
   background-color: var(--danger);
-  border-radius: 6px;
+  border-radius: 12px;
   padding: 0.5rem 0.75rem !important;
 }
 .delete-button:hover {
@@ -1962,13 +2283,180 @@ ul {
   max-height: 60rem;
   min-height: 10rem;
   overflow-y: auto;
-  border-radius: 6px;
-  margin: 0 0.5rem 0.5rem 0.5rem;
-  padding: 1rem;
+  border-radius: 24px;
+  margin: 0 0.5rem 0.4rem 0.5rem;
+  padding: 1rem 1.15rem;
   background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
   color: var(--text-secondary);
   scrollbar-color: dark;
   scrollbar-width: thin;
+}
+.results-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+.results-title {
+  display: block;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.results-status {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1080px) {
+  .general-container {
+    flex-direction: column;
+    padding: 0.65rem;
+  }
+
+  .nav-container {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .general-container.nav-collapsed .nav-container {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nav-container ul {
+    width: 100%;
+  }
+
+  .general-container.nav-collapsed {
+    gap: 0.45rem;
+  }
+
+  .general-container.nav-collapsed .nav-container ul {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .general-container.nav-collapsed .nav-header-row {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    margin-left: auto;
+    order: 10;
+  }
+
+  .general-container.nav-collapsed .nav-header-spacer {
+    display: none;
+  }
+
+  .general-container.nav-collapsed .nav-copy {
+    display: none;
+  }
+
+  .general-container.nav-collapsed .nav-container li {
+    margin: 0;
+  }
+
+  .general-container.nav-collapsed .nav-container li button {
+    justify-content: center;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .general-container.nav-collapsed .nav-container li button span {
+    display: none;
+  }
+
+  .general-container.nav-collapsed .nav-button-icon {
+    margin: 0;
+  }
+
+  .query-container {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .title-container,
+  .custom-cache-container,
+  .query-container,
+  .results-container,
+  .nav-container {
+    border-radius: 20px;
+  }
+
+  .title-container,
+  .custom-cache-container,
+  .query-container,
+  .results-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .custom-cache-header,
+  .top-container,
+  .cached-header,
+  .results-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .custom-cache-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .example-dropdown,
+  .example-queries,
+  .custom-cache-input {
+    width: 100%;
+    max-width: none;
+  }
+
+  .nav-header-row {
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-container li span {
+    font-size: 1.15rem;
+  }
+
+  .nav-copy {
+    font-size: 0.8rem;
+  }
+
+  .source-selection {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .source-selection span {
+    padding-bottom: 0;
+  }
+
+  .bottom-container {
+    align-items: stretch;
+  }
+
+  .save-query,
+  .sparql-guide {
+    margin-left: 0;
+  }
+
+  .sparql-guide {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nav-container li button {
+    font-size: 0.95rem;
+  }
 }
 /* Loading Spinner */
 .spinner-container {

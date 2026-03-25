@@ -25,8 +25,7 @@
                 'https://triple.ilabt.imec.be/',
                 'https://solidcommunity.net/',
                 'https://solidweb.org/',
-                'https://inrupt.net/',
-                'https://auth.inrupt.com/',
+                'https://login.inrupt.com',
                 'http://localhost:3000/',
               ]"
             >
@@ -81,15 +80,31 @@
       ></v-btn>
     </div>
 
-    <!-- Message that indicates a successful login -->
+    <!-- Logged-in state is shown as a structured status card instead of a generic alert. -->
     <div class="logged-in" v-show="loggedIn">
-      <v-alert
-        class="mx-auto"
-        title="Successfully logged-in!"
-        type="success"
-        icon="$success"
-        >Current WebID: <b>{{ webId }}</b></v-alert
-      >
+      <div class="session-card">
+        <div class="session-icon-wrap">
+          <v-icon size="28" color="var(--success)">mdi-check-circle</v-icon>
+        </div>
+        <div class="session-title-row">
+          <span class="session-title">Session active</span>
+        </div>
+        <div class="session-detail">
+          <span class="session-label">WebID:</span>
+          <div class="session-value-group">
+            <span class="session-value">{{ webId }}</span>
+            <!-- Copy control sits beside the WebID so the target of the action is explicit. -->
+            <v-btn
+              class="copy-webid-btn"
+              variant="text"
+              rounded="lg"
+              @click="copyWebId"
+            >
+              <v-icon size="18">mdi-content-copy</v-icon>
+            </v-btn>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -155,9 +170,16 @@ export default {
     */
     newpodRedir() {
       window.open(
-        "https://solidproject.org/for-developers#hosted-pod-services",
+        "https://solidproject.org/get_a_pod",
         "_blank"
       );
+    },
+    // Copying the WebID keeps the compact status layout practical for users.
+    async copyWebId() {
+      if (!this.webId) {
+        return;
+      }
+      await navigator.clipboard.writeText(this.webId);
     },
   },
   async mounted() {
@@ -169,19 +191,19 @@ export default {
 
 <style scoped>
 .login-container {
-  padding: 1rem;
-  background-color: var(--panel);
+  padding: 0;
+  background-color: transparent;
   font-family: "Oxanium", monospace;
   font-size: larger;
-  border-radius: 6px;
-  margin-top: 0.5rem;
+  border-radius: 0;
+  margin-top: 0;
 }
 .login-container h2 {
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.7rem 0;
   color: var(--text-primary);
 }
 .login-display {
-  padding: 1rem;
+  padding: 0.1rem 0 0 0;
 }
 .tool-tip {
   font-family: "Oxanium", monospace;
@@ -216,17 +238,79 @@ export default {
   flex-shrink: 0;
 }
 .logged-in {
-  padding: 0.2rem 0.2rem;
-  border: 2px solid var(--border);
-  border-radius: 6px;
-  font-size: 14px;
-  font-style: italic;
-  background-color: var(--success);
   margin: 0;
 }
+.session-card {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--success) 36%, var(--border) 64%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--success) 12%, var(--panel) 88%);
+  box-shadow: var(--shadow-1);
+}
+.session-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+}
+.session-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.session-detail {
+  display: flex;
+  align-items: center;
+  justify-content: right;
+  gap: 0.85rem;
+  min-width: 0;
+  margin-left: auto;
+  width: 100%;
+}
+.session-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.session-value-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: min(100%, 56rem);
+  padding: 0.3rem 0.35rem 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-elev) 85%, white 15%);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.16);
+}
+.session-value {
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.copy-webid-btn {
+  color: var(--text-secondary);
+  text-transform: none;
+  min-width: auto;
+  padding-inline: 0.55rem;
+}
 #new-pod {
-  margin-left: 1.5rem;
-  margin-bottom: 0.5rem;
+  margin-left: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
 }
 .new-pod-btn {
   background-color: var(--panel-elev);
@@ -242,9 +326,8 @@ export default {
   align-items: center;
   justify-content: flex-start;
   gap: 24px;
-  margin: 0 0.25rem 0.25rem 0.25rem;
-  padding: 1rem;
-  margin-left: 8px;
+  margin: 0;
+  padding: 0.95rem 1rem;
 }
 .loading-text {
   font-family: "Oxanium", monospace;
@@ -267,6 +350,29 @@ export default {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+@media (max-width: 760px) {
+  .session-card {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .session-detail {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+  .session-label {
+    line-height: 1.2;
+  }
+  .session-value-group {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+  .session-value {
+    white-space: normal;
+    word-break: break-all;
   }
 }
 </style>

@@ -10,6 +10,7 @@ import EditPrivacy from "./components/EditPrivacy.vue";
 import NotFound from "./components/Styling/NotFound.vue";
 
 import { useAuthStore } from "./stores/auth";
+import { PUBLIC_ROUTE_NAMES } from "./navigation";
 
 /**
  * The router here allows for navigation between different functional pages of the TRIPLE App
@@ -58,20 +59,18 @@ const router = createRouter({
 /**
  * Initialize auth/session state before running protected-route checks.
  */
-const publicPages = ["Home", "Login Page", "Query"];
-
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
   if (!authStore.authReady || authStore.authLoading) {
     await authStore.initializeAuth();
   }
 
-  if (publicPages.includes(to.name as string)) {
+  if (PUBLIC_ROUTE_NAMES.includes(to.name as (typeof PUBLIC_ROUTE_NAMES)[number])) {
     return true;
   }
 
   if (!authStore.loggedIn) {
-    return { name: "Login Page" };
+    return { name: "Home" };
   }
 
   return true;

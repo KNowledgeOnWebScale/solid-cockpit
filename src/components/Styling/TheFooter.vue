@@ -22,10 +22,6 @@
         Version: v{{ appVersion }}
       </span>
       <span class="footer-item">|</span>
-      <span class="footer-item tag-pill">
-        {{ appReleaseTag }}
-      </span>
-      <span class="footer-item">|</span>
       <span class="footer-item">
         <a
           href="https://github.com/KNowledgeOnWebScale/solid-cockpit"

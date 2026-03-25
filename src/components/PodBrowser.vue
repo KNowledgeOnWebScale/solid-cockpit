@@ -3,78 +3,142 @@
     href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
     rel="stylesheet"
   />
-  <!-- Title bar -->
-  <div class="title-container">
-    <span>Pod Data Browser</span>
-  </div>
+  <section class="browser-page">
+    <!-- Page header mirrors the upload page structure and visual hierarchy. -->
+    <div class="title-container">
+      <div>
+        <span>Pod Data Browser</span>
+        <p class="page-summary">
+          Browse containers and resources in your pod, inspect item details, and
+          manage content from one place.
+        </p>
+      </div>
+    </div>
 
-  <div v-if="deletionSuccess" class="success-popup">
-    <span>{{ deletedItemType }} deleted successfully!</span>
-    <button @click="deletionSuccess = false" class="close-popup-button">
-      <i class="material-icons">close</i>
-    </button>
-  </div>
+    <div v-if="deletionSuccess" class="success-popup">
+      <span>{{ deletedItemType }} deleted successfully!</span>
+      <button @click="deletionSuccess = false" class="close-popup-button">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
 
-  <div class="pod-chooseContainer">
-    <PodRegistration />
-  </div>
+    <div class="pod-chooseContainer">
+      <PodRegistration />
+    </div>
 
-  <body class="content-body">
-    <div class="container-location" v-if="selectedPodUrl !== ''">
-      <div class="nav-container">
-        <div class="path-selection">
-          <ul>
-            <li>
-              <span><b>Current location:</b> </span>
-            </li>
-            <li>
-              <span class="current-location">{{ currentLocation }}</span>
-            </li>
-            <!-- Browse existing path -->
-            <li class="container-choose">
-              <container-nav
-                :currentPod="selectedPodUrl"
-                @path-selected="handleSelectedContainer"
-              />
-            </li>
-            <li>
-              <button @click="getItems(displayPath)" class="icon-button right">
-                <i class="material-icons not-colored right">refresh</i>
-                <v-tooltip activator="parent" location="end"
-                  >Refresh directory contents
-                </v-tooltip>
-              </button>
-            </li>
-          </ul>
+    <div class="browser-shell" v-if="selectedPodUrl !== ''">
+      <div class="container-location">
+        <!-- Container selection mirrors the upload destination card for consistency. -->
+        <div class="path-card">
+          <div class="path-card-header">
+            <div>
+              <p class="section-kicker">Browse containers</p>
+              <h3>Choose container to inspect</h3>
+            </div>
+            <div class="path-origin">
+              <span class="path-origin-value" :title="currentLocation">
+                {{ currentLocation }}
+              </span>
+            </div>
+          </div>
+
+          <div class="browser-layout">
+
+            <container-nav
+              :currentPod="selectedPodUrl"
+              @path-selected="handleSelectedContainer"
+            />
+          </div>
         </div>
       </div>
 
       <div class="pod-directories">
-        <div class="container-fluid" :key="renderKey">
-          <div class="items-label">
-            <span><b>Items:</b></span>
+        <div class="items-card" :key="renderKey">
+          <div class="items-header">
+            <div>
+              <p class="section-kicker">Selected container contents</p>
+              <span class="items-title">Items found inside this container</span>
+              <p class="items-summary">
+                You are browsing the direct contents of
+                <span class="items-location">{{ currentLocation }}</span>
+              </p>
+            </div>
+            <div class="items-header-actions">
+              <button class="filter-toggle" @click="filtersOpen = !filtersOpen">
+                <i class="material-icons">filter_alt</i>
+                <span>Filters</span>
+              </button>
+              <span class="items-count">{{ filteredUrls.length }} of {{ urls.length }} items</span>
+            </div>
           </div>
-          <ul>
-            <!-- Iterates over list of containers in a pod -->
-            <li v-for="(url, index) in urls" :key="index">
-              <div
-                v-if="loadingIndex === index"
-                class="loading-spinner-container"
-              >
-                <div class="spinner"></div>
-                <span class="loading-text">Loading access rights...</span>
-              </div>
-              <div v-else class="card-panel folder">
+
+          <!-- Filters stay hidden until requested so the browser remains compact by default. -->
+          <div v-if="filtersOpen" class="filters-panel">
+            <div class="filter-group">
+              <span class="filter-label">Item type</span>
+              <div class="filter-chip-row">
                 <button
-                  @click="toggleInfo(index, url)"
-                  class="icon-button full-width"
+                  class="filter-chip"
+                  :class="{ active: itemTypeFilter === 'all' }"
+                  @click="itemTypeFilter = 'all'"
                 >
-                
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{
-                      containerCheck(url) ? "folder" : "description"
-                    }}</i>
-                    <span class="highlightable-text">{{ url }}</span>
+                  All
+                </button>
+                <button
+                  class="filter-chip"
+                  :class="{ active: itemTypeFilter === 'container' }"
+                  @click="itemTypeFilter = 'container'"
+                >
+                  Containers
+                </button>
+                <button
+                  class="filter-chip"
+                  :class="{ active: itemTypeFilter === 'resource' }"
+                  @click="itemTypeFilter = 'resource'"
+                >
+                  Resources
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label" for="itemSearch">Search items</label>
+              <input
+                id="itemSearch"
+                v-model="itemSearch"
+                class="filter-input"
+                type="text"
+                placeholder="Filter by item name or URL"
+              />
+            </div>
+
+            <div class="filter-actions">
+              <button class="filter-reset" @click="resetFilters">Reset filters</button>
+            </div>
+          </div>
+
+          <ul class="items-list">
+            <!-- Iterates over list of containers and resources in the current location. -->
+            <li v-for="(url, index) in filteredUrls" :key="url">
+              <div v-if="loadingIndex === index" class="loading-spinner-container">
+                <div class="spinner"></div>
+                <span class="loading-text">Loading item details...</span>
+              </div>
+              <div v-else class="item-card">
+                <button @click="toggleInfo(index, url)" class="item-toggle">
+                  <div class="item-main">
+                    <div class="item-icon-wrap">
+                      <i class="material-icons not-colored item-icon">{{
+                        containerCheck(url) ? "folder" : "description"
+                      }}</i>
+                    </div>
+                    <div class="item-copy">
+                      <span class="item-type">{{
+                        containerCheck(url) ? "Container" : "Resource"
+                      }}</span>
+                      <span class="item-name">{{ getItemName(url) }}</span>
+                      <span class="highlightable-text item-url">{{ url }}</span>
+                    </div>
                   </div>
                   <div class="info-icon">
                     <i class="material-icons not-colored info-icon">
@@ -82,75 +146,211 @@
                         showInfoIndex === index
                           ? "keyboard_arrow_down info"
                           : "chevron_right info"
-                      }}</i
-                    >
+                      }}</i>
                   </div>
                 </button>
 
-                <!-- Item Info -->
                 <div v-if="showInfoIndex === index" class="item-info-container">
-                  <div v-if="info === null" class="info-row">
+                  <div v-if="itemDetails === null" class="info-row">
                     <strong class="info-label">No info to display</strong>
                   </div>
-                  <div v-else class="info-row">
-                    <strong class="info-label">Source IRI:</strong>
-                    <div class="info-value-container">
-                      <span class="info-value iri" :title="info.sourceIri">{{
-                        info.sourceIri
-                      }}</span>
-                      <button
-                        @click="copyToClipboard(info.sourceIri)"
-                        class="copy-button"
+                  <template v-else>
+                    <div class="detail-grid">
+                      <div class="info-row">
+                        <strong class="info-label">Name:</strong>
+                        <span class="info-value">{{ itemDetails.itemName }}</span>
+                      </div>
+                      <div class="info-row">
+                        <strong class="info-label">Type:</strong>
+                        <span class="info-value">{{ itemDetails.itemType }}</span>
+                      </div>
+                      <div class="info-row">
+                        <strong class="info-label">Parent container:</strong>
+                        <span class="info-value" :title="itemDetails.parentContainer">
+                          {{ itemDetails.parentContainer }}
+                        </span>
+                      </div>
+                      <div class="info-row">
+                        <strong class="info-label">Full URL:</strong>
+                        <div class="info-value-container">
+                          <span class="info-value iri" :title="itemDetails.sourceIri">{{
+                            itemDetails.sourceIri
+                          }}</span>
+                          <button
+                            @click="copyToClipboard(itemDetails.sourceIri)"
+                            class="copy-button"
+                          >
+                            <i class="material-icons">content_copy</i>
+                            <v-tooltip activator="parent" location="end">Copy URL</v-tooltip>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="info-row" v-if="itemDetails.contentType">
+                        <strong class="info-label">Content type:</strong>
+                        <span class="info-value">{{ itemDetails.contentType }}</span>
+                      </div>
+                      <div class="info-row" v-if="itemDetails.sizeLabel">
+                        <strong class="info-label">File size:</strong>
+                        <span class="info-value">{{ itemDetails.sizeLabel }}</span>
+                      </div>
+                      <div class="info-row" v-if="itemDetails.lastModified">
+                        <strong class="info-label">Last modified:</strong>
+                        <span class="info-value">{{ itemDetails.lastModified }}</span>
+                      </div>
+                      <div class="info-row" v-if="itemDetails.directChildren !== null">
+                        <strong class="info-label">Direct items:</strong>
+                        <span class="info-value">{{ itemDetails.directChildren }}</span>
+                      </div>
+                      <div
+                        class="info-row"
+                        v-if="itemDetails.metadataUrl"
                       >
-                        <i class="material-icons">content_copy</i>
-                        <v-tooltip activator="parent" location="end"
-                          >Copy IRI</v-tooltip
-                        >
-                      </button>
+                        <strong class="info-label">Metadata:</strong>
+                        <div v-if="checkUrl(url)" class="info-value-container">
+                          <a
+                            :href="itemDetails.metadataUrl"
+                            target="_blank"
+                            class="info-value link"
+                            :title="itemDetails.metadataUrl"
+                            >{{ itemDetails.metadataUrl }}</a
+                          >
+                        </div>
+                        <div v-else class="info-value-container">
+                          <span class="info-value">{{ itemDetails.metadataUrl }}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div class="info-row">
-                    <strong class="info-label">Type:</strong>
-                    <span class="info-value">{{
-                      containerCheck(url) ? "Container" : "Resource"
-                    }}</span>
-                  </div>
-                  <div
-                    class="info-row"
-                    v-if="info && info.linkedResources.describedby"
-                  >
-                    <strong class="info-label">Metadata:</strong>
-                    <div v-if="checkUrl(url)" class="info-value-container">
-                      <a
-                        :href="info.linkedResources.describedby"
-                        target="_blank"
-                        class="info-value link"
-                        :title="info.linkedResources.describedby"
-                        >{{ info.linkedResources.describedby }}</a
-                      >
-                    </div>
-                    <div v-else class="info-value-container">
-                      <span>{{ info.linkedResources.describedby }}</span>
-                    </div>
-                  </div>
-                  <!-- TODO: figure out if this works and what edit does -->
-                  <div class="edit-delete">
-                    <button
-                      @click="confirmAndDelete(info.sourceIri)"
-                      class="delete-button"
-                    >
-                      Delete
-                    </button>
-                    <!-- TODO: Add an edit button for renaming / moving item -->
-                    <!-- <button
-                      @click="toggleForm(index, url)"
-                      class="delete-button"
-                    >
-                      Edit
-                    </button> -->
 
-                    <!-- TODO: add an RDF editor for RDF data ...  -->
-                  </div>
+                    <div class="action-panel move-panel">
+                      <button
+                        class="action-toggle"
+                        :class="{ expanded: movePanelOpen }"
+                        @click="movePanelOpen = !movePanelOpen"
+                      >
+                        <span class="action-copy">
+                          <span class="action-title">Move item</span>
+                          <span class="action-helper">Choose another container for this item.</span>
+                        </span>
+                        <i class="material-icons action-chevron">
+                          {{ movePanelOpen ? "keyboard_arrow_up" : "keyboard_arrow_down" }}
+                        </i>
+                      </button>
+
+                      <div v-if="movePanelOpen" class="move-card">
+                        <div class="move-header">
+                          <span class="move-title">Move destination</span>
+                          <span class="move-helper">Choose a destination container inside this pod or enter one directly.</span>
+                        </div>
+                        <div class="move-mode-switch">
+                          <button
+                            :class="{ active: moveInputType === 'customPath' }"
+                            @click="moveInputType = 'customPath'"
+                          >
+                            Enter Path
+                          </button>
+                          <button
+                            :class="{ active: moveInputType === 'browsePath' }"
+                            @click="moveInputType = 'browsePath'"
+                          >
+                            Browse Containers
+                          </button>
+                        </div>
+                        <div v-if="moveInputType === 'customPath'" class="move-manual">
+                          <input
+                            v-model="moveTargetPath"
+                            class="move-input"
+                            type="text"
+                            :placeholder="`${selectedPodUrl}target-container/`"
+                          />
+                          <p class="move-path-hint">
+                            Enter a full container URL inside the selected pod.
+                          </p>
+                        </div>
+                        <div v-else class="move-browser">
+                          <container-nav
+                            :currentPod="selectedPodUrl"
+                            @path-selected="handleMoveTargetSelected"
+                          />
+                        </div>
+                        <div class="move-controls">
+                          <v-btn
+                            class="move-btn"
+                            variant="outlined"
+                            rounded="lg"
+                            :disabled="movingItem || !canMoveItem(url)"
+                            @click="moveItem(url)"
+                          >
+                            Move Item
+                          </v-btn>
+                        </div>
+                        <p class="move-feedback" v-if="moveFeedback">
+                          {{ moveFeedback }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="action-panel rename-panel">
+                      <button
+                        class="action-toggle"
+                        :class="{ expanded: renamePanelOpen }"
+                        @click="renamePanelOpen = !renamePanelOpen"
+                      >
+                        <span class="action-copy">
+                          <span class="action-title">Rename item</span>
+                          <span class="action-helper">Give this item a new name inside the current container.</span>
+                        </span>
+                        <i class="material-icons action-chevron">
+                          {{ renamePanelOpen ? "keyboard_arrow_up" : "keyboard_arrow_down" }}
+                        </i>
+                      </button>
+
+                      <div v-if="renamePanelOpen" class="rename-card">
+                        <div class="rename-header">
+                          <span class="rename-title">New name</span>
+                          <span class="rename-helper">
+                            Enter the new name only, without any path.
+                          </span>
+                        </div>
+                        <div class="rename-controls">
+                          <input
+                            v-model="renameName"
+                            class="rename-input"
+                            type="text"
+                            :placeholder="getItemName(url)"
+                          />
+                          <v-btn
+                            class="rename-btn"
+                            variant="outlined"
+                            rounded="lg"
+                            :disabled="renamingItem || !canRenameItem(url)"
+                            @click="renameItem(url)"
+                          >
+                            Rename Item
+                          </v-btn>
+                        </div>
+                        <p class="rename-feedback" v-if="renameFeedback">
+                          {{ renameFeedback }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="action-panel delete-panel">
+                      <div class="delete-copy">
+                        <span class="action-title danger">Delete item</span>
+                        <span class="action-helper">
+                          Permanently remove this item from the pod.
+                        </span>
+                      </div>
+                      <div class="edit-delete">
+                        <button
+                          @click="confirmAndDelete(itemDetails.sourceIri)"
+                          class="delete-button"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </div>
             </li>
@@ -158,30 +358,38 @@
         </div>
       </div>
     </div>
-  </body>
+  </section>
 
-  <PodBrowserGuide />
+  <div class="browser-guide">
+    <PodBrowserGuide />
+  </div>
 </template>
 
 <script lang="ts">
 import { fetchData, WorkingData } from "./getData";
-import { deleteFromPod, deleteContainer } from "./fileUpload";
+import { deleteFromPod, deleteContainer, movePodItem, renamePodItem } from "./fileUpload";
 import {
+  getFile,
+  getSolidDataset,
   getContainedResourceUrlAll,
-  internal_AclRule,
 } from "@inrupt/solid-client";
+import { fetch as solidFetch } from "@inrupt/solid-client-authn-browser";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 import { useAuthStore } from "../stores/auth";
 import { checkUrl } from "./privacyEdit";
 
-interface info {
+interface BrowserItemDetail {
+  itemName: string;
+  itemType: "Container" | "Resource";
   sourceIri: string;
-  linkedResources: {
-    type: string;
-    describedby: string;
-  };
+  parentContainer: string;
+  metadataUrl: string | null;
+  contentType: string | null;
+  sizeLabel: string | null;
+  lastModified: string | null;
+  directChildren: number | null;
 }
 
 export default {
@@ -200,7 +408,7 @@ export default {
       urls: [] as string[],
       dirContents: null as WorkingData | null,
       containerContents: null as WorkingData | null,
-      info: null as info | null,
+      itemDetails: null as BrowserItemDetail | null,
       containerUrls: [] as string[],
       resourceUrls: [] as string[],
       container: [] as string[],
@@ -210,6 +418,18 @@ export default {
       deletionSuccess: false,
       deletedItemType: "" as "Resource" | "Container" | "",
       loadingIndex: null as number | null,
+      filtersOpen: false,
+      itemTypeFilter: "all" as "all" | "container" | "resource",
+      itemSearch: "" as string,
+      movePanelOpen: false,
+      renamePanelOpen: false,
+      moveInputType: "browsePath" as "customPath" | "browsePath",
+      moveTargetPath: "" as string,
+      moveFeedback: "" as string,
+      movingItem: false,
+      renameName: "" as string,
+      renameFeedback: "" as string,
+      renamingItem: false,
     };
   },
   computed: {
@@ -224,6 +444,29 @@ export default {
     },
     selectedPodUrl() {
       return this.authStore.selectedPodUrl; // Access selected Pod URL
+    },
+    // Filters are applied client-side so browsing remains responsive while the user refines results.
+    filteredUrls(): string[] {
+      const searchTerm = this.itemSearch.trim().toLowerCase();
+
+      return this.urls.filter((url) => {
+        const isContainer = this.containerCheck(url);
+        const matchesType =
+          this.itemTypeFilter === "all" ||
+          (this.itemTypeFilter === "container" && isContainer) ||
+          (this.itemTypeFilter === "resource" && !isContainer);
+
+        if (!matchesType) {
+          return false;
+        }
+
+        if (!searchTerm) {
+          return true;
+        }
+
+        const itemName = this.getItemName(url).toLowerCase();
+        return itemName.includes(searchTerm) || url.toLowerCase().includes(searchTerm);
+      });
     },
   },
   methods: {
@@ -295,48 +538,10 @@ export default {
       }
     },
 
-    // TODO: Strategy -->
-    // Copy existing resource to an object
-    // Delete existing resource
-    // Upload resource object using new name / dir path
-    async handleRename(sourceUrl: string) {
-      if (!this.newName || this.newName.trim() === "") {
-        alert("Please provide a new name.");
-        return;
-      }
-
-      const isContainer = sourceUrl.endsWith("/");
-      const url = new URL(sourceUrl);
-      const path = url.pathname;
-      const lastSlash = path.endsWith("/")
-        ? path.slice(0, -1).lastIndexOf("/")
-        : path.lastIndexOf("/");
-      const parentPath = path.substring(0, lastSlash + 1);
-      const destinationUrl =
-        url.origin +
-        parentPath +
-        this.newName.trim() +
-        (isContainer ? "/" : "");
-
-      if (sourceUrl === destinationUrl) {
-        this.showEditIndex = null;
-        return; // Name hasn't changed
-      }
-
-      // try {
-      //   await moveFile(sourceUrl, destinationUrl);
-      //   alert("Resource renamed successfully!");
-      //   this.showEditIndex = null;
-      //   this.newName = "";
-      //   await this.getItems(this.displayPath);
-      // } catch (error) {
-      //   console.error("Error renaming resource:", error);
-      //   alert(`Failed to rename resource. See console for details: ${error}`);
-      // }
-    },
-
     async getItems(path: string) {
       try {
+        this.displayPath = path;
+        this.currentLocation = path;
         this.dirContents = await fetchData(path); // value is SolidDataset
         const urls = getContainedResourceUrlAll(this.dirContents);
         this.urls = [...urls];
@@ -346,9 +551,89 @@ export default {
       }
     },
 
-    async getItemInfo(path: string) {
-      this.dirContents = await fetchData(path);
-      this.info = this.dirContents.internal_resourceInfo;
+    formatFileSize(bytes: number): string {
+      if (!bytes && bytes !== 0) {
+        return "";
+      }
+      if (bytes < 1024) {
+        return `${bytes} B`;
+      }
+      if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+      }
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    },
+    formatDate(dateValue: number): string | null {
+      if (!dateValue) {
+        return null;
+      }
+      return new Date(dateValue).toLocaleString();
+    },
+    validUrlCheck(u: string): boolean {
+      try {
+        new URL(u);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+    getItemName(path: string): string {
+      return path.split("/").filter(Boolean).pop() || path;
+    },
+    // Resetting filters returns the browser to the full selected-container contents view.
+    resetFilters() {
+      this.itemTypeFilter = "all";
+      this.itemSearch = "";
+    },
+    // Renaming only accepts a plain item name so users cannot accidentally alter the container path.
+    canRenameItem(itemUrl: string): boolean {
+      const trimmedName = this.renameName.trim();
+      return (
+        trimmedName.length > 0 &&
+        !trimmedName.includes("/") &&
+        trimmedName !== this.getItemName(itemUrl)
+      );
+    },
+    getParentContainer(path: string): string {
+      if (path.endsWith("/")) {
+        const segments = path.split("/").filter(Boolean);
+        const containerName = segments.pop();
+        return containerName ? path.replace(`${containerName}/`, "") : path;
+      }
+      return path.slice(0, path.lastIndexOf("/") + 1);
+    },
+    async getItemInfo(path: string): Promise<BrowserItemDetail> {
+      const itemType = this.containerCheck(path) ? "Container" : "Resource";
+      const dataset = await fetchData(path);
+      const metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+
+      if (itemType === "Container") {
+        const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
+        return {
+          itemName: this.getItemName(path),
+          itemType,
+          sourceIri: path,
+          parentContainer: this.getParentContainer(path),
+          metadataUrl,
+          contentType: "Container",
+          sizeLabel: null,
+          lastModified: null,
+          directChildren: getContainedResourceUrlAll(containerDataset).length,
+        };
+      }
+
+      const file = await getFile(path, { fetch: solidFetch });
+      return {
+        itemName: this.getItemName(path),
+        itemType,
+        sourceIri: path,
+        parentContainer: this.getParentContainer(path),
+        metadataUrl,
+        contentType: file.type || "Unknown",
+        sizeLabel: this.formatFileSize(file.size),
+        lastModified: this.formatDate(file.lastModified),
+        directChildren: null,
+      };
     },
 
     /*
@@ -399,19 +684,34 @@ export default {
     async toggleInfo(index: number, url: string) {
       if (this.showInfoIndex === index) {
         this.showInfoIndex = null; // Hide the form if it's already shown
+        this.itemDetails = null;
+        this.movePanelOpen = false;
+        this.renamePanelOpen = false;
+        this.moveFeedback = "";
+        this.renameFeedback = "";
       } else {
         try {
           this.showInfoIndex = index;
           this.loadingIndex = index;
-          await this.getItemInfo(url);
+          this.itemDetails = await this.getItemInfo(url);
+          this.movePanelOpen = false;
+          this.renamePanelOpen = false;
+          this.moveTargetPath = this.currentLocation;
+          this.renameName = this.getItemName(url);
+          this.moveFeedback = "";
+          this.renameFeedback = "";
         } catch (error) {
           this.dirContents = null;
-          this.info = {
+          this.itemDetails = {
+            itemName: "error fetching info",
+            itemType: this.containerCheck(url) ? "Container" : "Resource",
             sourceIri: "error fetching info",
-            linkedResources: {
-              type: "error fetching info",
-              describedby: "error fetching info",
-            },
+            parentContainer: "error fetching info",
+            metadataUrl: null,
+            contentType: "error fetching info",
+            sizeLabel: null,
+            lastModified: null,
+            directChildren: null,
           };
           console.error("Error fetching item info:", error);
         } finally {
@@ -423,7 +723,97 @@ export default {
     /* Takes in the emitted value from ContainerNav.vue */
     async handleSelectedContainer(selectedContainer: string) {
       this.displayPath = selectedContainer;
+      this.currentLocation = selectedContainer;
+      this.moveTargetPath = selectedContainer;
+      this.movePanelOpen = false;
+      this.renamePanelOpen = false;
+      this.renameFeedback = "";
+      this.resetFilters();
       await this.getItems(this.displayPath);
+    },
+    handleMoveTargetSelected(selectedContainer: string) {
+      this.moveTargetPath = selectedContainer;
+      this.moveFeedback = "";
+    },
+    canMoveItem(itemUrl: string): boolean {
+      if (!this.moveTargetPath) {
+        return false;
+      }
+      try {
+        if (!this.validUrlCheck(this.moveTargetPath)) {
+          return false;
+        }
+        const normalizedTarget = this.moveTargetPath.endsWith("/")
+          ? this.moveTargetPath
+          : `${this.moveTargetPath}/`;
+        const normalizedParent = this.getParentContainer(itemUrl);
+
+        return (
+          normalizedTarget.startsWith(this.selectedPodUrl) &&
+          normalizedTarget !== normalizedParent &&
+          normalizedTarget !== itemUrl &&
+          !(this.containerCheck(itemUrl) && normalizedTarget.startsWith(itemUrl))
+        );
+      } catch (error) {
+        return false;
+      }
+    },
+    async moveItem(itemUrl: string) {
+      if (!this.canMoveItem(itemUrl)) {
+        this.moveFeedback = "Enter a different destination container inside the selected pod.";
+        return;
+      }
+
+      this.movingItem = true;
+      this.moveFeedback = "";
+      try {
+        const normalizedTarget = this.moveTargetPath.endsWith("/")
+          ? this.moveTargetPath
+          : `${this.moveTargetPath}/`;
+        const result = await movePodItem(itemUrl, normalizedTarget, this.selectedPodUrl);
+
+        if (result === "error") {
+          this.moveFeedback = "The item could not be moved. Check the destination path and try again.";
+          return;
+        }
+
+        this.moveFeedback = `Moved to ${result}`;
+        this.showInfoIndex = null;
+        this.itemDetails = null;
+        await this.getItems(this.displayPath);
+      } catch (error) {
+        console.error("Error moving item:", error);
+        this.moveFeedback = "The item could not be moved. Check the destination path and try again.";
+      } finally {
+        this.movingItem = false;
+      }
+    },
+    async renameItem(itemUrl: string) {
+      if (!this.canRenameItem(itemUrl)) {
+        this.renameFeedback = "Enter a different item name without any path separators.";
+        return;
+      }
+
+      this.renamingItem = true;
+      this.renameFeedback = "";
+      try {
+        const result = await renamePodItem(itemUrl, this.renameName, this.selectedPodUrl);
+        if (result === "error") {
+          this.renameFeedback = "The item could not be renamed. Try a different name.";
+          return;
+        }
+
+        this.renameFeedback = `Renamed to ${this.renameName}`;
+        this.showInfoIndex = null;
+        this.itemDetails = null;
+        this.renamePanelOpen = false;
+        await this.getItems(this.displayPath);
+      } catch (error) {
+        console.error("Error renaming item:", error);
+        this.renameFeedback = "The item could not be renamed. Try a different name.";
+      } finally {
+        this.renamingItem = false;
+      }
     },
     checkUrl(url: string) {
       return checkUrl(url, this.currentLocation);
@@ -432,12 +822,15 @@ export default {
   async mounted() {
     if (this.selectedPodUrl) {
       this.displayPath = this.selectedPodUrl; // Assign podUrl to displayPath
+      this.currentLocation = this.selectedPodUrl;
       await this.getItems(this.displayPath); // Fetch items for the initial path
     }
   },
   watch: {
     selectedPodUrl(newValue, oldValue) {
       if (newValue !== oldValue) {
+        this.displayPath = this.selectedPodUrl;
+        this.currentLocation = this.selectedPodUrl;
         this.getItems(this.selectedPodUrl); // Fetch items for the initial path
       }
     },
@@ -450,132 +843,304 @@ button:focus {
   background-color: transparent !important;
 }
 
-body {
-  background-color: var(--bg);
-  font-size: 13px;
-  border-radius: 6px;
-}
-.content-body {
-  display: flex;
-  flex-direction: column;
-  border-radius: 6px;
+.browser-page {
+  display: grid;
+  gap: 0.5rem;
 }
 
-/* Title bar */
+/* Page header follows the same polished workspace style as the other main pages. */
 .title-container {
-  background-color: var(--panel);
-  border-radius: 8px;
-  margin: 0.5rem 0.5rem;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 12%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 93%, var(--primary-100) 7%),
+      var(--panel)
+    );
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  margin: 0.5rem 0.5rem 0 0.5rem;
+  padding: 1.35rem 1.5rem;
+  box-shadow: var(--shadow-1);
+}
+.page-kicker {
+  margin: 0 0 0.35rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 .title-container span {
-  font-size: 30pt;
+  display: block;
+  font-size: 2rem;
   font-family: "Oxanium", monospace;
-  font-weight: 500;
-  padding-left: 20px;
-  padding-right: 20px;
+  font-weight: 700;
   color: var(--text-primary);
 }
-
-/* General container */
-.container-location {
-  padding: 1rem 0.5rem;
-  background-color: var(--panel);
-  border-radius: 8px;
-  margin: 0.25rem 0.5rem 0rem 0.5rem;
-}
-
-/* Container pod-chooser bar */
-.pod-chooseContainer {
-  background: var(--panel);
-  border-radius: 8px;
-  margin: 0rem 0.5rem;
-  padding: 0.2rem 0 0 0;
-}
-
-/* Container for directory navigation */
-.nav-container {
-  display: flex;
-  border-radius: 8px;
+.page-summary {
+  margin: 0.65rem 0 0 0;
+  max-width: 48rem;
+  line-height: 1.6;
+  color: var(--text-muted);
   font-family: "Oxanium", monospace;
+}
+
+.success-popup {
+  margin: 0 0.5rem;
+  display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border) 65%);
+  background: color-mix(in srgb, var(--success) 10%, var(--panel) 90%);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
 }
-.nav-container ul {
-  list-style-type: none;
-  padding: 10px;
-  height: 100%;
-  flex-wrap: wrap;
-}
-.path-selection {
-  display: flex;
+.close-popup-button {
+  display: inline-flex;
   align-items: center;
-  list-style-type: none;
-  width: 100%;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem;
+}
+.pod-chooseContainer {
+  margin: 0rem 0.5rem;
+}
+.browser-shell {
+  display: grid;
+  gap: 0.5rem;
+}
+.container-location {
+  margin: 0 0.5rem 0.5rem 0.5rem;
+}
+.path-card,
+.items-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  font-family: "Oxanium", monospace;
+}
+.path-card {
+  padding: 1rem 1.05rem;
+}
+.path-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+.section-kicker {
+  margin: 0 0 0.3rem 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.path-card-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-family: "Oxanium", monospace;
+  font-weight: 700;
+  line-height: 1.3;
   color: var(--text-primary);
 }
-.path-selection ul {
-  display: flex;
-  list-style: none; /* Remove bullet points */
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  justify-content: space-between; /* Spread list items across full width */
-  align-items: center;
-}
-/* TODO: Fix the wrapping of this non-sense */
-.path-selection li {
-  margin-right: 10px; /* Add some spacing between list items */
-  flex-wrap: wrap;
+.path-origin {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 22rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--panel-elev);
   font-family: "Oxanium", monospace;
 }
-.path-selection span {
-  font-size: 18pt;
-  font-family: "Oxanium", monospace;
-  font-weight: 400;
-  margin-left: 0.5rem;
+.path-origin-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
-.container-choose {
-  margin-left: auto; /* Push the container selector to the right */
-  box-shadow: none;
+.path-origin-value {
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.dir-nav {
-  background-color: var(--panel);
-  color: var(--text-secondary);
-  font-family: "Oxanium", monospace;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  box-shadow: none;
+.browser-layout {
+  display: grid;
+  gap: 0.85rem;
+}
+.browser-toolbar {
+  display: block;
+}
+.browser-toolbar-copy {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
-/* data display */
-.items-label span {
-  font-family: "Oxanium", monospace;
-  font-weight: 400;
-  font-size: 18pt;
-  margin-left: 0.5rem;
-  color: var(--text-primary);
-}
 .pod-directories {
   flex: 1 1 auto;
   overflow: auto;
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  height: 40em;
-  min-height: 20em;
+  min-height: 22em;
   resize: vertical;
+  margin: 0 0.5rem;
 }
-.card-panel {
-  background-color: var(--muted);
-  margin: 0.2rem;
-  padding: 1rem;
+.items-card {
+  padding: 1rem 1.1rem;
+}
+.items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+.items-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.58rem 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text-secondary);
   font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  border-radius: 6px;
-  outline: 0.5px solid var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
-.card-panel:hover {
-  outline: 0.1px solid var(--primary);
+.items-title {
+  display: block;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.items-summary {
+  margin: 0.4rem 0 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.items-location {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.items-count {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.filters-panel {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0 0 0.95rem 0;
+  padding: 1rem 1rem 1.05rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel-elev) 94%, var(--main-darker) 36%),
+      color-mix(in srgb, var(--panel) 97%, var(--panel-elev) 3%)
+    );
+  box-shadow: var(--shadow-1);
+}
+.filter-group {
+  display: grid;
+  gap: 0.4rem;
+}
+.filter-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.filter-chip {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.filter-chip.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  border-color: transparent;
+  color: var(--main-white);
+}
+.filter-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel) 88%, white 12%),
+      var(--panel)
+    );
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.14);
+}
+.filter-input::placeholder {
+  color: var(--text-muted);
+}
+.filter-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border) 38%);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent),
+    inset 0 1px 0 hsl(0 0% 100% / 0.14);
+}
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.filter-reset {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: "Oxanium", monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.item-card {
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  padding: 0.35rem;
+}
+.item-card:hover {
+  border-color: color-mix(in srgb, var(--border) 55%, var(--primary) 45%);
 }
 .delete-button {
   padding: 0.5rem 0.75rem !important;
@@ -584,28 +1149,66 @@ body {
   background-color: #555;
   color: white;
 }
-.card-panel button:focus {
-  background-color: transparent;
-}
-.folder i {
-  margin-top: -2px;
-}
-.card-panel .not-colored {
+.item-card .not-colored {
   color: var(--text-muted);
 }
-.icon-button {
+.item-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
   width: 100%;
-  padding: 0.5rem;
-  border-radius: 5px;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
   transition: background 0.3s;
 }
-.icon-hash {
+.item-toggle:hover {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
   font-family: "Oxanium", monospace;
-  color: var(--text-secondary);
+}
+.item-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.item-icon {
+  display: block;
+  margin: 0;
+  line-height: 1;
+}
+.item-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.item-type {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.item-name {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.item-url {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .info-icon {
   margin-left: auto;
@@ -615,7 +1218,6 @@ body {
   cursor: text;
 }
 
-/* Loading spinner */
 .loading-spinner-container {
   display: flex;
   flex-direction: column;
@@ -648,16 +1250,19 @@ body {
 }
 
 .item-info-container {
-  background-color: var(--bg);
-  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--bg) 70%, var(--panel) 30%);
+  border-radius: 12px;
   padding: 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   border: 1px solid var(--border);
 }
-
+.detail-grid {
+  display: grid;
+  gap: 0.3rem;
+}
 .info-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 0.5rem;
   font-size: 12pt;
 }
@@ -714,97 +1319,379 @@ body {
   color: var(--primary);
 }
 
-/* Delete button */
+.action-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+.move-panel {
+  gap: 0;
+}
+.rename-panel {
+  gap: 0;
+}
+.action-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 90%, var(--panel-elev) 10%);
+  text-align: left;
+}
+.move-panel .action-toggle {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+.rename-panel .action-toggle {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+.move-panel .action-toggle.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+}
+.rename-panel .action-toggle.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 0;
+}
+.action-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+.action-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.action-title.danger {
+  color: color-mix(in srgb, var(--error) 75%, var(--text-primary) 25%);
+}
+.action-helper {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.action-chevron {
+  color: var(--text-muted);
+}
+.delete-panel {
+  border-top-style: dashed;
+}
+.delete-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.move-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 0.95rem 0.95rem 0.95rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+}
+.rename-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 0.95rem 0.95rem 0.95rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+}
+.move-header {
+  display: grid;
+  gap: 0.15rem;
+}
+.rename-header {
+  display: grid;
+  gap: 0.15rem;
+}
+.move-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.rename-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.move-helper {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.rename-helper {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.move-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.move-mode-switch button {
+  padding: 0.58rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+.move-mode-switch .active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  border-color: transparent;
+  color: var(--main-white);
+}
+.move-destination {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--panel-elev);
+}
+.move-destination-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.move-destination-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.move-browser {
+  padding: 0.2rem 0 0;
+}
+.move-manual {
+  display: grid;
+  gap: 0.4rem;
+}
+.move-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+}
+.move-path-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.move-browser :deep(.browser-card) {
+  gap: 0.45rem;
+}
+.move-browser :deep(.current-folder-bar) {
+  background: var(--panel);
+  padding: 0.55rem 0.7rem;
+  gap: 0.3rem;
+}
+.move-browser :deep(.current-folder-label) {
+  font-size: 0.88rem;
+}
+.move-browser :deep(.crumb) {
+  padding: 0.28rem 0.58rem;
+  font-size: 0.82rem;
+}
+.move-browser :deep(.full-path) {
+  font-size: 0.72rem;
+}
+.move-browser :deep(.folder-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.4rem;
+}
+.move-browser :deep(.folder-section) {
+  gap: 0.4rem;
+}
+.move-browser :deep(.section-title) {
+  font-size: 0.9rem;
+}
+.move-browser :deep(.section-count) {
+  font-size: 0.82rem;
+}
+.move-browser :deep(.folder-card) {
+  padding: 0.5rem 0.65rem;
+  border-radius: 12px;
+}
+.move-browser :deep(.folder-icon-wrap) {
+  width: 30px;
+  height: 30px;
+}
+.move-browser :deep(.folder-name) {
+  font-size: 0.86rem;
+}
+.move-browser :deep(.up-btn) {
+  min-width: 72px;
+  padding-inline: 0.6rem;
+}
+.move-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.rename-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.move-btn {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.rename-btn {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.move-feedback {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+}
+.rename-feedback {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .delete-button {
   font-family: "Oxanium", monospace;
   padding: 0.75rem;
-  margin: 0.5rem 0.5rem 0 0.5rem;
-  color: var(--panel-elev);
-  background-color: var(--text-muted);
-  border-radius: 5px;
-}
-
-/* The how to use guide */
-.use-guide {
-  margin: 0.5rem;
-}
-.guide-container {
-  font-family: "Oxanium", monospace;
-  font-size: 16pt;
-  width: 100%;
-  margin: auto;
-  padding: 0.5rem 0rem 0.5rem 0.5rem;
-  background: #445560;
+  color: var(--main-white);
+  background: color-mix(in srgb, var(--error) 78%, #111 22%);
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-.guide {
-  text-align: Left;
-  font-size: 18pt;
-  margin: 0.5rem;
-  font-weight: 600;
-}
-.line {
-  margin-right: 0.5rem;
-}
-.list-container {
-  margin: 0 1.5rem;
-}
-.req {
-  margin: 1rem 0.5rem;
-  font-size: 14pt;
-  list-style-type: upper-roman;
-  align-items: Left;
+.edit-delete {
+  display: flex;
+  justify-content: flex-start;
 }
 
-.edit-form {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
+.browser-guide {
+  margin: 0 0.5rem 0.5rem 0.5rem;
 }
-.edit-input {
-  flex-grow: 1;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background-color: var(--bg);
-  color: var(--text-primary);
+.browser-guide :deep(.container) {
+  margin: 0;
 }
-.edit-button {
-  font-family: "Oxanium", monospace;
-  padding: 0.5rem 1rem;
-  color: var(--panel-elev);
-  background-color: var(--primary);
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
+@media (max-width: 900px) {
+  .path-card-header,
+  .items-header,
+  .items-header-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .path-origin {
+    width: 100%;
+    max-width: 100%;
+  }
+  .path-origin-value {
+    white-space: normal;
+    word-break: break-word;
+  }
 }
-.edit-button.cancel {
-  background-color: var(--text-muted);
-}
-
-/* Deletion success pop-up */
-.success-popup {
-  font-family: "Oxanium", monospace;
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background-color: var(--success);
-  color: var(--main-white);
-  padding: 1rem;
-  border-radius: 8px;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: var(--shadow-1);
-}
-.close-popup-button {
-  background: none;
-  border: none;
-  color: var(--main-white);
-  cursor: pointer;
-  margin-left: 1rem;
+@media (max-width: 760px) {
+  .title-container,
+  .pod-chooseContainer,
+  .container-location,
+  .pod-directories,
+  .browser-guide,
+  .success-popup {
+    margin-left: 0.35rem;
+    margin-right: 0.35rem;
+  }
+  .title-container {
+    padding: 1rem;
+  }
+  .title-container span {
+    font-size: 1.7rem;
+  }
+  .path-card,
+  .items-card,
+  .success-popup {
+    padding: 0.9rem;
+    border-radius: 16px;
+  }
+  .item-toggle {
+    padding: 0.6rem;
+  }
+  .filter-toggle,
+  .filter-reset {
+    width: 100%;
+    justify-content: center;
+  }
+  .filter-actions {
+    justify-content: stretch;
+  }
+  .item-main {
+    align-items: flex-start;
+  }
+  .move-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rename-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .action-toggle {
+    align-items: flex-start;
+  }
+  .move-mode-switch {
+    flex-direction: column;
+  }
+  .move-mode-switch button {
+    width: 100%;
+  }
+  .move-btn {
+    width: 100%;
+  }
+  .rename-btn {
+    width: 100%;
+  }
+  .move-destination-value {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .item-url {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
 }
 </style>

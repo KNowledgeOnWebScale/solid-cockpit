@@ -4,6 +4,8 @@ import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TheFooter from "../../src/components/Styling/TheFooter.vue";
 import ThemeSwitch from "../../src/components/Styling/ThemeSwitch.vue";
+import FunctionSelector from "../../src/components/Styling/FunctionSelector.vue";
+import { useAuthStore } from "../../src/stores/auth";
 
 vi.mock("../../src/components/login.ts", () => ({
   session: {
@@ -185,6 +187,50 @@ function makeProps(path: string): Record<string, unknown> {
 }
 
 describe("Focused Styling Component Tests", () => {
+  it("FunctionSelector only shows Home and Query when logged out", () => {
+    const pinia = createPinia();
+    const authStore = useAuthStore(pinia);
+    authStore.setAuth(false, "");
+
+    const wrapper = shallowMount(FunctionSelector, {
+      global: {
+        plugins: [pinia],
+        config: {
+          compilerOptions: {
+            isCustomElement: (tag) => tag.startsWith("v-"),
+          },
+        },
+      },
+    });
+
+    expect((wrapper.vm as unknown as { items: string[] }).items).toEqual(["Home", "Query"]);
+  });
+
+  it("FunctionSelector shows all functional pages when logged in", () => {
+    const pinia = createPinia();
+    const authStore = useAuthStore(pinia);
+    authStore.setAuth(true, "https://user.example/profile/card#me");
+
+    const wrapper = shallowMount(FunctionSelector, {
+      global: {
+        plugins: [pinia],
+        config: {
+          compilerOptions: {
+            isCustomElement: (tag) => tag.startsWith("v-"),
+          },
+        },
+      },
+    });
+
+    expect((wrapper.vm as unknown as { items: string[] }).items).toEqual([
+      "Home",
+      "Data Upload",
+      "Pod Browser",
+      "Query",
+      "Data Privacy",
+    ]);
+  });
+
   it("ThemeSwitch initializes from saved localStorage theme", async () => {
     localStorage.setItem("app-theme", "light");
 
@@ -243,7 +289,7 @@ describe("Focused Styling Component Tests", () => {
     });
 
     expect(wrapper.text()).toContain("Version: v1.0.0");
-    expect(wrapper.text()).toContain("web-app-v1.0.0");
+    expect(wrapper.text()).toContain("Version: v1.0.0");
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
