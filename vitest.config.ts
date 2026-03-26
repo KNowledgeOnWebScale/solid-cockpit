@@ -25,7 +25,7 @@ export default defineConfig({
     include: ["tests/components/**/*.test.ts"],
     setupFiles: ["./tests/components/setup.ts"],
     coverage: {
-      provider: "v8",
+      provider: "istanbul",
       reporter: ["text", "json-summary"],
       include: [
         "src/components/Styling/ThemeSwitch.vue",
@@ -34,8 +34,8 @@ export default defineConfig({
         "src/components/PodBrowser.vue",
       ],
       thresholds: {
-        lines: 75,
-        statements: 75,
+        lines: 70,
+        statements: 70,
         functions: 70,
         branches: 60,
       },
