@@ -1,103 +1,101 @@
 <template>
   <div class="pod-register" v-if="loggedIn">
-    <!-- delay div prevents yellow flashing of pod selection box -->
-    <h2>Pod Selection</h2>
     <div class="loading-spinner-container" v-if="delay">
       <div class="spinner"></div>
-      <span class="loading-text">Checking login status ...</span>
+      <span class="loading-text">Loading pods...</span>
     </div>
 
-    <div class="delay-placeholder" v-if="!delay">
-      <!-- Display current selected pod if selectedPodUrl is not empty -->
+    <div class="register-shell" v-if="!delay">
+      <!-- The selected-pod state is reduced to a single, utility-style action bar. -->
       <div v-if="podSuccess" class="current-pod">
-        <p>Current Selected Pod: <strong>{{ authStore.selectedPodUrl }}</strong></p>
-        <button
-          class="change-pod-btn styled-button"
-          @click="clearSelectedPod"
-        >
-          Change Pod
-        </button>
-      </div>
-
-      <!-- Pod Selection dropdown -->
-      <div class="select-pod" v-else>
-        <ul class="horizontal-list">
-          <li>
-            <span>Select Pod:</span>
-          </li>
-          <li>
-            <div class="sel-pod">
-              <v-select
-                variant="outlined"
-                v-model="currentPod"
-                :items="podList"
-              ></v-select>
-              <v-btn
-                class="pod-selectButton"
-                variant="tonal"
-                rounded="xs"
-                @click="selectPod"
-              >
-                Select Pod
-                <v-tooltip class="tool-tip" activator="parent" location="end"
-                  >Click to select this pod
-                </v-tooltip>
-              </v-btn>
-              <v-icon class="check-mark" v-if="podSuccess" color="green"
-                >mdi-check</v-icon
-              >
+        <div class="current-pod-summary">
+          <div class="pod-icon-wrap">
+            <v-icon size="28" color="var(--primary)">mdi-database-outline</v-icon>
+          </div>
+          <span class="current-pod-title">Current pod</span>
+          <div class="current-pod-copy">
+            <div class="current-pod-url-row">
+              <div class="current-pod-value-group">
+                <span class="current-pod-value">{{ authStore.selectedPodUrl }}</span>
+                <v-btn class="copy-pod-btn" variant="text" rounded="lg" @click="copyPodUrl">
+                  <v-icon size="18">mdi-content-copy</v-icon>
+                </v-btn>
+              </div>
             </div>
-          </li>
-        </ul>
+          </div>
+        </div>
+        <div class="pod-actions">
+          <v-btn class="change-pod-btn" variant="outlined" rounded="lg" @click="clearSelectedPod">
+            Change Pod
+          </v-btn>
+        </div>
       </div>
 
+      <!-- The selection state stays on one row with minimal copy and aligned controls. -->
+      <div class="select-pod" v-else>
+        <span class="selection-label">Choose a pod</span>
+        <div class="sel-pod">
+          <v-select
+            variant="outlined"
+            v-model="currentPod"
+            :items="podList"
+            label="Pod URL"
+            hide-details
+          ></v-select>
+          <v-btn
+            class="pod-selectButton"
+            variant="flat"
+            rounded="lg"
+            @click="selectPod"
+          >
+            Use Pod
+          </v-btn>
+        </div>
+      </div>
+
+      <!-- Empty-state card keeps the optional manual pod registration understandable. -->
       <div class="add-webid" v-if="!podAccess">
         <v-alert
-          density="compact"
+          density="comfortable"
           title="No Pod Registered to your WebId"
           type="warning"
+          variant="tonal"
         >
-          <!-- TODO: a hint with the user's current "likely" pod based on WebId 
-              Also, maybe a "one session" pod reference would be cool -->
           <div class="add-access">
-            <button @click="toggleForm" class="icon-button">
-              <span>Input your Pod URL (optional)</span>
-              <i v-if="!showFormIndex" class="material-icons right">add</i>
-              <i v-if="showFormIndex" class="material-icons right"> remove </i>
+            <v-btn @click="toggleForm" class="icon-button" variant="text" rounded="lg">
+              {{ showFormIndex ? "Hide Pod URL Input" : "Input Your Pod URL" }}
               <v-tooltip
                 class="tool-tip"
                 v-if="showFormIndex"
                 activator="parent"
                 location="end"
-                >Close Pod URL input
+              >
+                Close pod URL input
               </v-tooltip>
-            </button>
-            <button @click="findPodList" class="refresh icon-button right">
-              <i class="material-icons right">refresh</i>
-              <v-tooltip class="tool-tip" activator="parent" location="end"
-                >Refresh to check if Pod has been added
-              </v-tooltip>
-            </button>
+            </v-btn>
           </div>
 
-          <!-- Add Pod to WebId form -->
+          <!-- Manual pod registration remains available as a secondary recovery action. -->
           <form @submit.prevent="addToWebIdData">
             <div class="input-podURL">
               <div id="shareBox" v-if="showFormIndex" class="form-container">
-                <!-- For adding custom Pod URL -->
                 <v-text-field
                   v-model="customPodUrl"
                   density="compact"
                   :rules="rules"
+                  label="Pod URL"
+                  variant="outlined"
+                  hide-details="auto"
                 ></v-text-field>
               </div>
-              <button
-                class="pod-registerButton styled-button"
+              <v-btn
+                class="pod-registerButton"
                 type="submit"
+                variant="flat"
+                rounded="lg"
               >
                 Register Pod
-                <span class="tooltip">Click to add your pod to your WebId card</span>
-              </button>
+              </v-btn>
             </div>
           </form>
         </v-alert>
@@ -161,11 +159,15 @@ export default {
       if (this.customPodUrl === "") {
         await webIdDataset(currentWebId(), this.customPodUrl);
         await this.findPodList();
+        this.showFormIndex = false;
+        this.customPodUrl = "";
       } else {
         /* For provided URL */
         if (!checkUrl(this.customPodUrl, this.currentPod)) {
           await webIdDataset(currentWebId(), this.customPodUrl);
           await this.findPodList();
+          this.showFormIndex = false;
+          this.customPodUrl = "";
         } else {
           /* For invalid URL 
           TODO: make this a little prettier */
@@ -181,12 +183,9 @@ export default {
       this.podList = await getPodURLs();
       if (this.podList !== null) {
         this.currentPod = this.podList[0];
-        //TODO: make this error display in DOM
-        try {
-          this.podAccess = this.podList.length !== 0 ? true : this.podAccess;
-        } catch (err) {
-          console.log(err);
-        }
+        this.podAccess = this.podList.length !== 0;
+      } else {
+        this.podAccess = false;
       }
     },
     /* Toggles the Custom URL field */
@@ -203,55 +202,60 @@ export default {
       const authStore = useAuthStore(); // Access the auth store
       authStore.setSelectedPodUrl(""); // Clear the selected Pod URL
     },
+    // Copying the active pod URL saves users from manually selecting long URLs.
+    async copyPodUrl() {
+      if (!this.authStore.selectedPodUrl) {
+        return;
+      }
+      await navigator.clipboard.writeText(this.authStore.selectedPodUrl);
+    },
   },
-  mounted() {
-    setTimeout(() => {
-      this.findPodList();
-    }, 200);
-    setTimeout(() => {
+  async mounted() {
+    try {
+      await this.findPodList();
+    } finally {
       this.toggleDelay();
-    }, 250);
+    }
   },
 };
 </script>
 
 <style scoped>
+/* Layout keeps pod selection as a single horizontal utility bar when space allows. */
 .pod-register {
   font-family: "Oxanium", monospace;
-  padding: 1rem;
+  padding: 0.2rem 0;
 }
-.pod-register h2 {
-  margin: 0 0 0.25rem 0;
-  color: var(--text-primary);
-  font-size: 20pt;
-  font-weight: 600;
+.register-shell {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
 }
 .add-webid {
-  padding: 0.5rem;
+  padding: 0;
 }
-/* For pod registration */
+
+/* Manual registration actions stay compact but expand cleanly on narrow screens. */
 .input-podURL {
-  justify-content: center;
-  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
 }
 .pod-registerButton {
-  margin-top: 10px;
+  justify-self: start;
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  color: var(--main-white);
 }
 .add-access {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .add-access .icon-button {
-  display: flex;
-  align-items: center;
-  margin-top: 0.2rem;
-}
-.add-access span {
-  display: flex;
-  align-items: center;
-}
-.refresh {
-  margin-left: auto;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
 }
 .tool-tip {
   font-family: "Oxanium", monospace;
@@ -262,16 +266,17 @@ export default {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 24px;
-  margin: 0 0.25rem 0.25rem 0.25rem;
-  padding: 1rem;
-  margin-left: 8px;
+  gap: 16px;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
 }
 .loading-text {
   font-family: "Oxanium", monospace;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.5px;
   color: var(--text-primary);
 }
 .spinner {
@@ -291,88 +296,214 @@ export default {
   }
 }
 
-/* For pod selection */
-.horizontal-list {
+/* Pod selection card makes the main action obvious and keeps the current state readable. */
+.select-pod,
+.current-pod {
   display: flex;
-  justify-content: flex-start;
+  flex-wrap: wrap;
   align-items: center;
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  color: var(--text-primary);
+  gap: 0.85rem;
+  padding: 0.7rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 96%, white 4%), var(--panel));
+  box-shadow: var(--shadow-1);
 }
-.select-pod span {
-  margin: 0 0 0 1rem;
-  font-size: 22px;
-  font-weight: 700;
+.bar-label {
+  display: flex;
+  align-items: center;
+}
+.selection-label {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.current-pod p {
+  flex-wrap: wrap;
+  margin: 0;
 }
 .pod-selectButton {
   font-family: "Oxanium", monospace;
-}
-button:focus {
-  background-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  color: var(--main-white);
+  min-width: 112px;
 }
 .sel-pod {
   display: flex;
   align-items: center;
-  margin-left: 15px;
-  gap: 20px;
+  min-width: 0;
+  width: 100%;
+  gap: 0.75rem;
 }
 .sel-pod .v-select {
-  min-width: 150px;
+  flex: 1;
+  min-width: 180px;
   font-family: "Oxanium", monospace;
 }
-.sel-pod .check-mark {
-  margin-bottom: 5px;
+.sel-pod :deep(.v-field) {
+  border-radius: 12px;
+}
+.sel-pod :deep(.v-field__input) {
+  color: var(--text-primary);
+}
+.sel-pod :deep(.v-field__outline) {
+  --v-field-border-opacity: 1;
+  color: var(--border);
 }
 .sel-pod :deep(.v-input__details) {
   display: none;
 }
 
-.delay-placeholder {
-  background-color: transparent;
-}
-
-.current-pod {
+.current-pod-summary {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 0rem 0 0 1rem;
-  font-size: 1.2rem;
+  flex-wrap: nowrap;
+  gap: 0.85rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pod-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.current-pod-title {
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
-.current-pod p {
-  margin-top: 0.3rem;
+.current-pod-copy {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
-.current-pod strong {
-  padding-left: 0.5rem;
-  font-style: italic;
-  color: var(--yasqe-keyword);
+.current-pod-url-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.65rem;
+  min-width: 0;
+  width: 100%;
+}
+.current-pod-value-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.3rem 0.35rem 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-elev) 85%, white 15%);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.16);
+}
+.current-pod-value {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  color: var(--primary);
+  line-height: 1.4;
+  font-size: 0.98rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+.copy-pod-btn,
+.change-pod-btn {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  text-transform: none;
+}
+.copy-pod-btn {
+  min-width: auto;
+  padding-inline: 0.7rem;
+  flex-shrink: 0;
 }
 .change-pod-btn {
-  margin-right: 2rem;
-  background-color: var(--muted);
+  min-width: 118px;
+}
+.select-pod .selection-label {
+  min-width: 0;
+}
+.form-container {
+  width: 100%;
+  max-width: 34rem;
 }
 
-.styled-button {
-  display: inline-block;
-  padding: 0.5rem 1.5rem; /* Increased padding */
-  font-size: 1rem;
-  font-weight: 500;
-  font-family: "Oxanium", monospace;
-  color: var(--text-secondary); /* High contrast text color */
-  background-color: var(--muted); /* High contrast background color */
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+/* Mid-size windows need a softer collapse before the full mobile stack. */
+@media (max-width: 1120px) {
+  .select-pod {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .selection-label {
+    margin-bottom: 0.1rem;
+  }
+  .current-pod {
+    align-items: stretch;
+  }
+  .current-pod-summary {
+    flex-wrap: wrap;
+  }
 }
-.styled-button:hover {
-  background-color: var(--hover); /* Darker shade on hover */
-}
-.tooltip {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin-left: 8px;
+
+
+
+/* Responsive stacking keeps controls large enough to tap without wasting space. */
+@media (max-width: 760px) {
+  .sel-pod,
+  .current-pod,
+  .add-access {
+    align-items: stretch;
+  }
+  .select-pod,
+  .current-pod {
+    align-items: stretch;
+  }
+  .current-pod p {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .current-pod-summary {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .current-pod-copy,
+  .current-pod-url-row {
+    width: 100%;
+  }
+  .current-pod-value-group {
+    max-width: none;
+    flex-wrap: wrap;
+    border-radius: 18px;
+  }
+  .current-pod-value {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .pod-actions {
+    justify-content: stretch;
+  }
+  .pod-selectButton,
+  .change-pod-btn,
+  .pod-registerButton,
+  .add-access .icon-button {
+    width: 100%;
+  }
 }
 </style>

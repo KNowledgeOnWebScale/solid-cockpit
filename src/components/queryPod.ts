@@ -13,16 +13,61 @@ import {
   buildThing,
   setThing,
   Thing,
+  getThing,
   getThingAll,
   SolidDataset,
   getFile,
   getUrl,
+  getStringNoLocale,
   getDatetime,
+  removeThing,
+  setStringNoLocale,
+  setDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-import { Parser as SparqlParser } from "sparqljs";
-import { changeAclPublic, generateAcl, Permissions } from "./privacyEdit";
-import { fetchPermissionsData } from "./getData";
+import {
+  stopQuery,
+  cleanSourcesUrlsForCache,
+  generateHash,
+  generateSeededHash,
+  parseSparqlQuery,
+  cleanSourcesUrls as cleanSourcesUrlsInternal,
+  type ComunicaSources as UtilityComunicaSources,
+} from "./queryPodUtils";
+
+export { stopQuery, cleanSourcesUrlsForCache, generateHash, generateSeededHash, parseSparqlQuery };
+
+const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const RDF_FIRST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
+const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
+const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
+const DCT_CREATED = "http://purl.org/dc/terms/created";
+const DCT_MODIFIED = "http://purl.org/dc/terms/modified";
+const DCT_TITLE = "http://purl.org/dc/terms/title";
+const DCT_DESCRIPTION = "http://purl.org/dc/terms/description";
+const TQ_QUERY = "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query";
+const TQ_QUERY_FORM =
+  "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryForm";
+const TQ_QUERY_SELECT =
+  "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QuerySelect";
+const TM_RESULT =
+  "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
+const SH = "http://www.w3.org/ns/shacl#";
+const SH_SELECT = `${SH}select`;
+const SH_SPARQL_EXECUTABLE = `${SH}SPARQLExecutable`;
+const SD_ENDPOINT = "http://www.w3.org/ns/sparql-service-description#endpoint";
+const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
+const PROV = "http://www.w3.org/ns/prov#";
+const PROV_ACTIVITY = `${PROV}Activity`;
+const PROV_USED = `${PROV}used`;
+const PROV_MODIFIED = `${PROV}modified`;
+const PROV_WAS_GENERATED_BY = `${PROV}wasGeneratedBy`;
+const QVMC = "https://vocab.example/qvmc#";
+const QVMC_INDEX = `${QVMC}Index`;
+const QVMC_STATUS = `${QVMC}status`;
+const QVMC_LINKED_QUERY = `${QVMC}linkedQuery`;
+const LDP_RDF_SOURCE = "http://www.w3.org/ns/ldp#RDFSource";
+const CACHE_STATUS_CURRENT = "current";
 
 export interface QueryResultJson {
   head: { vars: string[] };
@@ -39,16 +84,28 @@ export interface CacheOutput {
   provenanceOutput: ProvenanceData | null;
   resultsOutput: QueryResultJson;
 }
-export interface ComunicaSources {
-  value: string;
-  context?: Record<string, any>;
-}
+export type ComunicaSources = UtilityComunicaSources;
 export interface CachedQuery {
   hash: string;
+  title?: string;
   queryFile: string;
   resultsFile: string;
   sourceUrls: string[];
   created: string;
+  modified?: string;
+  status?: string;
+}
+
+export interface QueryCacheEntryInput {
+  hash: string;
+  query: string;
+  queryFileUrl: string;
+  resultsFileUrl: string;
+  sources: string[];
+  status?: "current" | "stale" | "failed";
+  title?: string;
+  description?: string;
+  linkedQueryHash?: string | null;
 }
 
 export type FetchLike = (
@@ -68,19 +125,6 @@ export interface CoiFetchOptions {
 }
 
 /**
- * Stops an ongoing query by destroying a main thread binding stream.
- * @param bindingStream - The Comunica bindings stream to destroy.
- */
-export function stopQuery(bindingStream: any) {
-  if (bindingStream && typeof bindingStream.destroy === "function") {
-    // Destroy the main thread binding stream
-    bindingStream.destroy();
-    return true;
-  }
-  return false;
-}
-
-/**
  * Cleans an array of source URLs by removing angle brackets ("<" and ">")
  * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
  *
@@ -88,47 +132,63 @@ export function stopQuery(bindingStream: any) {
  * @returns A new array of cleaned source URLs without angle brackets.
  */
 export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
-  const betterSources: string[] = [];
-  const comunicasources: ComunicaSources[] = [];
-
-  dirtySources.forEach((url) => {
-    // removes unwanted URI indicating characters
-    if (url.startsWith("<") && url.endsWith(">")) {
-      betterSources.push(url.slice(1, -1));
-    } else {
-      betterSources.push(url);
-    }
-  });
-  betterSources.forEach((url) => {
-    // TODO: fix --> currently very dumb way of doing this
-    if (url.includes("sparql") || url.includes("endpoint")) {
-      comunicasources.push({ value: url });
-    } else {
-      comunicasources.push({ value: url, context: { fetch: fetch } });
-    }
-  });
-  return comunicasources;
+  return cleanSourcesUrlsInternal(dirtySources, fetch);
 }
 
 /**
- * Cleans an array of source URLs by removing angle brackets ("<" and ">")
- * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
- *
- * @param dirtySources - An array of source URLs, some of which may be enclosed in angle brackets.
- * @returns A new array of cleaned source URLs without angle brackets.
+ * Builds a deterministic 10-character cache entry identifier from the query
+ * text and normalized source selection. This aligns the client-side cache key
+ * more closely with the spec's stable opaque token guidance.
  */
-export function cleanSourcesUrlsForCache(dirtySources: string[]): string[] {
-  const betterSourcesCache: string[] = [];
+export function buildCacheEntryHash(
+  query: string,
+  sources: string[],
+  requestHeaders: string[] = []
+): string {
+  const normalizedQuery = query.trim().replace(/\s+/g, " ");
+  const normalizedSources = Array.from(
+    new Set(cleanSourcesUrlsForCache(sources).map((source) => source.trim()))
+  ).sort();
+  const normalizedHeaders = [...requestHeaders].sort();
 
-  dirtySources.forEach((url) => {
-    // removes unwanted URI indicating characters
-    if (url.startsWith("<") && url.endsWith(">")) {
-      betterSourcesCache.push(url.slice(1, -1));
-    } else {
-      betterSourcesCache.push(url);
-    }
+  return generateSeededHash(
+    JSON.stringify({
+      query: normalizedQuery,
+      sources: normalizedSources,
+      headers: normalizedHeaders,
+    }),
+    10
+  );
+}
+
+function getIndexResourceUrl(containerUrl: string, fileName = "queries.ttl"): string {
+  return `${containerUrl}${fileName}`;
+}
+
+function getQueryEntryUrl(
+  containerUrl: string,
+  hash: string,
+  fileName = "queries.ttl"
+): string {
+  return `${getIndexResourceUrl(containerUrl, fileName)}#${hash}`;
+}
+
+function validateCacheSources(sources: string[]): string[] {
+  const cleanedSources = cleanSourcesUrlsForCache(sources)
+    .map((source) => source.trim())
+    .filter((source) => source.length > 0);
+
+  if (cleanedSources.length === 0) {
+    throw new Error(
+      "The query cache specification requires one or more source URIs."
+    );
+  }
+
+  cleanedSources.forEach((source) => {
+    new URL(source);
   });
-  return betterSourcesCache;
+
+  return cleanedSources;
 }
 
 /**
@@ -387,67 +447,6 @@ export async function executeQueryInMainThread(
 }
 
 /**
- * Generates a unique 6-character hash using alphanumeric characters.
- * @param length - Length for the hash
- * @returns A string representing the hash.
- */
-export function generateHash(length: number): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let hash = "";
-  for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * charset.length);
-    hash += charset.charAt(randomIndex);
-  }
-  return hash;
-}
-
-/**
- * Generates a deterministic alphanumeric hash of given length using a seed.
- * @param seedValue - The string used to seed the hash generation
- * @param length - Length of the output hash (default: 10)
- * @returns A deterministic hash string
- */
-export function generateSeededHash(seedValue: string, length = 10): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const seed = stringToSeed(seedValue);
-  const random = mulberry32(seed);
-
-  let hash = "";
-  for (let i = 0; i < length; i++) {
-    const index = Math.floor(random() * charset.length);
-    hash += charset.charAt(index);
-  }
-  return hash;
-}
-
-/**
- * Creates a seeded pseudorandom number generator.
- * Mulberry32 is fast and well-suited for small tasks like this.
- */
-function mulberry32(seed: number): () => number {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/**
- * Converts a string into a numeric seed.
- */
-function stringToSeed(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
-}
-
-/**
  * Ensures that a container exists at the given URL.
  * If the container does not exist, it creates one.
  *
@@ -481,23 +480,6 @@ export async function ensureCacheContainer(
     if (providedCache === podUrl) {
       await createContainerAt(cacheUrl, { fetch });
 
-      // TODO: Change this to just initialize acl with default permissions
-      // Set public read permissions for the cache container
-      const publicRead: Permissions = {
-        read: true,
-        append: false,
-        write: false,
-        control: false,
-      };
-      let aclDataset = await fetchPermissionsData(cacheUrl);
-      if (aclDataset == null) {
-        console.warn("Initializing an ACL for your inbox/ container...");
-        await generateAcl(cacheUrl, webId);
-        await changeAclPublic(cacheUrl, publicRead);
-      } else {
-        await changeAclPublic(cacheUrl, publicRead);
-      }
-
       console.log(`Query Cache container was created at ${cacheUrl}`);
       return cacheUrl;
     } else {
@@ -515,13 +497,10 @@ export async function ensureCacheContainer(
  *    - nodes: An array of all list node Things (to be added to your dataset).
  */
 function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
-  const RDF_FIRST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
-  const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
-  const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
-
   if (sources.length === 0) {
-    // For an empty list, return rdf:nil.
-    return { head: createThing({ url: RDF_NIL }), nodes: [] };
+    throw new Error(
+      "Cannot create a cache entry without at least one endpoint source."
+    );
   }
 
   // Create a blank node for the current list element.
@@ -536,6 +515,162 @@ function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
 
   // Return the current node as the head and include all nodes.
   return { head: listNode, nodes: [listNode, ...restList.nodes] };
+}
+
+function removeReferencedRdfList(
+  dataset: SolidDataset,
+  headUrl: string | null
+): SolidDataset {
+  let updatedDataset = dataset;
+  let currentNodeUrl = headUrl;
+
+  while (currentNodeUrl && currentNodeUrl !== RDF_NIL) {
+    const currentNode = getThing(updatedDataset, currentNodeUrl);
+    const nextNodeUrl = currentNode ? getUrl(currentNode, RDF_REST) : null;
+    updatedDataset = removeThing(updatedDataset, currentNodeUrl);
+    currentNodeUrl = nextNodeUrl;
+  }
+
+  return updatedDataset;
+}
+
+function removeQueryEntryArtifacts(
+  dataset: SolidDataset,
+  entryUrl: string
+): { dataset: SolidDataset; createdAt: Date | null } {
+  const entryThing = getThing(dataset, entryUrl);
+  if (!entryThing) {
+    return { dataset, createdAt: null };
+  }
+
+  const createdAt = getDatetime(entryThing, DCT_CREATED) ?? null;
+  const sourceListHeadUrl = getUrl(entryThing, SD_ENDPOINT);
+  const provenanceActivityUrl = getUrl(entryThing, PROV_WAS_GENERATED_BY);
+
+  let updatedDataset = removeReferencedRdfList(dataset, sourceListHeadUrl);
+
+  if (provenanceActivityUrl) {
+    updatedDataset = removeThing(updatedDataset, provenanceActivityUrl);
+  }
+
+  updatedDataset = removeThing(updatedDataset, entryUrl);
+  return { dataset: updatedDataset, createdAt };
+}
+
+function upsertIndexMetadata(
+  dataset: SolidDataset,
+  containerUrl: string,
+  modifiedAt: Date,
+  fileName = "queries.ttl"
+): SolidDataset {
+  const indexThingUrl = `${getIndexResourceUrl(containerUrl, fileName)}#index`;
+  let indexThing = createThing({ url: indexThingUrl });
+  indexThing = buildThing(indexThing)
+    .addUrl(RDF_TYPE, QVMC_INDEX)
+    .addUrl(RDF_TYPE, LDP_RDF_SOURCE)
+    .addStringNoLocale(DCT_TITLE, "SPARQL Query Materialization Container")
+    .addDatetime(DCT_MODIFIED, modifiedAt)
+    .build();
+
+  return setThing(dataset, indexThing);
+}
+
+/**
+ * Creates or replaces a spec-shaped `queries.ttl` entry after the concrete
+ * `.rq` and results files already exist in the container.
+ */
+export async function upsertQueryCacheEntry(
+  containerUrl: string,
+  entry: QueryCacheEntryInput,
+  fileName = "queries.ttl"
+): Promise<string> {
+  const cleanedSources = validateCacheSources(entry.sources);
+  const entryUrl = getQueryEntryUrl(containerUrl, entry.hash, fileName);
+  const serviceSources = parseSparqlQuery(entry.query);
+  const modifiedAt = new Date();
+
+  let dataset: SolidDataset;
+  try {
+    dataset = await getSolidDataset(getIndexResourceUrl(containerUrl, fileName), {
+      fetch,
+    });
+  } catch {
+    dataset = createSolidDataset();
+  }
+
+  const { dataset: withoutExistingEntry, createdAt } = removeQueryEntryArtifacts(
+    dataset,
+    entryUrl
+  );
+
+  const { head: sourceListHead, nodes: sourceListNodes } =
+    buildRdfList(cleanedSources);
+
+  let generationActivity = createThing();
+  generationActivity = buildThing(generationActivity)
+    .addUrl(RDF_TYPE, PROV_ACTIVITY)
+    .addUrl(PROV_USED, entry.queryFileUrl)
+    .addIri(PROV_USED, sourceListHead.url)
+    .addDatetime(PROV_MODIFIED, modifiedAt)
+    .build();
+
+  let queryThing = createThing({ url: entryUrl });
+  queryThing = buildThing(queryThing)
+    .addUrl(RDF_TYPE, TQ_QUERY_FORM)
+    .addUrl(RDF_TYPE, TQ_QUERY_SELECT)
+    .addIri(RDF_TYPE, SH_SPARQL_EXECUTABLE)
+    .addUrl(TQ_QUERY, entry.queryFileUrl)
+    .addStringNoLocale(SH_SELECT, entry.query)
+    .addUrl(TM_RESULT, entry.resultsFileUrl)
+    .addIri(SD_ENDPOINT, sourceListHead.url)
+    .addDatetime(DCT_CREATED, createdAt ?? modifiedAt)
+    .addDatetime(DCT_MODIFIED, modifiedAt)
+    .addStringNoLocale(QVMC_STATUS, entry.status ?? CACHE_STATUS_CURRENT)
+    .addIri(PROV_WAS_GENERATED_BY, generationActivity.url)
+    .build();
+
+  if (entry.title) {
+    queryThing = buildThing(queryThing)
+      .addStringNoLocale(DCT_TITLE, entry.title)
+      .build();
+  }
+
+  if (entry.description) {
+    queryThing = buildThing(queryThing)
+      .addStringNoLocale(DCT_DESCRIPTION, entry.description)
+      .build();
+  }
+
+  if (entry.linkedQueryHash) {
+    queryThing = buildThing(queryThing)
+      .addIri(
+        QVMC_LINKED_QUERY,
+        getQueryEntryUrl(containerUrl, entry.linkedQueryHash, fileName)
+      )
+      .build();
+  }
+
+  serviceSources.forEach((source) => {
+    queryThing = buildThing(queryThing).addUrl(`${SPEX}federatesWith`, source).build();
+  });
+
+  let updatedDataset = upsertIndexMetadata(
+    withoutExistingEntry,
+    containerUrl,
+    modifiedAt,
+    fileName
+  );
+  updatedDataset = setThing(updatedDataset, generationActivity);
+  updatedDataset = setThing(updatedDataset, queryThing);
+  sourceListNodes.forEach((node) => {
+    updatedDataset = setThing(updatedDataset, node);
+  });
+
+  await saveSolidDatasetAt(getIndexResourceUrl(containerUrl, fileName), updatedDataset, {
+    fetch,
+  });
+
+  return entry.hash;
 }
 
 /**
@@ -562,116 +697,20 @@ export async function createQueriesTTL(
   sources: string[],
   fileName = "queries.ttl"
 ): Promise<string> {
-  // Initiatize query cache variables
-  const hash = generateHash(6);
-  const queryFile = `${hash}.rq`;
-  const queryResult = `${hash}.json`;
-
-  // prefixes
-  const TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-  const CREATED = "http://purl.org/dc/terms/created";
-  const QUERYprop =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query";
-  const sh = "http://www.w3.org/ns/shacl#";
-  const QUERYsuperclass =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryForm";
-  const QUERYSELsubclass =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QuerySelect";
-  // TODO: create conditional to allow for labelling of non-select queries...
-  const QUERYCONsubclass =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryConstruct";
-  const QUERYDESCsubclass =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryDescribe";
-  const QUERYASKsubclass =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-query#QueryAsk ";
-  const RESULT =
-    "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result";
-  const SOURCE = "http://www.w3.org/ns/sparql-service-description#endpoint";
-  const OWL = "http://www.w3.org/2002/07/owl#";
-  const SCHEMA = "https://schema.org/";
-  const SPEX = "https://purl.expasy.org/sparql-examples/ontology#";
-
-  const cleanedSources: string[] = cleanSourcesUrlsForCache(sources);
-
-  // parse input query string using SPARQLjs
-  const serviceSources = parseSparqlQuery(query);
-
-  // Saves RDF data as queries.ttl
-  let dataset: SolidDataset, message: string;
-  try {
-    // Try to retrieve the dataset (container) and save updated dataset
-    dataset = await getSolidDataset(containerUrl + fileName, { fetch });
-    message = `UPDATED queries.ttl which now includes: ${hash}`;
-  } catch (error) {
-    dataset = createSolidDataset();
-    message = `CREATED queries.ttl with first query: ${hash}`;
-  }
-
-  // Tried to get fancy with shacl prefixes here but not necessary :(
-  // const prefixes: string[] = Object.entries(parsedQuery.prefixes).map(
-  //   ([prefix, namespace]) => {
-  //     // Add prefixes using SHACL's `sh:declare`
-  //     let prefixDeclaration: Thing = createThing({ url: `_:${hash}_prefixes` });
-  //     prefixDeclaration = buildThing(prefixDeclaration)
-  //       .addIri(`${sh}declare`, `_:prefix_${prefix}`)
-  //       .build();
-  //     // Add actual prefix urls SHACL's `sh:prefix` and `sh:namespace`
-  //     let prefixContent = createThing({ url: `_:${hash}_prefixes` });
-  //     prefixContent = buildThing(prefixContent)
-  //       .addStringNoLocale(`${sh}prefix`, prefix)
-  //       .addUrl(`${sh}namespace`, namespace)
-  //       .build();
-
-  //     dataset = setThing(dataset, prefixDeclaration);
-  //     dataset = setThing(dataset, prefixContent);
-  //     return `_:${hash}_prefixes`;
-  //   }
-  // );
-
-  // Create the RDF List of sources
-  const { head: sourceListHead, nodes: sourceListNodes } =
-    buildRdfList(cleanedSources);
-
-  // Create a Thing for the new query cache
-  const subjectUri = `${containerUrl + fileName}#${hash}`;
-  let newQueryThing: Thing = createThing({ url: subjectUri });
-  newQueryThing = buildThing(newQueryThing)
-    // Specify the query hash.
-    .addUrl(`${TYPE}`, `${QUERYsuperclass}`)
-    .addUrl(`${TYPE}`, `${QUERYSELsubclass}`)
-    .addIri(`${TYPE}`, `${sh}SPARQLExecutable`)
-    // Add the query file
-    .addUrl(`${QUERYprop}`, `${containerUrl}${queryFile}`)
-    // add sh:prefixes
-    // .addIri(`${sh}prefixes}`, prefixes[0])
-    // add query body
-    // TODO: fix this so the query is enclosed in """ """ not " " ...
-    .addStringNoLocale(`${sh}select`, query)
-    // Add the results file name
-    .addUrl(`${RESULT}`, `${containerUrl}${queryResult}`)
-    // Add sources as an RDF list
-    .addIri(`${SOURCE}`, sourceListHead.url)
-
-    // Add date of query execution.
-    .addDatetime(`${CREATED}`, new Date())
-    .build();
-
-  // Adds any SERVICE description sources to query entry
-  if (serviceSources.length > 0) {
-    serviceSources.forEach((source) => {
-      newQueryThing = buildThing(newQueryThing)
-        .addUrl(`${SPEX}federatesWith`, source)
-        .build();
-    });
-  }
-
-  // Adds query sources to query entry
-  dataset = setThing(dataset, newQueryThing);
-  sourceListNodes.forEach((node) => {
-    dataset = setThing(dataset, node);
-  });
-  await saveSolidDatasetAt(containerUrl + fileName, dataset, { fetch });
-  console.log(message);
+  const hash = buildCacheEntryHash(query, sources);
+  await upsertQueryCacheEntry(
+    containerUrl,
+    {
+      hash,
+      query,
+      queryFileUrl: `${containerUrl}${hash}.rq`,
+      // Keep the legacy .json extension for compatibility with current SDK usage.
+      resultsFileUrl: `${containerUrl}${hash}.json`,
+      sources,
+      status: CACHE_STATUS_CURRENT,
+    },
+    fileName
+  );
   return hash;
 }
 
@@ -716,48 +755,6 @@ export async function uploadQueryFile(
   } catch (error) {
     console.error(`Error uploading ${fileName}:`, error);
     throw error;
-  }
-}
-
-/**
- * Parses a SPARQL query file for SERVICE clauses and returns any federation source URLs.
- *
- * @param queryString The SPARQL query as a string.
- * @returns An object containing the prefixes and the query body.
- */
-export function parseSparqlQuery(queryString: string): string[] {
-  const parser = new SparqlParser();
-
-  try {
-    // Parse the SPARQL query string into a structured object
-    const parsedQuery = parser.parse(queryString);
-
-    // Initialize an array to store service sources
-    const serviceSources: string[] = [];
-
-    // Helper function to recursively search for SERVICE clauses
-    function findServiceClauses(pattern: any) {
-      if (pattern.type === "service" || pattern.type === "SERVICE") {
-        // Add the service source (URL) to the array
-        serviceSources.push(pattern.name.value);
-      } else if (pattern.type === "group" || pattern.type === "union") {
-        // Recursively check patterns in groups or unions
-        pattern.patterns.forEach(findServiceClauses);
-      } else if (pattern.type === "optional") {
-        // Recursively check optional patterns
-        findServiceClauses(pattern.pattern);
-      }
-    }
-
-    // Start searching for SERVICE clauses in the query's WHERE clause
-    if (parsedQuery.type === "query" && parsedQuery.where) {
-      parsedQuery.where.forEach(findServiceClauses);
-    }
-
-    return serviceSources;
-  } catch (error) {
-    console.error("Error parsing SPARQL query for SERVICE clauses:", error);
-    return [];
   }
 }
 
@@ -829,13 +826,44 @@ export async function getStoredTtl(resourceUrl: string): Promise<boolean> {
 
 export interface QueryEntry {
   hash: string;
+  title?: string;
   queryFile: string;
   resultsFile: string;
   sourceUrls: string[];
   created: string;
+  modified?: string;
+  status?: string;
 }
 
-// TODO: Fix THIS
+/**
+ * Updates only the user-facing title for a cached query entry. The underlying
+ * hash and file locations remain unchanged.
+ */
+export async function renameCachedQueryEntry(
+  ttlFileUrl: string,
+  targetHash: string,
+  title: string
+): Promise<boolean> {
+  const entryUrl = `${ttlFileUrl}#${targetHash}`;
+  try {
+    let dataset = await getSolidDataset(ttlFileUrl, { fetch });
+    const entryThing = getThing(dataset, entryUrl);
+    if (!entryThing) {
+      return false;
+    }
+
+    let renamedThing = setStringNoLocale(entryThing, DCT_TITLE, title.trim());
+    renamedThing = setDatetime(renamedThing, DCT_MODIFIED, new Date());
+    dataset = setThing(dataset, renamedThing);
+    await saveSolidDatasetAt(ttlFileUrl, dataset, { fetch });
+    return true;
+  } catch (error) {
+    console.error(`Could not rename cached query ${targetHash}:`, error);
+    return false;
+  }
+}
+
+
 /**
  * Retrieves all query entries from a Queries.ttl file.
  *
@@ -855,52 +883,42 @@ export interface QueryEntry {
 export async function getCachedQueries(
   ttlFileUrl: string
 ): Promise<QueryEntry[]> {
-  // Load the dataset from the TTL file.
   const dataset: SolidDataset = await getSolidDataset(ttlFileUrl, { fetch });
   const things: Thing[] = getThingAll(dataset);
   const queryEntries: QueryEntry[] = [];
 
-  let i = 0;
   things.forEach((thing) => {
-    // Extract the hash from the Thing’s URL fragment.
-    i += 1;
+    const queryFile = getUrl(thing, TQ_QUERY);
+    const resultsFile = getUrl(thing, TM_RESULT);
+    if (!queryFile || !resultsFile) {
+      return;
+    }
+
     const thingUrl = thing.url;
     const hash = thingUrl.includes("#") ? thingUrl.split("#")[1] : "";
-    if (hash.length < 7) {
-      const created =
-        getDatetime(thing, "http://purl.org/dc/terms/created")?.toISOString() ||
-        "N/A";
-      const queryFile =
-        getUrl(
-          thing,
-          "http://www.w3.org/2001/sw/DataAccess/tests/test-query#query"
-        ) || "N/A";
-      const resultsFile =
-        getUrl(
-          thing,
-          "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result"
-        ) || "N/A";
-      // For dereferencing RDF source list
-      const sourceListUrl = getUrl(
-        thing,
-        "http://www.w3.org/ns/sparql-service-description#endpoint"
-      );
-      let sourceUrls: string[] = [];
-      if (sourceListUrl) {
-        const sourceListHash = sourceListUrl.includes("#")
-          ? sourceListUrl.split("#")[1]
-          : "";
-        sourceUrls = rdfListSources(sourceListHash, things, i);
-      }
-      queryEntries.push({
-        hash,
-        queryFile,
-        resultsFile,
-        sourceUrls,
-        created,
-      });
+    if (!hash) {
+      return;
     }
+
+    const created = getDatetime(thing, DCT_CREATED)?.toISOString() || "N/A";
+    const modified = getDatetime(thing, DCT_MODIFIED)?.toISOString() || created;
+    const status = getStringNoLocale(thing, QVMC_STATUS) || CACHE_STATUS_CURRENT;
+    const title = getStringNoLocale(thing, DCT_TITLE) || hash;
+    const sourceListUrl = getUrl(thing, SD_ENDPOINT);
+    const sourceUrls = rdfListSources(sourceListUrl, dataset);
+
+    queryEntries.push({
+      hash,
+      title,
+      queryFile,
+      resultsFile,
+      sourceUrls,
+      created,
+      modified,
+      status,
+    });
   });
+
   return queryEntries;
 }
 
@@ -912,29 +930,26 @@ export async function getCachedQueries(
  * @returns An array of extracted source URLs.
  */
 function rdfListSources(
-  rdfHash: string,
-  things: Thing[],
-  index: number
+  listHeadUrl: string | null,
+  dataset: SolidDataset
 ): string[] {
-  const RDF_FIRST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
-  const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
-  const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
-
   const extractedUrls: string[] = [];
-  let currentNodeHash = `#${rdfHash}`;
+  let currentNodeUrl = listHeadUrl;
+  const visited = new Set<string>();
 
-  while (index < things.length) {
-    if (currentNodeHash.length < 8) break;
+  while (currentNodeUrl && currentNodeUrl !== RDF_NIL && !visited.has(currentNodeUrl)) {
+    visited.add(currentNodeUrl);
+    const currentNode = getThing(dataset, currentNodeUrl);
+    if (!currentNode) break;
 
-    const url = getUrl(things[index], RDF_FIRST);
-    if (url) extractedUrls.push(url);
+    const url = getUrl(currentNode, RDF_FIRST);
+    if (url) {
+      extractedUrls.push(url);
+    }
 
-    const nextNodeHash = getUrl(things[index], RDF_REST);
-    if (!nextNodeHash || nextNodeHash === RDF_NIL) break; // Stop at rdf:nil
-
-    currentNodeHash = nextNodeHash;
-    index += 1;
+    currentNodeUrl = getUrl(currentNode, RDF_REST);
   }
+
   return extractedUrls;
 }
 

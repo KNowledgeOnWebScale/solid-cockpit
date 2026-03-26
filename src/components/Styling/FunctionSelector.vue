@@ -24,11 +24,21 @@
 </template>
 
 <script lang="ts">
+import { useAuthStore } from "../../stores/auth";
+import { LOGGED_IN_NAV_ITEMS, LOGGED_OUT_NAV_ITEMS } from "../../navigation";
+
 export default {
   data: () => ({
     tab: null as string | null,
-    items: ["Home", "Data Upload", "Pod Browser", "Query", "Data Privacy"],
   }),
+  computed: {
+    authStore() {
+      return useAuthStore();
+    },
+    items() {
+      return this.authStore.loggedIn ? LOGGED_IN_NAV_ITEMS : LOGGED_OUT_NAV_ITEMS;
+    },
+  },
 };
 </script>
 

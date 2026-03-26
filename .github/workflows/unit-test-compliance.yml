@@ -1,0 +1,26 @@
+name: Unit Test Compliance
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request: {}
+
+jobs:
+  unit-test-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run unit + component compliance
+        run: yarn test:compliance:quiet

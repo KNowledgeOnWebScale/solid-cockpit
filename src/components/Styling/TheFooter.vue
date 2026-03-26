@@ -18,6 +18,10 @@
         Last Modified: {{ lastModified }}
       </span>
       <span class="footer-item">|</span>
+      <span class="footer-item version-pill">
+        Version: v{{ appVersion }}
+      </span>
+      <span class="footer-item">|</span>
       <span class="footer-item">
         <a
           href="https://github.com/KNowledgeOnWebScale/solid-cockpit"
@@ -49,6 +53,8 @@ export default defineComponent({
   data() {
     return {
       lastModified: "" as string,
+      appVersion: __APP_VERSION__ as string,
+      appReleaseTag: __APP_RELEASE_TAG__ as string,
     };
   },
   mounted() {
@@ -110,6 +116,15 @@ export default defineComponent({
 }
 .footer-item + .footer-item {
   justify-content: center;
+}
+.version-pill,
+.tag-pill {
+  background-color: var(--muted);
+  border-radius: 999px;
+  padding: 0.12rem 0.65rem;
+}
+.tag-pill {
+  font-family: "Oxanium", monospace;
 }
 .footer-content a {
   color: inherit;

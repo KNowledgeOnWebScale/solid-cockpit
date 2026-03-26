@@ -1,5 +1,6 @@
 import {
   WithResourceInfo,
+  getFile,
   overwriteFile,
   saveFileInContainer,
   createContainerAt,
@@ -11,10 +12,18 @@ import {
   deleteFile,
   deleteSolidDataset,
   getContainedResourceUrlAll,
+  getUrl,
   getUrlAll,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-import { mimeTypes } from "./mime_types.js";
+import {
+  getMimeType,
+  alreadyExistsCheck,
+  uploadSuccess,
+  derefrenceFile,
+} from "./fileUploadUtils";
+
+export { getMimeType, alreadyExistsCheck, uploadSuccess, derefrenceFile };
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() inrupt method.
@@ -45,17 +54,6 @@ export async function handleFiles(
     }
   }
   return outputList;
-}
-
-/**
- * Converts a file extension into a MIME Type for use in HTTP PUT requests.
- * The function relies on the hash map contained in the file 'mime_types.js'.
- *
- * @param fileExtension The file extension string of the file for which the MIME Type should be found.
- * @returns The MIME Type string of the file of interest or 'application/octet-stream' if not in the hash map.
- */
-export function getMimeType(fileExtension: string) {
-  return mimeTypes[fileExtension.toLowerCase()] || "application/octet-stream";
 }
 
 /**
@@ -137,6 +135,174 @@ export async function deleteContainer(containerUrl: string): Promise<boolean> {
 }
 
 /**
+ * Moves a resource or container to another container inside the user's pod.
+ *
+ * Resources are copied to the destination and then deleted from the source.
+ * Containers are recreated recursively at the destination and then removed.
+ *
+ * @param sourceUrl The current URL of the resource or container.
+ * @param destinationContainerUrl The target container URL where the item should be moved.
+ * @param podUrl The root pod URL used to validate and create intermediate containers.
+ * @returns A Promise that resolves to the new URL when successful, or "error" when the move fails.
+ */
+export async function movePodItem(
+  sourceUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  try {
+    if (!destinationContainerUrl.endsWith("/")) {
+      destinationContainerUrl = `${destinationContainerUrl}/`;
+    }
+    await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+
+    if (sourceUrl.endsWith("/")) {
+      return await moveContainerToPod(sourceUrl, destinationContainerUrl, podUrl);
+    }
+
+    return await moveResourceToPod(sourceUrl, destinationContainerUrl, podUrl);
+  } catch (error) {
+    console.error(`Error moving ${sourceUrl} to ${destinationContainerUrl}:`, error);
+    return "error";
+  }
+}
+
+async function moveResourceToPod(
+  sourceUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+  const sourceFile = await getFile(sourceUrl, { fetch });
+  const fileName = sourceUrl.split("/").pop() || sourceFile.name || "resource";
+  const fileToMove = new File([sourceFile], fileName, {
+    type: sourceFile.type || "application/octet-stream",
+  });
+  const targetUrl = `${destinationContainerUrl}${fileName}`;
+
+  const savedFile = await overwriteFile(targetUrl, fileToMove, {
+    contentType: fileToMove.type,
+    fetch,
+  });
+  await deleteFromPod(sourceUrl);
+
+  return savedFile.internal_resourceInfo.sourceIri;
+}
+
+async function moveContainerToPod(
+  sourceContainerUrl: string,
+  destinationContainerUrl: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, destinationContainerUrl, fetch);
+  const containerName =
+    sourceContainerUrl.split("/").filter(Boolean).pop() || "container";
+  const targetContainerUrl = `${destinationContainerUrl}${containerName}/`;
+
+  try {
+    await createContainerAt(targetContainerUrl, { fetch });
+  } catch (error) {
+    // The destination container may already exist, which is safe to continue with.
+  }
+
+  const sourceDataset = await getSolidDataset(sourceContainerUrl, { fetch });
+  const containedResources = getContainedResourceUrlAll(sourceDataset);
+
+  for (const resourceUrl of containedResources) {
+    await movePodItem(resourceUrl, targetContainerUrl, podUrl);
+  }
+
+  await deleteSolidDataset(sourceContainerUrl, { fetch });
+  return targetContainerUrl;
+}
+
+/**
+ * Renames a resource or container within its current parent container.
+ *
+ * The implementation reuses the same copy-then-delete strategy as move operations,
+ * but targets a new sibling name inside the source parent container.
+ *
+ * @param sourceUrl The current URL of the resource or container.
+ * @param newName The new item name without path segments.
+ * @param podUrl The root pod URL used to validate any intermediate container handling.
+ * @returns A Promise that resolves to the renamed URL when successful, or "error" when the rename fails.
+ */
+export async function renamePodItem(
+  sourceUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  const sanitizedName = newName.trim().replace(/^\/+|\/+$/g, "");
+  if (!sanitizedName || sanitizedName.includes("/")) {
+    return "error";
+  }
+
+  const isContainer = sourceUrl.endsWith("/");
+  const normalizedSourceUrl = isContainer ? sourceUrl.slice(0, -1) : sourceUrl;
+  const parentContainerUrl =
+    normalizedSourceUrl.substring(0, normalizedSourceUrl.lastIndexOf("/") + 1);
+
+  try {
+    if (isContainer) {
+      return await renameContainerInPod(sourceUrl, parentContainerUrl, sanitizedName, podUrl);
+    }
+
+    return await renameResourceInPod(sourceUrl, parentContainerUrl, sanitizedName, podUrl);
+  } catch (error) {
+    console.error(`Error renaming ${sourceUrl} to ${sanitizedName}:`, error);
+    return "error";
+  }
+}
+
+async function renameResourceInPod(
+  sourceUrl: string,
+  parentContainerUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, parentContainerUrl, fetch);
+  const sourceFile = await getFile(sourceUrl, { fetch });
+  const fileToRename = new File([sourceFile], newName, {
+    type: sourceFile.type || "application/octet-stream",
+  });
+  const targetUrl = `${parentContainerUrl}${newName}`;
+
+  const savedFile = await overwriteFile(targetUrl, fileToRename, {
+    contentType: fileToRename.type,
+    fetch,
+  });
+  await deleteFromPod(sourceUrl);
+
+  return savedFile.internal_resourceInfo.sourceIri;
+}
+
+async function renameContainerInPod(
+  sourceContainerUrl: string,
+  parentContainerUrl: string,
+  newName: string,
+  podUrl: string
+): Promise<string> {
+  await ensureDirectoriesExist(podUrl, parentContainerUrl, fetch);
+  const targetContainerUrl = `${parentContainerUrl}${newName}/`;
+
+  try {
+    await createContainerAt(targetContainerUrl, { fetch });
+  } catch (error) {
+    // The destination container may already exist, which is safe to continue with.
+  }
+
+  const sourceDataset = await getSolidDataset(sourceContainerUrl, { fetch });
+  const containedResources = getContainedResourceUrlAll(sourceDataset);
+
+  for (const resourceUrl of containedResources) {
+    await movePodItem(resourceUrl, targetContainerUrl, podUrl);
+  }
+
+  await deleteSolidDataset(sourceContainerUrl, { fetch });
+  return targetContainerUrl;
+}
+
+/**
  * Deletes a Query Hash Thing from queries.ttl file using the @inrupt/solid-client method removeThing().
  *
  * @param queriesttlUrl The URL of the file to be deleted.
@@ -149,25 +315,43 @@ export async function deleteThing(
 ): Promise<boolean> {
   const SD_ENDPOINT =
     "http://www.w3.org/ns/sparql-service-description#endpoint";
+  const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
+  const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
+  const PROV_WAS_GENERATED_BY = "http://www.w3.org/ns/prov#wasGeneratedBy";
   const removalTarget = `${queriesttlUrl}#${targetHash}`;
   try {
-    let dataset = await getSolidDataset(removalTarget, { fetch });
+    let dataset = await getSolidDataset(queriesttlUrl, { fetch });
 
-    // Get the sources Thing from the desired query and delete it
+    // Remove the entry's linked RDF list and provenance node before deleting the entry itself.
     const entry = getThing(dataset, removalTarget);
-    const endpointUrls = getUrlAll(entry, SD_ENDPOINT);
+    if (!entry) {
+      return false;
+    }
+
+    const sourceListHead = getUrl(entry, SD_ENDPOINT);
+    const provenanceActivity = getUrl(entry, PROV_WAS_GENERATED_BY);
     let removed = dataset;
-    console.log(removed);
-    if (endpointUrls.length != 0) {
-      for (const oUrl of endpointUrls) {
-        // a) Remove the object URL from the entry’s sd:endpoint values
-        removed = removeThing(removed, oUrl);
+
+    let currentListNode = sourceListHead;
+    while (currentListNode && currentListNode !== RDF_NIL) {
+      const listThing = getThing(removed, currentListNode);
+      const nextListNode = listThing ? getUrl(listThing, RDF_REST) : null;
+      removed = removeThing(removed, currentListNode);
+      currentListNode = nextListNode;
+    }
+
+    if (provenanceActivity) {
+      removed = removeThing(removed, provenanceActivity);
+    }
+
+    const endpointUrls = getUrlAll(entry, SD_ENDPOINT);
+    if (endpointUrls.length !== 0) {
+      for (const endpointUrl of endpointUrls) {
+        removed = removeThing(removed, endpointUrl);
       }
     }
 
-    // delete the hash Thing
     removed = removeThing(removed, removalTarget);
-    console.log(removed);
     await saveSolidDatasetAt(queriesttlUrl, removed, { fetch });
 
     return true;
@@ -289,59 +473,5 @@ export async function alreadyExists(
   } catch (e) {
     // console.log(`${uploadUrl}${file.name} does not yet exist, uploading now.`)
     return false;
-  }
-}
-
-/**
- * Takes in a file name and returns whether it already exists in the specified container or not.
- *
- * @param uploadMessage the file name (could also be "already exists")
- *
- * @return A boolean representing whether the file to be uploaded alreay exists in the current directory
- */
-export function alreadyExistsCheck(uploadMessage: string): boolean {
-  if (uploadMessage == "already exists") {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
- * Checks if the files uploaded from submitUpload() have .name properties (which proves upload was success).
- *
- * @param uploadedFiles is a list of files obtained from the upload process
- *
- * @returns a boolean value that indicated if the file uploads have been successful or not
- */
-export function uploadSuccess(uploadedFiles: string[]): boolean {
-  let success = false;
-  uploadedFiles.forEach((up: string) => {
-    if (up !== undefined || up !== "error") {
-      success = true;
-    } else {
-      success = false;
-    }
-  });
-  return success;
-}
-
-/**
- * Function that returns different bits of information about a file
- *
- * @param inputFile the file that info is to be determined from
- *
- * @returns the file NAME, the file SIZE, and the file's URI (URL)
- */
-export function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
-  try {
-    return [
-      inputFile.name,
-      String(inputFile.size),
-      inputFile.internal_resourceInfo.sourceIri,
-    ];
-  } catch (error) {
-    console.error("Error", error);
-    return ["error"];
   }
 }

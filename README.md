@@ -1,168 +1,337 @@
 ![Solid Cockpit Header Logo](./src/assets/full-sc-logo.png "SC Logo")
 
-
-
----
-
-## Table of Contents
-- [Ways to Get a Solid Pod](#ways-to-get-a-solid-pod)
-- [Contribute](#contribute)
-- [Development Notes](#development-notes)
-- [TRIPLE Guide](#triple-guide)
-- [Solid Pod VoID File Generation Guide](#solid-pod-void-file-generation-guide)
-- [Contact](#contact)
-
 # Solid Cockpit
 
-This repository contains all code and guides for the Solid Cockpit web application. Solid Cockpit is an intuitive web application for accessing, editing, and interacting with Solid Pods. 
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Web App Tag](https://img.shields.io/badge/web--app--tag-web--app--v1.0.0-0a7ea4)
+![Vue](https://img.shields.io/badge/vue-3.2.13-42b883)
+![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-This applicaiton was originally made for the CHIST-ERA TRIPLE project. For additional getting started guides and information about this project please see ... .
+Solid Cockpit is a web application for interacting with Solid Pods: authentication, data upload, query execution, and privacy management.
 
-**To use this App, you need to already have a Solid Pod!**
+This application was developed in the context of the CHIST-ERA TRIPLE project.
 
+## Table of Contents
 
+- [Users](#users)
+- [Developers](#developers)
 
-## Ways to Get a Solid Pod:
+## Users
 
-- [Community Solid Server](https://communitysolidserver.github.io/CommunitySolidServer/latest/): For hosting a Solid Pod on your local machine or on a custom server.
-- [Solidcommunity.net](https://solidcommunity.net/): A community-run Solid server (very easy).
-- [Other Solid Pod Hosting Services](https://solidproject.org/for-developers#hosted-pod-services): A catologue of other services that offer Solid Pod hosting.
+### What Solid Cockpit Does
 
+Main capabilities:
 
+- Solid Pod login and registration flow
+- File upload and pod resource operations
+- SPARQL querying over Solid Pods and endpoints
+- Query caching support
+- Privacy/ACL access management
 
-## Contribute
+### Accessing the App
 
-Code contributions are welcome! Please commit any pull requests against the `main` branch.
+Public deployment:
 
-Issue reporting and other general feedback are welcome. Please use GitHub Issues open an issue or GitHub Discussions where applicable.
+- <https://knowledgeonwebscale.github.io/solid-cockpit>
 
+If you want to run locally, see [Developers](#developers).
 
+### Ways to Get a Solid Pod
 
-## Development Notes:
+- [Community Solid Server](https://communitysolidserver.github.io/CommunitySolidServer/latest/): host a Pod locally or on your own server
+- [Solidcommunity.net](https://solidcommunity.net/): community-hosted Solid Pods
+- [Other Solid Pod Hosting Services](https://solidproject.org/for-developers#hosted-pod-services)
 
-#### General issues:
+### Usage Guides
 
-- If weird things start to happen with athn issues, clear browser history and cookies and it should fix things.
+TRIPLE onboarding guide:
 
----
+- [TRIPLE-guide.md](./TRIPLE-guide.md)
 
+Solid Pod VoID file generation:
 
+- <https://github.com/JervenBolleman/void-generator/tree/solid-pod-support>
 
-## TRIPLE Guide
-👋 Welcome to the TRIPLE Getting Started Guide! This document will help you set up a Solid Pod and introduce you to the features of the Solid Cockpit app. Follow the steps carefully to get up and running 🚀
+Example:
 
-
-
-### 🎯 Objectives of This Guide
-
-1. Setting up a Solid Pod (that is accessible via the internet)
-2. Logging into your Pod at any time (after setting it up)
-3. Understanding the features and functionalities of the Solid Cockpit app.
-4. Overview of future capabilities, such as managing pod contents, adjusting data privacy, and querying data using SPARQL.
-
-
-
-### 🌐 Setting Up a Solid Pod (Online)
-
-To **set up** your Solid Pod using the TRIPLE platform, follow these steps:
-
-1. **🔗 Navigate to our Solid Pod Hosting website**
-   - Go to [https://triple.ilabt.imec.be/](https://triple.ilabt.imec.be/)
-   - Use the following credentials to enter the site:
-     - **Password**: `triple`
-   
-2. **🔐 Sign Up to make a Pod**
-   - Click **Sign Up** (assuming this is your first time)
-   
-3. **🛠️ Create Your Solid Pod**
-   - Once you are on the **Your Account** page, click on **Create Pod**.
-   - Enter a name for your new pod and click **Create Pod**.
-   - After creating your pod, return to the home page by clicking **Back**.
-
-### 🔑 Logging into your Solid Pod (after creation)
-1. **Navigate to our Solid Pod Hosting website**
-   - Go to [https://triple.ilabt.imec.be/](https://triple.ilabt.imec.be/)
-   - Use the following credentials to enter the site:
-     - **Password**: `triple`
-
-2. **Login using your credentials**
-   - Click **Login** (assuming you have already made an account)
-
-3. **Register your Pod on your new WebID card**
-   - Navigate to the "Home" page of the [Solid-Cockpit Webpage](https://knowledgeonwebscale.github.io/solid-cockpit/home)
-   - Login to your Solid Pod using the "https://triple.ilabt.imec.be/" provider
-   - CLICK the "REGISTER POD" button (not necessary to enter any PodURL)
-   - Thats it. Now you are connected to your new Pod!!
-
-### 🛫 Using the Solid Cockpit App
-
-The Solid Cockpit app provides several functionalities for managing and interacting with your Solid Pod.
-
-#### ✨ Available Features
-
-1. 📝 **Data Upload**
-   - Upload data to your Pod.
-   - When uploading RDF data, file validity can be assessed before uploading.
-   - Specify and modify the metadata of uploaded files.
-
-2. 🗂️ **Data Browser** (under construction)
-   - View, modify, move, and delete the contents of your Pod.
-   - Explore and edit the container structure of your Pod.
-
-3. 🔍 **Data Query**
-   - An editor to write SPARQL queries to interact with data in your Pod, the Pods of others, and SPARQL Endpoints.
-   - A user input to designate the sources for the queries.
-   - Options that impact the the output formats, query execution, and other relevant parameters.
-   
-4. 🔒 **Data Privacy Management**
-   - View the current privacy settings for your data (Read, Write, and Append).
-   - Add or change privacy settings to containers and resources in your Pod.
-   - Give and receive notifications related to new access rights to the data of others.
-
-
-
-### 🔮 In the Near Future
-
-- Improve the functionality of the Pod Browser for displaying pod contents effectively.
-- Ability to query using the SIB SPARQL Editor (with auto-complete + class visualization + example queries)
-- Enhance privacy management display ++ include sharedWithMe.ttl // sharedWithOthers.ttl
-
-> Stay tuned for future updates that will bring more features and improvements to the Solid Cockpit app, making it more powerful and easier to use.
-
-
-
-### 🤝 Support and Further Information
-
-If you encounter issues during setup or usage, please consult our support resources or reach out to our support team for assistance.
-
----
-
-
-## Solid Pod VoID File Generation Guide
-
-### Tool Download
-
-Please navigate to https://github.com/JervenBolleman/void-generator/tree/solid-pod-support for more information about local dependencies and run guides.
-
-### Local command to execute
-
-```
+```bash
 mvn package
-
-java -jar target/void-generator-0.7-SNAPSHOT-uber.jar --from-solid-pod [URL-to-solid-pod] --void-file void.ttl -i [URL-to-solid-pod]/void.ttl --repository [URL-to-solid-pod]
+java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
+  --from-solid-pod [URL-to-solid-pod] \
+  --void-file void.ttl \
+  -i [URL-to-solid-pod]/void.ttl \
+  --repository [URL-to-solid-pod]
 ```
 
-### After VoID File Generation
+Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
 
-- Upload the VoID file to your Solid Pod (to the root directory [i.e. www.yourwebid.com/pod]) via the `Data Upload` page of Solid Cockpit
+### Citation
 
+If you use this tool in an academic publication, you can cite:
 
----
+`Crum, E. (2026). Solid Cockpit (Version 1.0.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
 
-## Contact
+BibTeX:
 
-🙏 We hope you find this guide helpful in setting up and exploring your Solid Pod. For questions or comments: [go here](https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions). To report bugs or problems: [try here](https://github.com/KNowledgeOnWebScale/solid-cockpit/issues).
+```bibtex
+@misc{solidcockpit_2026,
+  author       = {Crum, Elias},
+  title        = {{Solid Cockpit}},
+  year         = {2026},
+  version      = {1.0.0},
+  publisher    = {GitHub},
+  howpublished = {\url{https://github.com/KNowledgeOnWebScale/solid-cockpit}},
+  note         = {Software. Web app: \url{https://knowledgeonwebscale.github.io/solid-cockpit}. Accessed: 2026-03-04}
+}
+```
 
+You can also use:
 
+- `CITATION.cff` for GitHub-style citation metadata
+- `CITATION.bib` for direct BibTeX import
 
-We hope you enjoy piloting your Solid Pod with Solid Cockpit!
+### Contact and Support
+
+- Discussions: <https://github.com/KNowledgeOnWebScale/solid-cockpit/discussions>
+- Issues: <https://github.com/KNowledgeOnWebScale/solid-cockpit/issues>
+
+## Developers
+
+### Tech Stack
+
+- Vue 3 + Vite 6
+- TypeScript
+- Vuetify 3
+- Pinia
+- Inrupt Solid client/auth libraries
+- Comunica SPARQL engine
+
+### Prerequisites
+
+- Node.js 20+
+- Yarn 1.x (repo currently uses `yarn.lock`)
+
+### Local Setup
+
+Install dependencies:
+
+```bash
+yarn install
+```
+
+Run locally:
+
+```bash
+yarn dev
+```
+
+Build production assets:
+
+```bash
+yarn build
+```
+
+Preview production build:
+
+```bash
+yarn serve
+```
+
+### Scripts
+
+| Script | Description |
+| --- | --- |
+| `yarn dev` | Start Vite development server |
+| `yarn build` | Build production assets into `dist/` |
+| `yarn serve` | Preview the production build locally |
+| `yarn test:unit` | Run unit tests (Node built-in runner + TS loader) |
+| `yarn test:unit:watch` | Run unit tests in watch mode |
+| `yarn test:unit:coverage` | Run unit tests with coverage report generation |
+| `yarn test:unit:compliance` | Enforce unit-test + coverage thresholds |
+| `yarn test:unit:compliance:quiet` | Enforce unit coverage with concise output |
+| `yarn test:component` | Run Vue component tests (`.vue`) via Vitest |
+| `yarn test:component:watch` | Run Vue component tests in watch mode |
+| `yarn test:component:coverage` | Run Vue component tests with coverage |
+| `yarn test:component:compliance` | Enforce Vue component test coverage thresholds |
+| `yarn test:component:compliance:quiet` | Enforce component coverage with concise output |
+| `yarn test:compliance` | Run full (unit + component) compliance checks |
+| `yarn test:compliance:quiet` | Run full compliance checks with concise output |
+| `yarn hooks:install` | Configure local git hooks path (`.githooks`) |
+| `yarn github-post-build` | Create route-compatible `index.html` copies in `dist/` |
+| `yarn deploy` | Publish `dist/` to GitHub Pages |
+
+### Testing and Coverage
+
+Unit test suite:
+
+- Location: `tests/unit/`
+- Command: `yarn test:unit`
+
+Component test suite:
+
+- Location: `tests/components/`
+- Command: `yarn test:component`
+- Includes focused `ThemeSwitch` + `TheFooter` tests and full `.vue` smoke mounts in `tests/components/AllComponentsSmoke.test.ts`
+
+Coverage tracker:
+
+```bash
+yarn test:unit:coverage
+```
+
+This command:
+
+- runs the unit test suite with Node coverage enabled
+- writes machine-readable output to `coverage/unit-coverage-summary.json`
+- writes a readable summary to `coverage/unit-coverage-summary.txt`
+
+Compliance thresholds (gating):
+
+- line coverage: `98%`
+- branch coverage: `90%`
+- function coverage: `100%`
+
+Tracked files:
+
+- `src/components/fileUploadUtils.ts`
+- `src/components/mime_types.js`
+- `src/components/queryPodUtils.ts`
+- `src/components/z3-headers.ts`
+
+Advisory (non-gating) coverage is also reported for:
+
+- `src/components/login.ts`
+- `src/components/getData.ts`
+- `src/components/privacyEdit.ts`
+
+Override thresholds with env vars:
+
+- `UNIT_COVERAGE_LINES`
+- `UNIT_COVERAGE_BRANCHES`
+- `UNIT_COVERAGE_FUNCS`
+
+### Git Workflow
+
+Commit-time compliance check:
+
+- Hook file: `.githooks/pre-commit`
+- Command run by hook: `node ./scripts/precommit-compliance.mjs`
+- Hook output is intentionally concise on pass and detailed on failure.
+
+Install hooks locally:
+
+```bash
+yarn hooks:install
+```
+
+If automatic hook setup is blocked in your environment:
+
+```bash
+git config --local core.hooksPath .githooks
+```
+
+CI compliance check:
+
+- Workflow: `.github/workflows/unit-test-compliance.yml`
+- Enforces unit tests, component tests, and coverage thresholds.
+
+### Web-App Version Tags
+
+Current app version:
+
+- `package.json` version: `1.0.0`
+- web-app release tag convention: `web-app-v<version>`
+- current computed web-app tag: `web-app-v1.0.0`
+
+In-app visibility:
+
+- Footer displays semantic version (`vX.Y.Z`) and computed release tag (`web-app-vX.Y.Z`)
+- Values are injected at build time from `package.json` via Vite defines
+
+Recommended release workflow:
+
+1. Update version:
+
+```bash
+yarn version --new-version X.Y.Z
+```
+
+2. Build and validate:
+
+```bash
+yarn test:unit
+yarn build
+```
+
+3. Create and push release tags:
+
+```bash
+git tag vX.Y.Z
+git tag web-app-vX.Y.Z
+git push origin vX.Y.Z web-app-vX.Y.Z
+```
+
+### Deployment
+
+GitHub Pages deployment setup:
+
+- `vite.config.js` uses `/solid-cockpit/` base path for production
+- `yarn github-post-build` prepares route folders in `dist/`
+- `yarn deploy` publishes `dist/` via `gh-pages`
+
+### Dependency Versions
+
+Direct dependency versions currently declared in `package.json`.
+
+Runtime dependencies:
+
+| Package | Version |
+| --- | --- |
+| `@comunica/context-entries` | `^4.2.0` |
+| `@comunica/logger-pretty` | `^4.2.0` |
+| `@comunica/query-sparql` | `^4.3.0` |
+| `@comunica/query-sparql-solid` | `^4.0.2` |
+| `@inrupt/solid-client` | `2.1.2` |
+| `@inrupt/solid-client-authn-browser` | `3.1.0` |
+| `@inrupt/solid-client-authn-node` | `^3.1.0` |
+| `@triply/yasqe` | `^4.2.28` |
+| `@triply/yasr` | `^4.2.28` |
+| `@vitejs/plugin-vue` | `^5.2.3` |
+| `@vue/eslint-config-typescript` | `^9.1.0` |
+| `actor-query-process-remote-cache` | `^0.1.0` |
+| `core-js` | `^3.8.3` |
+| `fs` | `^0.0.1-security` |
+| `pinia` | `^2.3.1` |
+| `query-sparql-remote-cache` | `^0.0.9` |
+| `sparqljs` | `^3.7.3` |
+| `vite` | `^6.2.3` |
+| `vue` | `^3.2.13` |
+| `vue-router` | `^4.5.1` |
+| `vuetify` | `^3.5.14` |
+| `z3-solver` | `^4.15.3` |
+
+Development dependencies:
+
+| Package | Version |
+| --- | --- |
+| `@tsconfig/node20` | `^20.1.5` |
+| `@typescript-eslint/eslint-plugin` | `^5.4.0` |
+| `@typescript-eslint/parser` | `^5.4.0` |
+| `@vitest/coverage-v8` | `2.1.9` |
+| `@vue/test-utils` | `2.4.6` |
+| `eslint` | `^7.32.0` |
+| `eslint-config-prettier` | `^8.3.0` |
+| `eslint-plugin-prettier` | `^4.0.0` |
+| `eslint-plugin-vue` | `^8.0.3` |
+| `gh-pages` | `^5.0.0` |
+| `jsdom` | `24.1.3` |
+| `prettier` | `^2.4.1` |
+| `typescript` | `^5.0.0` |
+| `vitest` | `2.1.9` |
+
+### Contributing
+
+- Open pull requests against the `main` branch
+- Use GitHub Issues for bug reports
+- Use GitHub Discussions for broader questions and ideas

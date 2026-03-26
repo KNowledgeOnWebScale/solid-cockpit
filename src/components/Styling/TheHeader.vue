@@ -9,6 +9,11 @@
         </v-card-title>
 
         <div class="header-right">
+          <!-- Small status chip keeps auth state visible without competing with navigation. -->
+          <div class="session-indicator" :class="{ active: loggedIn }">
+            <span class="session-dot"></span>
+            <span>{{ loggedIn ? "Connected" : "Signed out" }}</span>
+          </div>
           <!-- Change theme button -->
           <div class="theme-change">
             <ThemeSwitch />
@@ -123,6 +128,7 @@ export default {
       menu: false as boolean,
       message: false as boolean,
       notloggedOut: false as boolean,
+      loginStatusIntervalId: null as number | null,
     };
   },
   computed: {
@@ -160,9 +166,15 @@ export default {
     this.loginCheck(); // Perform login check on component mount
 
     // Regularly check login status
-    setInterval(() => {
+    this.loginStatusIntervalId = window.setInterval(() => {
       this.loginCheck();
     }, 30000); // Check every 30 seconds
+  },
+  beforeUnmount() {
+    if (this.loginStatusIntervalId !== null) {
+      window.clearInterval(this.loginStatusIntervalId);
+      this.loginStatusIntervalId = null;
+    }
   },
 };
 </script>
@@ -190,13 +202,40 @@ export default {
 }
 
 .theme-change {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .header-container .header-right {
   display: flex;
   align-items: center;
+  gap: 0.85rem;
   margin-left: auto;
+}
+.session-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.65rem;
+  border-radius: 999px;
+  background: var(--panel-elev);
+  color: var(--text-muted);
+  font-family: "Oxanium", monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.session-indicator.active {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--text-secondary);
+}
+.session-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--gray-500);
+}
+.session-indicator.active .session-dot {
+  background: var(--success);
 }
 
 .header-container .account {
@@ -284,5 +323,28 @@ export default {
   border-radius: 999px;
   border: 2px solid var(--main-white);
   cursor: pointer;
+}
+@media (max-width: 760px) {
+  .header-container {
+    margin: 12px;
+  }
+  .header-container h1 {
+    font-size: 26pt;
+  }
+  .header-container img {
+    width: 64px;
+    margin-left: 12px;
+  }
+  .header-container .header-right {
+    gap: 0.6rem;
+  }
+  .session-indicator {
+    font-size: 0.76rem;
+    padding: 0.32rem 0.55rem;
+  }
+  .header-container .account {
+    padding: 8px;
+    margin-right: 8px;
+  }
 }
 </style>
