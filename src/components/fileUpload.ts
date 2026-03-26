@@ -12,6 +12,7 @@ import {
   deleteFile,
   deleteSolidDataset,
   getContainedResourceUrlAll,
+  getUrl,
   getUrlAll,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
@@ -314,25 +315,43 @@ export async function deleteThing(
 ): Promise<boolean> {
   const SD_ENDPOINT =
     "http://www.w3.org/ns/sparql-service-description#endpoint";
+  const RDF_REST = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
+  const RDF_NIL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
+  const PROV_WAS_GENERATED_BY = "http://www.w3.org/ns/prov#wasGeneratedBy";
   const removalTarget = `${queriesttlUrl}#${targetHash}`;
   try {
-    let dataset = await getSolidDataset(removalTarget, { fetch });
+    let dataset = await getSolidDataset(queriesttlUrl, { fetch });
 
-    // Get the sources Thing from the desired query and delete it
+    // Remove the entry's linked RDF list and provenance node before deleting the entry itself.
     const entry = getThing(dataset, removalTarget);
-    const endpointUrls = getUrlAll(entry, SD_ENDPOINT);
+    if (!entry) {
+      return false;
+    }
+
+    const sourceListHead = getUrl(entry, SD_ENDPOINT);
+    const provenanceActivity = getUrl(entry, PROV_WAS_GENERATED_BY);
     let removed = dataset;
-    console.log(removed);
-    if (endpointUrls.length != 0) {
-      for (const oUrl of endpointUrls) {
-        // a) Remove the object URL from the entry’s sd:endpoint values
-        removed = removeThing(removed, oUrl);
+
+    let currentListNode = sourceListHead;
+    while (currentListNode && currentListNode !== RDF_NIL) {
+      const listThing = getThing(removed, currentListNode);
+      const nextListNode = listThing ? getUrl(listThing, RDF_REST) : null;
+      removed = removeThing(removed, currentListNode);
+      currentListNode = nextListNode;
+    }
+
+    if (provenanceActivity) {
+      removed = removeThing(removed, provenanceActivity);
+    }
+
+    const endpointUrls = getUrlAll(entry, SD_ENDPOINT);
+    if (endpointUrls.length !== 0) {
+      for (const endpointUrl of endpointUrls) {
+        removed = removeThing(removed, endpointUrl);
       }
     }
 
-    // delete the hash Thing
     removed = removeThing(removed, removalTarget);
-    console.log(removed);
     await saveSolidDatasetAt(queriesttlUrl, removed, { fetch });
 
     return true;
