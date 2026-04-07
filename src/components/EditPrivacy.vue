@@ -8,140 +8,123 @@
   <!-- Title bar -->
   <div class="content-container" :key="renderKey">
     <div class="title-container">
-      <nav class="title-nav">
-        <!-- Title bar and icons -->
-        <div class="nav-wrapper">
-          <ul>
-            <span>Privacy Editing</span>
-            <div class="right">
-              <li>
-                <!-- Make clicking this icon hide/show the Guide below -->
-                <a href="#!"><i class="material-icons">info</i></a>
-              </li>
-              <li>
-                <button
-                  class="notification-button"
-                  @click="toggleNotifications"
-                >
-                  <i class="material-icons">
-                    {{
-                      hasNotifications ? "notifications" : "notifications_none"
-                    }}
-                    <i v-if="hasNotifications" class="badge"></i>
-                  </i>
-                </button>
-                <!-- Notifications dropdown data display -->
-                <div v-if="showNotifications" class="notifications-dropdown">
-                  <div class="notifications-content">
-                    <div class="notifications-header-container">
-                      <ul class="notifications-header">
-                        <div class="notifications-header-text">
-                          <li>
-                            <span class="notification-title"
-                              >Notifications:</span
-                            >
-                          </li>
-                          <li>
-                            <span class="notification-hint"
-                              >(See "Shared with me" for more details)</span
-                            >
-                          </li>
-                        </div>
-                        <li v-if="notifications.length != 0">
-                          <button
-                            class="mark-read"
-                            @click="markNotificationsRead"
-                          >
-                            Mark Read
-                          </button>
-                        </li>
-                      </ul>
+      <!-- Page header now matches the modern card styling used elsewhere in the app. -->
+      <div class="privacy-header-shell">
+        <div class="privacy-header-copy">
+          <span>Privacy Editing</span>
+          <p class="page-summary">
+            Review access controls in your pod, inspect shared items, and manage
+            sharing permissions from one workspace.
+          </p>
+        </div>
+
+        <div class="privacy-header-actions">
+          <button class="header-icon-button" type="button" aria-label="Privacy guide">
+            <i class="material-icons">info</i>
+          </button>
+
+          <div class="notifications-shell">
+            <button
+              class="notification-button header-icon-button"
+              @click="toggleNotifications"
+              type="button"
+              aria-label="Notifications"
+            >
+              <i class="material-icons">
+                {{ hasNotifications ? "notifications" : "notifications_none" }}
+              </i>
+              <i v-if="hasNotifications" class="badge"></i>
+            </button>
+
+            <!-- Notifications stay attached to the header action area. -->
+            <div v-if="showNotifications" class="notifications-dropdown">
+              <div class="notifications-content">
+                <div class="notifications-header-container">
+                  <ul class="notifications-header">
+                    <div class="notifications-header-text">
+                      <li>
+                        <span class="notification-title">Notifications:</span>
+                      </li>
+                      <li>
+                        <span class="notification-hint"
+                          >(See "Shared with me" for more details)</span
+                        >
+                      </li>
+                    </div>
+                    <li v-if="notifications.length != 0">
+                      <button class="mark-read" @click="markNotificationsRead">
+                        Mark Read
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="no-notifications" v-if="notifications.length === 0">
+                  <span>No new notifications</span>
+                </div>
+                <ul class="share-list">
+                  <li
+                    v-for="(item, index) in notifications"
+                    :key="index"
+                    class="card-panel folder compact"
+                  >
+                    <div class="row header">
+                      <i class="material-icons left not-colored">
+                        {{
+                          containerCheck(item.usersSharedWith[0].resourceUrl)
+                            ? "folder"
+                            : "description"
+                        }}
+                      </i>
+                      <span class="resource-hash mono">{{
+                        item.usersSharedWith[0].resourceUrl
+                      }}</span>
                     </div>
 
-                    <div
-                      class="no-notifications"
-                      v-if="notifications.length === 0"
-                    >
-                      <span
-                        >No new notifications</span
-                      >
-                    </div>
-                    <ul class="share-list">
+                    <ul class="user-rows">
                       <li
-                        v-for="(item, index) in notifications"
-                        :key="index"
-                        class="card-panel folder compact"
+                        v-for="(mode, i) in item.usersSharedWith"
+                        :key="i"
+                        class="user-row"
                       >
-                        <!-- Resource header -->
-                        <div class="row header">
-                          <i class="material-icons left not-colored">
+                        <span class="cell user">
+                          <i class="material-icons tiny not-colored">person</i>
+                          <span class="truncate">
                             {{
-                              containerCheck(
-                                item.usersSharedWith[0].resourceUrl
-                              )
-                                ? "folder"
-                                : "description"
+                              item.owner === "http://xmlns.com/foaf/0.1/Agent"
+                                ? "Public"
+                                : item.owner
                             }}
-                          </i>
-                          <span class="resource-hash mono">{{
-                            item.usersSharedWith[0].resourceUrl
-                          }}</span>
-                        </div>
+                          </span>
+                        </span>
 
-                        <!-- Users (always visible, condensed) -->
-                        <ul class="user-rows">
-                          <li
-                            v-for="(mode, i) in item.usersSharedWith"
-                            :key="i"
-                            class="user-row"
-                          >
-                            <span class="cell user">
-                              <i class="material-icons tiny not-colored"
-                                >person</i
-                              >
-                              <span class="truncate">
-                                {{
-                                  item.owner ===
-                                  "http://xmlns.com/foaf/0.1/Agent"
-                                    ? "Public"
-                                    : item.owner
-                                }}
-                              </span>
-                            </span>
+                        <span class="cell modes">
+                          <i class="material-icons tiny not-colored">lock</i>
+                          <span class="chips">
+                            <span
+                              v-for="(ac, ind) in mode.accessModes"
+                              :key="ind"
+                              class="chip"
+                              >{{ ac.split("#")[1] }}</span
+                            >
+                          </span>
+                        </span>
 
-                            <span class="cell modes">
-                              <i class="material-icons tiny not-colored"
-                                >lock</i
-                              >
-                              <span class="chips">
-                                <span
-                                  v-for="(ac, ind) in mode.accessModes"
-                                  :key="ind"
-                                  class="chip"
-                                  >{{ ac.split("#")[1] }}</span
-                                >
-                              </span>
-                            </span>
-
-                            <span class="cell date">
-                              <i class="material-icons tiny not-colored"
-                                >schedule</i
-                              >
-                              <time :datetime="mode.created">{{
-                                formatDate(mode.created)
-                              }}</time>
-                            </span>
-                          </li>
-                        </ul>
+                        <span class="cell date">
+                          <i class="material-icons tiny not-colored">schedule</i>
+                          <time :datetime="mode.created">{{
+                            formatDate(mode.created)
+                          }}</time>
+                        </span>
                       </li>
                     </ul>
-                  </div>
-                </div>
-              </li>
+                  </li>
+                </ul>
+              </div>
             </div>
-          </ul>
+          </div>
         </div>
-      </nav>
+      </div>
     </div>
 
     <!-- Choose Pod -->
@@ -151,8 +134,8 @@
 
     <!-- the side nav -->
     <div class="body-container" v-if="selectedPodUrl !== ''">
-      <div>
-        <ul class="side-nav fixed floating #28353e z-depth-0">
+      <aside class="privacy-nav-card">
+        <ul class="side-nav privacy-side-nav">
           <li>
             <button
               :class="{ highlight: navValue === 0 }"
@@ -188,29 +171,52 @@
           </li>
           <li><div class="divider"></div></li>
         </ul>
-      </div>
+      </aside>
 
       <!-- "My Pod" display -->
       <!-- TODO: change the Resource to make the whole item a button -->
-      <div class="pod-directories" v-if="navValue === 0">
+      <section class="privacy-main-panel pod-directories" v-if="navValue === 0">
         <div class="container-fluid">
-          <div class="nav-container">
-            <div class="path-selection">
-              <ul>
-                <li>
-                  <span><b>Current location:</b> </span>
-                </li>
-                <!-- Browse existing path -->
-                <li class="container-choose">
-                  <container-nav
-                    :currentPod="selectedPodUrl"
-                    @path-selected="handleSelectedContainer"
-                  />
-                </li>
-              </ul>
+          <div class="privacy-browser-shell">
+            <div class="path-card privacy-path-card">
+              <div class="path-card-header">
+                <div>
+                  <p class="section-kicker">Browse containers</p>
+                  <h3>Choose a location to manage access</h3>
+                </div>
+                <div class="path-origin">
+                  <span class="path-origin-label">Selected Container</span>
+                  <span class="path-origin-value" :title="currentLocation">
+                    {{ currentLocation }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="browser-layout">
+                <container-nav
+                  :currentPod="selectedPodUrl"
+                  @path-selected="handleSelectedContainer"
+                />
+              </div>
             </div>
-          </div>
-          <ul>
+
+            <div class="items-card privacy-items-card">
+              <div class="items-header">
+                <div>
+                  <p class="section-kicker">Selected container contents</p>
+                  <span class="items-title">Items you can edit privacy for</span>
+                  <p class="items-summary">
+                    Choose a container or resource inside
+                    <span class="items-location">{{ currentLocation }}</span>
+                    to review and update its access rules.
+                  </p>
+                </div>
+                <div class="items-header-actions">
+                  <span class="items-count">{{ urls.length }} items</span>
+                </div>
+              </div>
+
+              <ul class="privacy-items-list">
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div
@@ -573,27 +579,29 @@
                 </div>
               </div>
             </li>
-          </ul>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       <!-- "Shared with me" display -->
-      <div class="shared-with" v-if="navValue === 1">
+      <section class="privacy-main-panel shared-with" v-if="navValue === 1">
         <SharedWith
           :currentOperation="currentDisplay"
           :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
-      </div>
+      </section>
 
       <!-- "Shared with others" display -->
-      <div class="shared-with" v-if="navValue === 2">
+      <section class="privacy-main-panel shared-with" v-if="navValue === 2">
         <SharedWith
           :currentOperation="currentDisplay"
           :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
-      </div>
+      </section>
     </div>
   </div>
 
@@ -1194,7 +1202,15 @@ button:focus {
   border-radius: 6px;
   padding: 0 1rem;
   margin: 0 0.5rem 0 0.5rem;
-  background-color: var(--panel);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
+      var(--panel)
+    );
+  box-shadow: var(--shadow-1);
 }
 .nav-wrapper .material-icons {
   color: var(--text-secondary);
@@ -1862,5 +1878,388 @@ label span {
   font-size: 14px;
   color: var(--text-primary);
   letter-spacing: 0.2px;
+}
+
+/* Modern page shell overrides align Privacy Editing with the newer workspace pages. */
+.content-container {
+  display: grid;
+  gap: 0.5rem;
+}
+.title-container {
+  margin: 0.5rem 0.5rem 0 0.5rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
+      var(--panel)
+    );
+  box-shadow: var(--shadow-1);
+}
+.privacy-header-shell {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.privacy-header-copy {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.title-container span {
+  display: block;
+  font-size: var(--font-size-page-title);
+  line-height: var(--line-height-page-title);
+  font-family: "Oxanium", monospace;
+  font-weight: var(--font-weight-page-title);
+  color: var(--text-primary);
+}
+.page-summary {
+  margin: 0;
+  max-width: 42rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.privacy-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+.notifications-shell {
+  position: relative;
+}
+.header-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
+  background: color-mix(in srgb, var(--panel-elev) 78%, transparent);
+  color: var(--text-secondary);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+.header-icon-button:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.header-icon-button .material-icons {
+  color: inherit;
+}
+.notification-button {
+  padding: 0;
+}
+.badge {
+  top: 6px;
+  right: 6px;
+}
+
+.pod-chooseContainer {
+  margin: 0 0.5rem;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.body-container {
+  display: grid;
+  grid-template-columns: minmax(220px, 250px) 1fr;
+  align-items: start;
+  gap: 0.85rem;
+  margin: 0 0.5rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  resize: none;
+}
+.privacy-nav-card,
+.privacy-main-panel {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+}
+.privacy-nav-card {
+  position: sticky;
+  top: 1rem;
+  padding: 0.7rem;
+}
+.privacy-side-nav {
+  position: static;
+  width: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+.privacy-side-nav li button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  color: var(--text-secondary);
+}
+.privacy-side-nav .nav-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+.privacy-side-nav .divider {
+  margin: 0.35rem 0;
+  border-bottom-color: color-mix(in srgb, var(--primary) 10%, var(--border));
+}
+.privacy-side-nav li button.highlight {
+  background: linear-gradient(135deg, var(--primary), var(--primary-600)) !important;
+  color: var(--main-white);
+}
+.privacy-side-nav li button:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  color: var(--text-primary);
+}
+.privacy-main-panel {
+  padding: 1rem 1.05rem;
+  min-width: 0;
+}
+.pod-directories,
+.shared-with {
+  width: auto;
+}
+
+.privacy-browser-shell {
+  display: grid;
+  gap: 0.85rem;
+}
+.path-card,
+.items-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  font-family: "Oxanium", monospace;
+}
+.privacy-path-card {
+  padding: 1rem 1.05rem;
+}
+.path-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+.path-card-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-family: "Oxanium", monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.path-origin {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 22rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--panel-elev);
+  font-family: "Oxanium", monospace;
+}
+.path-origin-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.path-origin-value {
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-layout {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.privacy-items-card {
+  padding: 1rem 1.1rem;
+}
+.items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+.items-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.section-kicker {
+  margin: 0 0 0.3rem 0;
+  font-size: var(--font-size-section-kicker);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.items-title {
+  display: block;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.items-summary {
+  margin: 0.4rem 0 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.items-location {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.items-count {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.privacy-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.container-fluid {
+  overflow: visible;
+}
+
+.folder {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  font-size: 1rem;
+}
+.folder.compact {
+  border-radius: 14px;
+}
+.full-width {
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+}
+.resource-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.form-container {
+  margin-top: 0.35rem;
+  padding: 0.9rem 0.95rem 0.1rem;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border));
+}
+
+.shared-with :deep(.container) {
+  margin: 0;
+}
+
+.notifications-dropdown {
+  top: calc(100% + 0.55rem);
+  right: 0;
+  width: min(42rem, 88vw);
+  max-width: min(42rem, 88vw);
+  padding: 0.75rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
+  box-shadow: var(--shadow-2);
+}
+
+@media (max-width: 980px) {
+  .privacy-header-shell,
+  .body-container {
+    grid-template-columns: 1fr;
+  }
+  .privacy-header-shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .privacy-header-actions {
+    justify-content: flex-end;
+  }
+  .privacy-nav-card {
+    position: static;
+  }
+  .notifications-dropdown {
+    left: 0;
+    right: auto;
+    width: min(42rem, calc(100vw - 2rem));
+    max-width: min(42rem, calc(100vw - 2rem));
+  }
+  .path-card-header,
+  .items-header,
+  .items-header-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .path-origin {
+    width: 100%;
+    max-width: 100%;
+  }
+  .path-origin-value {
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 760px) {
+  .title-container,
+  .pod-chooseContainer,
+  .body-container {
+    margin-left: 0.35rem;
+    margin-right: 0.35rem;
+  }
+  .title-container {
+    padding: 1rem;
+  }
+  .title-container span {
+    font-size: var(--font-size-page-title-mobile);
+  }
+  .privacy-main-panel {
+    padding: 0.85rem 0.9rem;
+  }
+  .notifications-dropdown {
+    width: min(42rem, calc(100vw - 1.2rem));
+    max-width: min(42rem, calc(100vw - 1.2rem));
+  }
 }
 </style>

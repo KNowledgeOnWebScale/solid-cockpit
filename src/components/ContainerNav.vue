@@ -335,7 +335,7 @@ export default defineComponent({
   gap: 0.75rem;
 }
 .section-title {
-  font-size: 0.98rem;
+  font-size: var(--font-size-subsection-title);
   font-weight: 600;
   color: var(--text-primary);
 }

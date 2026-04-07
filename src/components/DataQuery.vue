@@ -126,7 +126,7 @@
             </button>
           </li>
           <li class="nav-copy">
-            Switch between writing a query and reviewing saved cache entries.
+            Switch query views.
           </li>
 
           <li>
@@ -181,21 +181,109 @@
             <!-- Source designation stays above the editor, but now reads as part of the same setup card. -->
             <div class="source-selection">
               <span>Datasources: </span>
-              <v-combobox
-                class="autocomplete"
-                v-model="currentQuery.sources"
-                :items="possibleSources"
-                label="Source(s)"
-                variant="plain"
-                chips
-                closable-chips
-                hide-details
-                hide-no-data
-                hide-selected
-                multiple
-                single-line
-                clearable
-              ></v-combobox>
+              <div class="autocomplete source-editor">
+                <!-- Custom source editor preserves free-form entry while allowing chip editing. -->
+                <div
+                  class="source-editor-shell"
+                  :class="{
+                    focused: sourceEditorFocused,
+                    editing: editingSourceIndex !== null,
+                    invalid: hasInvalidSources || currentSourceInputInvalid,
+                  }"
+                  @click="focusSourceEditor"
+                >
+                  <div class="source-chip-row">
+                    <div
+                      v-for="(source, index) in currentQuery.sources"
+                      :key="`${source}-${index}`"
+                      class="source-chip"
+                      :class="{
+                        editing: editingSourceIndex === index,
+                        invalid: !isValidSourceUrl(source),
+                      }"
+                    >
+                      <button
+                        class="source-chip-label"
+                        type="button"
+                        @click.stop="beginEditSource(index)"
+                      >
+                        <i class="material-icons">link</i>
+                        <span>{{ source }}</span>
+                      </button>
+                      <button
+                        class="source-chip-remove"
+                        type="button"
+                        @click.stop="removeSource(index)"
+                        aria-label="Remove data source"
+                      >
+                        <i class="material-icons">close</i>
+                      </button>
+                    </div>
+
+                    <input
+                      ref="sourceEditorInput"
+                      v-model="sourceEditorText"
+                      class="source-editor-input"
+                      type="text"
+                      :aria-invalid="currentSourceInputInvalid ? 'true' : 'false'"
+                      :placeholder="
+                        editingSourceIndex !== null
+                          ? 'Edit datasource URL'
+                          : currentQuery.sources.length === 0
+                            ? 'Add a datasource URL'
+                            : ''
+                      "
+                      @focus="openSourceSuggestions"
+                      @input="openSourceSuggestions"
+                      @keydown.enter.prevent="commitSourceInput"
+                      @keydown.esc.prevent="cancelSourceEdit"
+                      @keydown.tab="commitSourceInput"
+                      @blur="handleSourceEditorBlur"
+                    />
+
+                    <!-- Keep the active edit state explicit so users can tell when a chip is being updated. -->
+                    <div
+                      v-if="editingSourceIndex !== null"
+                      class="source-edit-indicator"
+                    >
+                      <i class="material-icons">edit</i>
+                      <span>Editing source</span>
+                    </div>
+                  </div>
+
+                  <button
+                    v-if="currentQuery.sources.length > 0"
+                    class="source-clear-button"
+                    type="button"
+                    @click.stop="clearSources"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div
+                  v-if="sourceSuggestionsOpen && filteredSourceSuggestions.length > 0"
+                  class="source-suggestions"
+                >
+                  <button
+                    v-for="source in filteredSourceSuggestions"
+                    :key="source"
+                    class="source-suggestion"
+                    type="button"
+                    @mousedown.prevent="selectSourceSuggestion(source)"
+                  >
+                    {{ source }}
+                  </button>
+                </div>
+
+                <!-- Keep URL validation feedback close to the datasource control. -->
+                <p
+                  v-if="sourceValidationMessage"
+                  class="source-validation-message"
+                >
+                  {{ sourceValidationMessage }}
+                </p>
+              </div>
             </div>
 
             <!-- Query input styling intentionally remains unchanged. -->
@@ -282,7 +370,7 @@
           <div class="no-pod" v-if="selectedPodUrl == ''">
             <span
               >Please connect your pod if you wish to look at your query cache.
-              <br />(Simply click the "select pod" button above.)</span
+              <br />(Simply login then click the "select pod" button above.)</span
             >
           </div>
           <div
@@ -984,6 +1072,10 @@ export default {
         query: "" as string,
         output: null as any,
       },
+      sourceEditorText: "" as string,
+      editingSourceIndex: null as number | null,
+      sourceEditorFocused: false as boolean,
+      sourceSuggestionsOpen: false as boolean,
       resolvedQueryResults: {} as any,
       saveQuery: false as boolean,
       cancelRequested: false as boolean,
@@ -1079,6 +1171,64 @@ export default {
       return this.queryNavCollapsed;
     },
     /**
+     * Keeps the suggestion list aligned with the current editor text while
+     * avoiding duplicate source entries unless the user is editing that chip.
+     */
+    filteredSourceSuggestions() {
+      const normalizedInput = this.sourceEditorText.trim().toLowerCase();
+      const editingValue =
+        this.editingSourceIndex !== null
+          ? this.currentQuery.sources[this.editingSourceIndex]
+          : null;
+
+      return this.possibleSources
+        .filter((source) => {
+          const alreadySelected =
+            this.currentQuery.sources.includes(source) && source !== editingValue;
+          if (alreadySelected) {
+            return false;
+          }
+
+          return (
+            normalizedInput.length === 0 ||
+            source.toLowerCase().includes(normalizedInput)
+          );
+        })
+        .slice(0, 8);
+    },
+    /**
+     * Flags invalid URLs already present in the datasource list without
+     * interrupting the rest of the query editor flow.
+     */
+    hasInvalidSources() {
+      return this.currentQuery.sources.some(
+        (source) => !this.isValidSourceUrl(source),
+      );
+    },
+    /**
+     * Validates the currently typed/edited datasource value so feedback can be
+     * shown before the user commits it.
+     */
+    currentSourceInputInvalid() {
+      const normalizedInput = this.sourceEditorText.trim();
+      return normalizedInput.length > 0 && !this.isValidSourceUrl(normalizedInput);
+    },
+    /**
+     * Keeps the validation message close to the datasource control and tailored
+     * to the user's current action.
+     */
+    sourceValidationMessage() {
+      if (this.currentSourceInputInvalid) {
+        return "Please enter a valid datasource URL.";
+      }
+
+      if (this.hasInvalidSources) {
+        return "One or more datasource URLs are invalid.";
+      }
+
+      return "";
+    },
+    /**
      * Applies live search, filter, and sorting controls to the cached query list
      * while preserving the original order/data loaded from the pod.
      */
@@ -1138,6 +1288,145 @@ export default {
     },
     provType(p: string) {
       return p === "equality" ? "equivalent to" : "a specialization of";
+    },
+    /**
+     * Normalizes a datasource value before it is written into the query model.
+     */
+    normalizeSourceValue(source: string) {
+      return source.trim();
+    },
+    /**
+     * Accepts RDF-style angle-bracket wrappers during validation while leaving
+     * the user's stored datasource text unchanged elsewhere in the editor.
+     */
+    normalizeSourceUrlForValidation(source: string) {
+      const normalizedSource = this.normalizeSourceValue(source);
+      if (
+        normalizedSource.startsWith("<") &&
+        normalizedSource.endsWith(">") &&
+        normalizedSource.length > 2
+      ) {
+        return normalizedSource.slice(1, -1).trim();
+      }
+
+      return normalizedSource;
+    },
+    /**
+     * Uses a lightweight URL parse to reject obviously malformed datasource
+     * values while still accepting normal http/https pod URLs.
+     */
+    isValidSourceUrl(source: string) {
+      const normalizedSource = this.normalizeSourceUrlForValidation(source);
+      if (!normalizedSource) {
+        return false;
+      }
+
+      try {
+        const parsedUrl = new URL(normalizedSource);
+        return (
+          parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+        );
+      } catch {
+        return false;
+      }
+    },
+    focusSourceEditor() {
+      nextTick(() => {
+        (
+          this.$refs.sourceEditorInput as HTMLInputElement | undefined
+        )?.focus();
+      });
+    },
+    openSourceSuggestions() {
+      this.sourceEditorFocused = true;
+      this.sourceSuggestionsOpen = true;
+    },
+    beginEditSource(index: number) {
+      this.editingSourceIndex = index;
+      this.sourceEditorText = this.currentQuery.sources[index];
+      this.openSourceSuggestions();
+      this.focusSourceEditor();
+    },
+    /**
+     * Removes a datasource chip while keeping the editor state in sync when the
+     * user deletes the entry that is currently being edited.
+     */
+    removeSource(index: number) {
+      this.currentQuery.sources.splice(index, 1);
+      if (this.editingSourceIndex === index) {
+        this.cancelSourceEdit();
+      } else if (
+        this.editingSourceIndex !== null &&
+        index < this.editingSourceIndex
+      ) {
+        this.editingSourceIndex -= 1;
+      }
+    },
+    clearSources() {
+      this.currentQuery.sources = [];
+      this.cancelSourceEdit();
+    },
+    cancelSourceEdit() {
+      this.sourceEditorText = "";
+      this.editingSourceIndex = null;
+      this.sourceEditorFocused = false;
+      this.sourceSuggestionsOpen = false;
+    },
+    /**
+     * Commits either a brand-new custom datasource or an edit to an existing
+     * datasource chip while avoiding duplicate entries in the list.
+     */
+    commitSourceInput() {
+      const normalizedSource = this.normalizeSourceValue(this.sourceEditorText);
+
+      if (!normalizedSource) {
+        if (this.editingSourceIndex !== null) {
+          this.cancelSourceEdit();
+        }
+        return;
+      }
+
+      const duplicateIndex = this.currentQuery.sources.findIndex(
+        (source, index) =>
+          source === normalizedSource && index !== this.editingSourceIndex,
+      );
+
+      if (duplicateIndex !== -1) {
+        if (this.editingSourceIndex !== null) {
+          this.currentQuery.sources.splice(this.editingSourceIndex, 1);
+        }
+        this.cancelSourceEdit();
+        return;
+      }
+
+      if (this.editingSourceIndex !== null) {
+        this.currentQuery.sources.splice(
+          this.editingSourceIndex,
+          1,
+          normalizedSource,
+        );
+      } else {
+        this.currentQuery.sources = [
+          ...this.currentQuery.sources,
+          normalizedSource,
+        ];
+      }
+
+      this.cancelSourceEdit();
+    },
+    selectSourceSuggestion(source: string) {
+      this.sourceEditorText = source;
+      this.commitSourceInput();
+      this.focusSourceEditor();
+    },
+    handleSourceEditorBlur() {
+      window.setTimeout(() => {
+        if (this.sourceEditorText.trim()) {
+          this.commitSourceInput();
+        } else {
+          this.cancelSourceEdit();
+        }
+      }, 120);
     },
     async toggleResultsQuery(hash: string) {
       if (!this.showResultQuery) {
@@ -2069,6 +2358,14 @@ export default {
         this.showCustomCache = true;
       }
     },
+    "currentQuery.sources"(newSources: string[]) {
+      if (
+        this.editingSourceIndex !== null &&
+        !newSources[this.editingSourceIndex]
+      ) {
+        this.cancelSourceEdit();
+      }
+    },
     currentQuery: {
       handler(newQuery) {
         this.$nextTick(() => {
@@ -2146,25 +2443,29 @@ body {
   padding: 1.15rem 1.35rem;
   border-radius: 24px;
   border: 1px solid var(--border);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--primary) 9%, var(--bg-secondary)) 0%,
-    var(--bg-secondary) 58%
-  );
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
+      var(--panel)
+    );
   box-shadow: var(--shadow-1);
 }
 .title-container span {
   display: block;
-  font-size: clamp(1.8rem, 3vw, 2.2rem);
+  font-size: var(--font-size-page-title);
   font-family: "Oxanium", monospace;
-  font-weight: 600;
+  font-weight: var(--font-weight-page-title);
+  line-height: var(--line-height-page-title);
   color: var(--text-primary);
 }
 .page-summary {
   margin: 0.35rem 0 0;
   max-width: 48rem;
   font-family: "Oxanium", monospace;
-  font-size: 0.95rem;
+  font-size: var(--font-size-page-summary);
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -2234,7 +2535,7 @@ body {
 .section-kicker {
   margin: 0 0 0.35rem;
   font-family: "Oxanium", monospace;
-  font-size: 0.72rem;
+  font-size: var(--font-size-section-kicker);
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -2260,6 +2561,10 @@ body {
   color: var(--text-secondary);
   background-color: color-mix(in srgb, var(--panel) 78%, transparent);
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.cache-toggle-button span {
+  align-items: center;
+  margin: 0;
 }
 .cache-toggle-button:hover {
   background-color: color-mix(in srgb, var(--primary) 12%, var(--panel));
@@ -2306,7 +2611,7 @@ body {
 }
 /* Whole nav and query container */
 .general-container {
-  margin: 0.4rem 0.5rem;
+  margin: 0 0.5rem;
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
@@ -2512,7 +2817,7 @@ body {
 }
 .top-label {
   display: block;
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-size: var(--font-size-section-title);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -2602,7 +2907,7 @@ body {
   display: flex;
   align-items: center;
   border-radius: 16px;
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.75rem;
   border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
   color: var(--text-secondary);
   overflow: hidden;
@@ -2616,28 +2921,197 @@ body {
 .source-selection span {
   font-size: 0.95rem;
   font-weight: 600;
-  padding: 0.7rem 0.9rem;
+  padding: 0.4rem 0.82rem 0.4rem 0.82rem;
   color: var(--text-secondary);
   white-space: nowrap;
   border-right: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
 }
 .source-selection .autocomplete {
-  padding: 0.15rem 0.5rem 0.15rem 0.15rem;
+  padding: 0.1rem 0.12rem 0.1rem 0.12rem;
   width: 100%;
 }
-.source-selection :deep(.v-field__input) {
-  padding: 0.35rem 0 !important;
+.source-editor {
+  position: relative;
 }
-.source-selection :deep(.v-field__clearable) {
-  padding: 0 !important;
-  margin: auto;
+.source-editor-shell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.6rem;
+  padding: 0.2rem 0;
+  margin-left: 0.3rem;
+  border-radius: 14px;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
 }
-.source-selection :deep(.v-field__append-inner) {
-  padding: 0 !important;
-  margin: auto;
+.source-editor-shell.focused {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
 }
-.source-selection :deep(.v-field__field label) {
-  display: none;
+.source-editor-shell.editing {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+.source-editor-shell.invalid {
+  background: color-mix(in srgb, #b3261e 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d13b33 45%, transparent);
+}
+.source-chip-row {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.38rem;
+  column-gap: 0.35rem;
+}
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(100%, clamp(15rem, 34vw, 34rem));
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--panel-elev) 78%, transparent);
+  padding-right: 0.2rem;
+  margin-left: 0.2rem;
+}
+.source-chip.editing {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 18%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.source-chip.invalid {
+  border-color: color-mix(in srgb, #d13b33 62%, var(--border));
+  background: color-mix(in srgb, #b3261e 12%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #d13b33 18%, transparent);
+}
+.source-chip-label,
+.source-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0rem 0.55rem;
+  color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  font-size: 0.82rem;
+}
+.source-chip-label {
+  min-width: 0;
+  max-width: 100%;
+}
+.source-chip.editing .source-chip-label {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.source-chip-label span {
+  max-width: clamp(10rem, 24vw, 28rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 0.15rem;
+}
+.source-chip-label i,
+.source-chip-remove i {
+  font-size: 0.9rem;
+}
+.source-chip-remove {
+  padding-left: 0.15rem;
+  padding-right: 0.35rem;
+  color: var(--text-muted);
+}
+.source-editor-input {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  min-height: 2rem;
+  padding: 0.42rem 0.32rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+  font-size: 0.92rem;
+}
+.source-edit-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 16%, var(--panel));
+  color: var(--primary);
+  font-family: "Oxanium", monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.source-edit-indicator i {
+  font-size: 0.85rem;
+}
+.source-editor-input::placeholder {
+  color: var(--text-muted);
+}
+.source-editor-input:focus {
+  outline: none;
+}
+.source-validation-message {
+  margin: 0.35rem 0 0 0.15rem;
+  color: #b3261e;
+  font-family: "Oxanium", monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.source-clear-button {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0.3rem 0.65rem;
+  margin-top: 0;
+  margin-right: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--panel-elev) 82%, transparent);
+  font-family: "Oxanium", monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+.source-clear-button:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.source-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.2rem);
+  z-index: 5;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--panel) 97%, var(--panel-elev) 3%);
+  box-shadow: var(--shadow-1);
+}
+.source-suggestion {
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  text-align: left;
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+}
+.source-suggestion:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
 }
 
 /* bottom row of query container */
@@ -3438,6 +3912,16 @@ ul {
 
   .source-selection span {
     padding-bottom: 0;
+  }
+
+  .source-editor-shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .source-editor-input {
+    min-width: 0;
+    width: 100%;
   }
 
   .bottom-container {

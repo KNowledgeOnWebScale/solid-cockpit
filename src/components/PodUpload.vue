@@ -384,10 +384,10 @@ export default {
 }
 .title-container {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 12%, transparent) 0, transparent 32%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--panel) 93%, var(--primary-100) 7%),
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
       var(--panel)
     );
   border: 1px solid var(--border);
@@ -407,16 +407,19 @@ export default {
 }
 .title-container span {
   display: block;
-  font-size: 2rem;
+  font-size: var(--font-size-page-title);
   font-family: "Oxanium", monospace;
-  font-weight: 700;
+  font-weight: var(--font-weight-page-title);
+  line-height: var(--line-height-page-title);
   color: var(--text-primary);
 }
 .page-summary {
   margin: 0.65rem 0 0 0;
+  font-size: var(--font-size-page-summary);
   max-width: 48rem;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--text-muted);
+  font-family: "Oxanium", monospace;
 }
 
 .pod-chooseContainer {
@@ -714,7 +717,7 @@ export default {
     padding: 1.15rem;
   }
   .title-container span {
-    font-size: 1.7rem;
+    font-size: var(--font-size-page-title-mobile);
   }
   .pod-chooseContainer,
   .path-container,

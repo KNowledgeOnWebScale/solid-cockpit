@@ -1,8 +1,4 @@
 <template>
-  <link
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    rel="stylesheet"
-  />
   <section class="browser-page">
     <!-- Page header mirrors the upload page structure and visual hierarchy. -->
     <div class="title-container">
@@ -57,9 +53,8 @@
           <div class="items-header">
             <div>
               <p class="section-kicker">Selected container contents</p>
-              <span class="items-title">Items found inside this container</span>
               <p class="items-summary">
-                You are browsing the direct contents of
+                You are browsing the contents of
                 <span class="items-location">{{ currentLocation }}</span>
               </p>
             </div>
@@ -206,17 +201,25 @@
                         v-if="itemDetails.metadataUrl"
                       >
                         <strong class="info-label">Metadata:</strong>
-                        <div v-if="checkUrl(url)" class="info-value-container">
-                          <a
-                            :href="itemDetails.metadataUrl"
-                            target="_blank"
-                            class="info-value link"
-                            :title="itemDetails.metadataUrl"
-                            >{{ itemDetails.metadataUrl }}</a
+                        <div class="metadata-list">
+                          <div
+                            v-for="metadataEntry in normalizeMetadataEntries(itemDetails.metadataUrl)"
+                            :key="metadataEntry"
+                            class="info-value-container"
                           >
-                        </div>
-                        <div v-else class="info-value-container">
-                          <span class="info-value">{{ itemDetails.metadataUrl }}</span>
+                            <a
+                              v-if="metadataEntryHref(metadataEntry)"
+                              :href="metadataEntryHref(metadataEntry) || undefined"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="info-value link"
+                              :title="metadataEntry"
+                              >{{ metadataEntry }}</a
+                            >
+                            <span v-else class="info-value" :title="metadataEntry">
+                              {{ metadataEntry }}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -385,7 +388,7 @@ interface BrowserItemDetail {
   itemType: "Container" | "Resource";
   sourceIri: string;
   parentContainer: string;
-  metadataUrl: string | null;
+  metadataUrl: string | string[] | null;
   contentType: string | null;
   sizeLabel: string | null;
   lastModified: string | null;
@@ -579,6 +582,70 @@ export default {
     },
     getItemName(path: string): string {
       return path.split("/").filter(Boolean).pop() || path;
+    },
+    /**
+     * Metadata links may come back as a string, array, or serialized list-like
+     * string. Normalize them into individual entries for display and link checks.
+     */
+    normalizeMetadataEntries(
+      metadataValue: string | string[] | null,
+    ): string[] {
+      if (!metadataValue) {
+        return [];
+      }
+
+      if (Array.isArray(metadataValue)) {
+        return metadataValue
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0);
+      }
+
+      const trimmedValue = metadataValue.trim();
+      if (!trimmedValue) {
+        return [];
+      }
+
+      // Handle serialized JSON arrays like ["a","b"].
+      if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+        try {
+          const parsedEntries = JSON.parse(trimmedValue);
+          if (Array.isArray(parsedEntries)) {
+            return parsedEntries
+              .map((entry) => String(entry).trim())
+              .filter((entry) => entry.length > 0);
+          }
+        } catch {
+          // Fall through to lightweight list parsing below.
+        }
+      }
+
+      // Handle simple list strings like "a, b" or "<a> <b>" without breaking
+      // normal single-URL values.
+      const splitEntries = trimmedValue
+        .split(/[\n,]+/)
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+
+      return splitEntries.length > 1 ? splitEntries : [trimmedValue];
+    },
+    /**
+     * Returns a safe href for metadata entries when they are valid URLs. This
+     * supports both plain URLs and RDF-style angle-bracket-wrapped IRIs.
+     */
+    metadataEntryHref(metadataEntry: string): string | null {
+      const trimmedEntry = metadataEntry.trim();
+      const normalizedEntry =
+        trimmedEntry.startsWith("<") &&
+        trimmedEntry.endsWith(">") &&
+        trimmedEntry.length > 2
+          ? trimmedEntry.slice(1, -1).trim()
+          : trimmedEntry;
+
+      if (!normalizedEntry) {
+        return null;
+      }
+
+      return this.validUrlCheck(normalizedEntry) ? normalizedEntry : null;
     },
     // Resetting filters returns the browser to the full selected-container contents view.
     resetFilters() {
@@ -851,10 +918,10 @@ button:focus {
 /* Page header follows the same polished workspace style as the other main pages. */
 .title-container {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 12%, transparent) 0, transparent 32%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--panel) 93%, var(--primary-100) 7%),
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
       var(--panel)
     );
   border: 1px solid var(--border);
@@ -873,17 +940,19 @@ button:focus {
 }
 .title-container span {
   display: block;
-  font-size: 2rem;
+  font-size: var(--font-size-page-title);
   font-family: "Oxanium", monospace;
-  font-weight: 700;
+  font-weight: var(--font-weight-page-title);
+  line-height: var(--line-height-page-title);
   color: var(--text-primary);
 }
 .page-summary {
   margin: 0.65rem 0 0 0;
   max-width: 48rem;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--text-muted);
   font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
 }
 
 .success-popup {
@@ -935,7 +1004,7 @@ button:focus {
 }
 .section-kicker {
   margin: 0 0 0.3rem 0;
-  font-size: 0.75rem;
+  font-size: var(--font-size-section-kicker);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1022,12 +1091,6 @@ button:focus {
   font-family: "Oxanium", monospace;
   font-size: 0.9rem;
   font-weight: 600;
-}
-.items-title {
-  display: block;
-  font-size: 1.12rem;
-  font-weight: 700;
-  color: var(--text-primary);
 }
 .items-summary {
   margin: 0.4rem 0 0 0;
@@ -1280,6 +1343,11 @@ button:focus {
   gap: 0.5rem;
   overflow: hidden;
 }
+.metadata-list {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
 .info-value-container span {
   color: var(--text-secondary);
 }
@@ -1528,7 +1596,7 @@ button:focus {
   gap: 0.4rem;
 }
 .move-browser :deep(.section-title) {
-  font-size: 0.9rem;
+  font-size: var(--font-size-subsection-title);
 }
 .move-browser :deep(.section-count) {
   font-size: 0.82rem;
@@ -1635,7 +1703,7 @@ button:focus {
     padding: 1rem;
   }
   .title-container span {
-    font-size: 1.7rem;
+    font-size: var(--font-size-page-title-mobile);
   }
   .path-card,
   .items-card,
