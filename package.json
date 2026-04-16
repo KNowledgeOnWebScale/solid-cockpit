@@ -8,6 +8,7 @@
   "author": "Elias Crum",
   "license": "MIT",
   "type": "module",
+  "packageManager": "npm@10.2.4",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -22,7 +23,7 @@
     "test:component:coverage": "vitest run --coverage --config ./vitest.config.ts",
     "test:component:compliance": "vitest run --coverage --config ./vitest.config.ts",
     "test:component:compliance:quiet": "node ./node_modules/vitest/vitest.mjs run --coverage --config ./vitest.config.ts --reporter=dot --coverage.reporter=json-summary --coverage.reportsDirectory=coverage/component",
-    "test:compliance": "yarn test:unit:compliance && yarn test:component:compliance",
+    "test:compliance": "npm run test:unit:compliance && npm run test:component:compliance",
     "test:compliance:quiet": "node ./scripts/precommit-compliance.mjs",
     "hooks:install": "node ./scripts/setup-git-hooks.mjs",
     "prepare": "node ./scripts/setup-git-hooks.mjs",
@@ -30,10 +31,10 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@comunica/context-entries": "^4.2.0",
-    "@comunica/logger-pretty": "^4.2.0",
-    "@comunica/query-sparql": "^4.3.0",
-    "@comunica/query-sparql-solid": "^4.0.2",
+    "@comunica/context-entries": "^5.2.0",
+    "@comunica/logger-pretty": "^5.2.0",
+    "@comunica/query-sparql": "^5.2.0",
+    "@comunica/query-sparql-solid": "^5.0.1",
     "@inrupt/solid-client": "2.1.2",
     "@inrupt/solid-client-authn-browser": "3.1.0",
     "@inrupt/solid-client-authn-node": "^3.1.0",

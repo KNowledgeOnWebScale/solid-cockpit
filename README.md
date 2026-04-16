@@ -110,74 +110,74 @@ You can also use:
 ### Prerequisites
 
 - Node.js 20+
-- Yarn 1.x (repo currently uses `yarn.lock`)
+- npm 10+ (repo now uses `package-lock.json`)
 
 ### Local Setup
 
 Install dependencies:
 
 ```bash
-yarn install
+npm install
 ```
 
 Run locally:
 
 ```bash
-yarn dev
+npm run dev
 ```
 
 Build production assets:
 
 ```bash
-yarn build
+npm run build
 ```
 
 Preview production build:
 
 ```bash
-yarn serve
+npm run serve
 ```
 
 ### Scripts
 
 | Script | Description |
 | --- | --- |
-| `yarn dev` | Start Vite development server |
-| `yarn build` | Build production assets into `dist/` |
-| `yarn serve` | Preview the production build locally |
-| `yarn test:unit` | Run unit tests (Node built-in runner + TS loader) |
-| `yarn test:unit:watch` | Run unit tests in watch mode |
-| `yarn test:unit:coverage` | Run unit tests with coverage report generation |
-| `yarn test:unit:compliance` | Enforce unit-test + coverage thresholds |
-| `yarn test:unit:compliance:quiet` | Enforce unit coverage with concise output |
-| `yarn test:component` | Run Vue component tests (`.vue`) via Vitest |
-| `yarn test:component:watch` | Run Vue component tests in watch mode |
-| `yarn test:component:coverage` | Run Vue component tests with coverage |
-| `yarn test:component:compliance` | Enforce Vue component test coverage thresholds |
-| `yarn test:component:compliance:quiet` | Enforce component coverage with concise output |
-| `yarn test:compliance` | Run full (unit + component) compliance checks |
-| `yarn test:compliance:quiet` | Run full compliance checks with concise output |
-| `yarn hooks:install` | Configure local git hooks path (`.githooks`) |
-| `yarn github-post-build` | Create route-compatible `index.html` copies in `dist/` |
-| `yarn deploy` | Publish `dist/` to GitHub Pages |
+| `npm run dev` | Start Vite development server |
+| `npm run build` | Build production assets into `dist/` |
+| `npm run serve` | Preview the production build locally |
+| `npm run test:unit` | Run unit tests (Node built-in runner + TS loader) |
+| `npm run test:unit:watch` | Run unit tests in watch mode |
+| `npm run test:unit:coverage` | Run unit tests with coverage report generation |
+| `npm run test:unit:compliance` | Enforce unit-test + coverage thresholds |
+| `npm run test:unit:compliance:quiet` | Enforce unit coverage with concise output |
+| `npm run test:component` | Run Vue component tests (`.vue`) via Vitest |
+| `npm run test:component:watch` | Run Vue component tests in watch mode |
+| `npm run test:component:coverage` | Run Vue component tests with coverage |
+| `npm run test:component:compliance` | Enforce Vue component test coverage thresholds |
+| `npm run test:component:compliance:quiet` | Enforce component coverage with concise output |
+| `npm run test:compliance` | Run full (unit + component) compliance checks |
+| `npm run test:compliance:quiet` | Run full compliance checks with concise output |
+| `npm run hooks:install` | Configure local git hooks path (`.githooks`) |
+| `npm run github-post-build` | Create route-compatible `index.html` copies in `dist/` |
+| `npm run deploy` | Publish `dist/` to GitHub Pages |
 
 ### Testing and Coverage
 
 Unit test suite:
 
 - Location: `tests/unit/`
-- Command: `yarn test:unit`
+- Command: `npm run test:unit`
 
 Component test suite:
 
 - Location: `tests/components/`
-- Command: `yarn test:component`
+- Command: `npm run test:component`
 - Includes focused `ThemeSwitch` + `TheFooter` tests and full `.vue` smoke mounts in `tests/components/AllComponentsSmoke.test.ts`
 
 Coverage tracker:
 
 ```bash
-yarn test:unit:coverage
+npm run test:unit:coverage
 ```
 
 This command:
@@ -222,7 +222,7 @@ Commit-time compliance check:
 Install hooks locally:
 
 ```bash
-yarn hooks:install
+npm run hooks:install
 ```
 
 If automatic hook setup is blocked in your environment:
@@ -254,14 +254,14 @@ Recommended release workflow:
 1. Update version:
 
 ```bash
-yarn version --new-version X.Y.Z
+npm version X.Y.Z
 ```
 
 2. Build and validate:
 
 ```bash
-yarn test:unit
-yarn build
+npm run test:unit
+npm run build
 ```
 
 3. Create and push release tags:
@@ -277,8 +277,8 @@ git push origin vX.Y.Z web-app-vX.Y.Z
 GitHub Pages deployment setup:
 
 - `vite.config.js` uses `/solid-cockpit/` base path for production
-- `yarn github-post-build` prepares route folders in `dist/`
-- `yarn deploy` publishes `dist/` via `gh-pages`
+- `npm run github-post-build` prepares route folders in `dist/`
+- `npm run deploy` publishes `dist/` via `gh-pages`
 
 ### Dependency Versions
 

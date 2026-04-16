@@ -44,6 +44,202 @@ export type Permissions = {
 
 export const { freeze } = Object;
 
+const DCT_CREATOR = "http://purl.org/dc/terms/creator";
+const DCT_CREATED = "http://purl.org/dc/terms/created";
+const LDP_INBOX = "http://www.w3.org/ns/ldp#inbox";
+const ACL_ACCESS_TO = "http://www.w3.org/ns/auth/acl#accessTo";
+const AS_TARGET = "https://www.w3.org/ns/activitystreams#target";
+const AS_OFFER = "https://www.w3.org/ns/activitystreams#Offer";
+const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+
+const ACL_MODE_BY_PERMISSION: Record<keyof Permissions, string> = {
+  read: "http://www.w3.org/ns/auth/acl#Read",
+  append: "http://www.w3.org/ns/auth/acl#Append",
+  write: "http://www.w3.org/ns/auth/acl#Write",
+  control: "http://www.w3.org/ns/auth/acl#Control",
+};
+
+const SHARED_WITH_ME_PREFIXES = `
+  PREFIX dct: <http://purl.org/dc/terms/>
+  PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+  PREFIX as: <https://www.w3.org/ns/activitystreams#>
+`;
+
+const SHARED_WITH_OTHERS_PREFIXES = `
+  ${SHARED_WITH_ME_PREFIXES}
+  PREFIX ldp: <http://www.w3.org/ns/ldp#>
+`;
+
+/**
+ * Optional controls for LDPN write helpers.
+ * - `forceUndo`: write an `as:Undo` entry instead of an `as:Offer`.
+ * - `modeIris`: explicit list of ACL mode IRIs to persist (used for revocation subsets).
+ */
+export interface NotificationWriteOptions {
+  forceUndo?: boolean;
+  modeIris?: string[];
+}
+
+/**
+ * Extract the document URL of a WebID by removing any fragment identifier.
+ *
+ * LDPN fallback logic uses this document URL when no explicit ldp:inbox link exists.
+ */
+export function getWebIdDocumentUrl(webId: string): string {
+  const parsed = new URL(webId);
+  parsed.hash = "";
+  return parsed.href;
+}
+
+/**
+ * Returns enabled ACL mode IRIs for a permission object.
+ */
+export function getEnabledAccessModeIris(
+  accessModes: Permissions
+): string[] {
+  return (Object.keys(ACL_MODE_BY_PERMISSION) as (keyof Permissions)[])
+    .filter((key) => Boolean(accessModes[key]))
+    .map((key) => ACL_MODE_BY_PERMISSION[key]);
+}
+
+/**
+ * Returns ACL mode IRIs that were revoked (present before, absent after).
+ */
+export function getRevokedAccessModeIris(
+  previousAccess: Permissions,
+  nextAccess: Permissions
+): string[] {
+  return (Object.keys(ACL_MODE_BY_PERMISSION) as (keyof Permissions)[])
+    .filter((key) => Boolean(previousAccess[key]) && !Boolean(nextAccess[key]))
+    .map((key) => ACL_MODE_BY_PERMISSION[key]);
+}
+
+/**
+ * Builds a compact, opaque, unique fragment ID for append-only LDPN entries.
+ */
+export function createOpaqueNotificationId(seed: string): string {
+  return generateSeededHash(
+    `${seed}|${getCurrentRdfDateTime()}|${Math.random().toString(36).slice(2)}`
+  );
+}
+
+function toSparqlIriList(iris: string[]): string {
+  return iris.map((iri) => `<${iri}>`).join(", ");
+}
+
+/**
+ * Normalizes how mode IRIs are chosen for Offer vs Undo notifications.
+ *
+ * When writing Undo entries and no explicit modes are supplied, all ACL modes
+ * are included as a conservative fallback so the revocation entry remains informative.
+ */
+function resolveNotificationModeIris(
+  accessModes: Permissions,
+  options?: NotificationWriteOptions
+): { isRevocation: boolean; modeIris: string[] } {
+  const providedModes = options?.modeIris ?? getEnabledAccessModeIris(accessModes);
+  const isRevocation = options?.forceUndo ?? providedModes.length === 0;
+  const modeIris =
+    isRevocation && providedModes.length === 0
+      ? Object.values(ACL_MODE_BY_PERMISSION)
+      : providedModes;
+  return { isRevocation, modeIris };
+}
+
+/**
+ * Executes a SPARQL UPDATE PATCH against an LDPN log and validates the response.
+ */
+async function patchLdpnLog(
+  logUrl: string,
+  prefixes: string,
+  newTriples: string
+): Promise<void> {
+  const response = await fetch(logUrl, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/sparql-update",
+    },
+    body: `
+      ${prefixes}
+      INSERT DATA {
+        ${newTriples}
+      }
+    `,
+  });
+
+  if (!response.ok) {
+    throw new Error(`PATCH failed with status ${response.status}`);
+  }
+}
+
+/**
+ * Builds the INSERT DATA payload body for sharedWithMe notifications.
+ */
+export function buildSharedWithMeInsertData(params: {
+  entryId: string;
+  sharedBy: string;
+  resourceUrl: string;
+  modeIris: string[];
+  revokedOfferIri?: string;
+}): string {
+  const { entryId, sharedBy, resourceUrl, modeIris, revokedOfferIri } = params;
+  const now = getCurrentRdfDateTime();
+  const typedDate = `"${now}"^^<http://www.w3.org/2001/XMLSchema#dateTime>`;
+  const typeTriple = revokedOfferIri
+    ? `a as:Undo ;\n      as:object <${revokedOfferIri}> ;`
+    : `a as:Offer ;`;
+
+  return `
+    <#${entryId}>
+      ${typeTriple}
+      dct:creator <${sharedBy}> ;
+      dct:created ${typedDate} ;
+      acl:accessTo <${resourceUrl}> ;
+      acl:mode ${toSparqlIriList(modeIris)} .
+  `;
+}
+
+/**
+ * Builds the INSERT DATA payload body for sharedWithOthers notifications.
+ */
+export function buildSharedWithOthersInsertData(params: {
+  entryId: string;
+  resourceUrl: string;
+  sharedWith: string;
+  modeIris: string[];
+  revokedOfferIri?: string;
+}): string {
+  const { entryId, resourceUrl, sharedWith, modeIris, revokedOfferIri } = params;
+  const now = getCurrentRdfDateTime();
+  const typedDate = `"${now}"^^<http://www.w3.org/2001/XMLSchema#dateTime>`;
+
+  if (revokedOfferIri) {
+    return `
+    <#${entryId}>
+      a as:Undo ;
+      as:object <${revokedOfferIri}> ;
+      as:target <${sharedWith}> ;
+      dct:created ${typedDate} ;
+      acl:accessTo <${resourceUrl}> ;
+      acl:mode ${toSparqlIriList(modeIris)} .
+    `;
+  }
+
+  const sharedThing = resourceUrl.endsWith("/") ? "Container" : "Resource";
+  return `
+    <${resourceUrl}> 
+      a ldp:${sharedThing} ;
+      as:Offer <#${entryId}> .
+    
+    <#${entryId}> 
+      a as:Offer ;
+      as:target <${sharedWith}> ;
+      acl:accessTo <${resourceUrl}> ;
+      acl:mode ${toSparqlIriList(modeIris)} ;
+      dct:created ${typedDate} .
+  `;
+}
+
 /**
  * Returns the current timestamp in RDF format,
  * e.g. "2025-04-09T15:23:45Z"^^<http://www.w3.org/2001/XMLSchema#dateTime>
@@ -269,11 +465,11 @@ export async function createInboxWithACL(
     await createContainerAt(inboxUrl, { fetch });
     console.log(`Inbox container created at: ${inboxUrl}`);
 
-    // Fetch the dataset (resource ACL)
-    let aclDataset = await fetchPermissionsData(inboxUrl);
-    if (aclDataset == null) {
+    // Ensure inbox ACL exists before creating LDPN files.
+    const existingInboxAcl = await fetchPermissionsData(inboxUrl);
+    if (existingInboxAcl == null) {
       console.warn("Initializing an ACL for your inbox/ container...");
-      aclDataset = await generateAcl(inboxUrl, userWebId);
+      await generateAcl(inboxUrl, userWebId);
     }
 
     // Add the Inbox container location to the User's WebId
@@ -340,72 +536,144 @@ export async function createInboxWithACL(
 }
 
 /**
- * Attempts to PATCH shared data information (triples) to another user's sharedWithMe.ttl file.
+ * Discover a user's inbox URL using ldp:inbox; fallback follows LDPN:
+ * {webid-document}/inbox/ when no explicit inbox link is present.
+ */
+export async function resolveInboxUrlFromWebId(webId: string): Promise<string> {
+  const webIdDocument = getWebIdDocumentUrl(webId);
+  const fallbackInbox = `${webIdDocument.replace(/\/$/, "")}/inbox/`;
+
+  try {
+    const profileDataset = await getSolidDataset(webIdDocument, { fetch });
+    const possibleThings: Thing[] = [];
+
+    const exactWebIdThing = getThing(profileDataset, webId);
+    if (exactWebIdThing) {
+      possibleThings.push(exactWebIdThing);
+    }
+
+    const inferredThing = getThing(profileDataset, `${webIdDocument}#me`);
+    if (inferredThing) {
+      possibleThings.push(inferredThing);
+    }
+
+    possibleThings.push(...getThingAll(profileDataset));
+
+    for (const thing of possibleThings) {
+      const inboxUrl = getUrl(thing, LDP_INBOX);
+      if (inboxUrl) {
+        return inboxUrl.endsWith("/") ? inboxUrl : `${inboxUrl}/`;
+      }
+    }
+  } catch (error) {
+    console.warn(`Could not resolve ldp:inbox for ${webId}, using fallback.`);
+  }
+
+  return fallbackInbox;
+}
+
+/**
+ * Find the most recent as:Offer entry in a log that matches the provided constraints.
+ */
+async function findLatestOfferIri(
+  logUrl: string,
+  filters: {
+    creator?: string;
+    target?: string;
+    accessTo: string;
+  }
+): Promise<string | null> {
+  try {
+    const dataset = await getSolidDataset(logUrl, { fetch });
+    const things = getThingAll(dataset);
+    const candidates = things.filter((thing) => {
+      const typeIri = getIri(thing, RDF_TYPE);
+      if (typeIri !== AS_OFFER) {
+        return false;
+      }
+      if (getUrl(thing, ACL_ACCESS_TO) !== filters.accessTo) {
+        return false;
+      }
+      if (filters.creator && getUrl(thing, DCT_CREATOR) !== filters.creator) {
+        return false;
+      }
+      if (filters.target && getUrl(thing, AS_TARGET) !== filters.target) {
+        return false;
+      }
+      return true;
+    });
+
+    candidates.sort((a, b) => {
+      const aDate = getDatetime(a, DCT_CREATED)?.getTime() ?? 0;
+      const bDate = getDatetime(b, DCT_CREATED)?.getTime() ?? 0;
+      return bDate - aDate;
+    });
+
+    return candidates[0]?.url ?? null;
+  } catch (error) {
+    console.warn(`Could not inspect prior offers in ${logUrl}.`);
+    return null;
+  }
+}
+
+/**
+ * Appends a permissions notification to another user's `sharedWithMe.ttl` log.
  *
- * Each shared resource is represented as an entry with the form:
- *
- *    <#hash>
- *      a as:Offer ;
-        dct:creator <WebId> ;
-        dct:created "ISODateTime"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
-        acl:accessTo <ResourceURL> ;
-        acl:mode acl:Read, ... .
-      
-      <ResourceURL>
-        a ldp:Resource/Container .
+ * This helper writes LDPN-compliant `as:Offer` entries by default, and can write
+ * `as:Undo` entries when revocations are requested through `options`.
  *
  * @param otherUserWebId - The user's Solid Pod URL (with which data is being shared)
  * @param sharedBy - The WebID of the person who shared the resource (you)
- * @param resourceUrl - The URL of the resource that was shared (your thing)
- * @param accessModes - Array of access modes (e.g., ['Read', 'Write'])
+ * @param resourceURL - The URL of the resource that was shared
+ * @param accessModes - Access booleans used to derive ACL mode IRIs
+ * @param options - Optional controls for revocation and explicit mode IRIs
  */
 export async function updateSharedWithMe(
   otherUserWebId: string,
   sharedBy: string,
   resourceURL: string,
-  accessModes: Permissions
+  accessModes: Permissions,
+  options?: NotificationWriteOptions
 ): Promise<boolean> {
-  const otherUserBasePod =
-    otherUserWebId.split("/").slice(0, -2).join("/") + "/";
-  const otherSharedWithMeUrl = `${otherUserBasePod}inbox/sharedWithMe.ttl`;
-  const hash = generateSeededHash(resourceURL);
+  const inboxUrl = await resolveInboxUrlFromWebId(otherUserWebId);
+  const otherSharedWithMeUrl = `${inboxUrl}sharedWithMe.ttl`;
+  const { isRevocation, modeIris } = resolveNotificationModeIris(
+    accessModes,
+    options
+  );
+  const entryId = createOpaqueNotificationId(
+    `${resourceURL}|${sharedBy}|sharedWithMe`
+  );
 
-  // Construct access modes string
-  let accessModesString = "";
-  for (const [key, value] of Object.entries(accessModes)) {
-    if (value) {
-      accessModesString += `acl:${
-        key.charAt(0).toUpperCase() + key.slice(1)
-      }, `;
+  let revokedOfferIri: string | undefined = undefined;
+  if (isRevocation) {
+    const previousOffer = await findLatestOfferIri(otherSharedWithMeUrl, {
+      creator: sharedBy,
+      accessTo: resourceURL,
+    });
+    if (!previousOffer) {
+      console.warn(
+        `No prior as:Offer entry found in ${otherSharedWithMeUrl}; cannot append spec-compliant as:Undo entry.`
+      );
+      return false;
     }
+    revokedOfferIri = previousOffer;
   }
-  // Remove the trailing comma and space
-  accessModesString = accessModesString.slice(0, -2);
 
   // Attempt to update sharedWithMe.ttl with a PATCH SPARQL update
   try {
-    const newTriples = `
-    <#${hash}>
-      a as:Offer ;
-      dct:creator <${sharedBy}> ;
-      dct:created "${getCurrentRdfDateTime()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
-      acl:accessTo <${resourceURL}> ;
-      acl:mode ${accessModesString} .
-    `;
-    await fetch(`${otherSharedWithMeUrl}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/sparql-update",
-      },
-      body: `
-        PREFIX dct: <http://purl.org/dc/terms/>
-        PREFIX acl: <http://www.w3.org/ns/auth/acl#>
-        PREFIX as: <https://www.w3.org/ns/activitystreams#>
-        INSERT DATA {
-          ${newTriples}
-        }
-      `,
+    const newTriples = buildSharedWithMeInsertData({
+      entryId,
+      sharedBy,
+      resourceUrl: resourceURL,
+      modeIris,
+      revokedOfferIri,
     });
+    await patchLdpnLog(
+      otherSharedWithMeUrl,
+      SHARED_WITH_ME_PREFIXES,
+      newTriples
+    );
     console.log(`Added triples to ${otherSharedWithMeUrl} ...`);
     return true;
   } catch (error) {
@@ -414,86 +682,69 @@ export async function updateSharedWithMe(
   }
 }
 
-// TODO: Integrate this shring functionality in Query component
-
 /**
- * Creates or updates a (.ttl) file that records resources/containers this user has shared with others.
- * user has shared with others in the pod root container.
+ * Appends a permissions notification to the current user's `sharedWithOthers.ttl`.
  *
- * Each entry is recorded as an entry like:
- *
- *    <#resourceUrl>
- *      as:target <WebID> ;
- *      a ldp:container ;
- *      dct:created "ISODateTime"^^<http://www.w3.org/2001/XMLSchema#dateTime> ;
- *      acl:accessTo <ResourceURL> ;
- *      acl:mode acl:Read, ... .
+ * This helper writes LDPN-compliant `as:Offer` entries by default, and can write
+ * `as:Undo` entries when revocations are requested through `options`.
  *
  * @param podUrl - The user's Solid Pod URL where sharedWithOthers.ttl is stored
  * @param resourceUrl - The URL of the resource/container that is being shared
  * @param sharedWith - The WebID of the person who you are sharing the resource with
- * @param accessModes - Array of access modes (e.g., ['Read', 'Write'])
+ * @param accessModes - Access booleans used to derive ACL mode IRIs
+ * @param options - Optional controls for revocation and explicit mode IRIs
  *
- * @return a string with a message representative of success or failure
+ * @returns true when the log write succeeds, otherwise false.
  */
 export async function updateSharedWithOthers(
   podUrl: string,
   resourceUrl: string,
   sharedWith: string,
-  accessModes: Permissions
+  accessModes: Permissions,
+  options?: NotificationWriteOptions
 ): Promise<boolean> {
-  const sharedWithMeUrl = `${podUrl}inbox/`;
+  const inboxUrl = `${podUrl}inbox/`;
   const fileName = "sharedWithOthers.ttl";
-  const hash = generateSeededHash(resourceUrl + sharedWith);
+  const { isRevocation, modeIris } = resolveNotificationModeIris(
+    accessModes,
+    options
+  );
+  const entryId = createOpaqueNotificationId(
+    `${resourceUrl}|${sharedWith}|sharedWithOthers`
+  );
 
-  // Construct access modes string
-  let accessModesString = "";
-  for (const [key, value] of Object.entries(accessModes)) {
-    if (value) {
-      accessModesString += `acl:${
-        key.charAt(0).toUpperCase() + key.slice(1)
-      }, `;
+  let revokedOfferIri: string | undefined = undefined;
+  if (isRevocation) {
+    const previousOffer = await findLatestOfferIri(
+      `${inboxUrl}${fileName}`,
+      {
+        target: sharedWith,
+        accessTo: resourceUrl,
+      }
+    );
+    if (!previousOffer) {
+      console.warn(
+        `No prior as:Offer entry found in ${inboxUrl}${fileName}; cannot append spec-compliant as:Undo entry.`
+      );
+      return false;
     }
-  }
-  // Remove the trailing comma and space
-  accessModesString = accessModesString.slice(0, -2);
-
-  // TODO: Add additional logic here for RDFSource / NonRDFSource / BasicContainer
-  let sharedThing = "";
-  if (resourceUrl.endsWith("/")) {
-    sharedThing = "Container";
-  } else {
-    sharedThing = "Resource";
+    revokedOfferIri = previousOffer;
   }
 
   // Attempt to update sharedWithOthers.ttl with a PATCH SPARQL update
   try {
-    const newTriples = `
-    <#${resourceUrl}> 
-      a ldp:${sharedThing} ;
-      as:Offer <#${hash}> .
-    
-    <#${hash}> 
-      as:target <${sharedWith}> ;
-      acl:accessTo <${resourceUrl}> ;
-      acl:mode ${accessModesString} ;
-      dct:created "${getCurrentRdfDateTime()}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-    `;
-    await fetch(`${sharedWithMeUrl}${fileName}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/sparql-update",
-      },
-      body: `
-        PREFIX dct: <http://purl.org/dc/terms/>
-        PREFIX acl: <http://www.w3.org/ns/auth/acl#>
-        PREFIX as: <https://www.w3.org/ns/activitystreams#>
-        PREFIX ldp: <http://www.w3.org/ns/ldp#>
-        INSERT DATA {
-          ${newTriples}
-        }
-      `,
+    const newTriples = buildSharedWithOthersInsertData({
+      entryId,
+      resourceUrl,
+      sharedWith,
+      modeIris,
+      revokedOfferIri,
     });
+    await patchLdpnLog(
+      `${inboxUrl}${fileName}`,
+      SHARED_WITH_OTHERS_PREFIXES,
+      newTriples
+    );
     console.log(`Added triples to ${fileName} ...`);
     return true;
   } catch (error) {
@@ -556,15 +807,18 @@ export async function getSharedWithOthers(
     const thingUrl = thing.url;
     const resourceHash = thingUrl.includes("#")
       ? `${thingUrl.split("#")[1]}`
-      : "";
-    // Only consider resources
-    if (resourceHash.includes("/")) {
+      : thingUrl;
+    // Only consider resource/container subject nodes.
+    if (
+      getIriAll(thing, AS_OFFER).length > 0 &&
+      (resourceHash.includes("/") || thingUrl.includes("/"))
+    ) {
       const whatKind =
-        getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") ||
+        getIri(thing, RDF_TYPE) ||
         "N/A";
       const sharedHashes = getIriAll(
         thing,
-        "https://www.w3.org/ns/activitystreams#Offer"
+        AS_OFFER
       ) || ["N/A"];
       const usersSharedWith = thingsUsersSharedWithParse(
         sharedHashes,

@@ -177,12 +177,13 @@
       <!-- TODO: change the Resource to make the whole item a button -->
       <section class="privacy-main-panel pod-directories" v-if="navValue === 0">
         <div class="container-fluid">
-          <div class="privacy-browser-shell">
-            <div class="path-card privacy-path-card">
+          <div class="browser-shell">
+            <div class="container-location">
+              <div class="path-card">
               <div class="path-card-header">
                 <div>
                   <p class="section-kicker">Browse containers</p>
-                  <h3>Choose a location to manage access</h3>
+                  <h3>Choose container to inspect</h3>
                 </div>
                 <div class="path-origin">
                   <span class="path-origin-label">Selected Container</span>
@@ -199,12 +200,12 @@
                 />
               </div>
             </div>
+            </div>
 
-            <div class="items-card privacy-items-card">
+            <div class="items-card">
               <div class="items-header">
                 <div>
                   <p class="section-kicker">Selected container contents</p>
-                  <span class="items-title">Items you can edit privacy for</span>
                   <p class="items-summary">
                     Choose a container or resource inside
                     <span class="items-location">{{ currentLocation }}</span>
@@ -227,22 +228,26 @@
                 <span class="loading-text">Loading access rights...</span>
               </div>
               <div v-else class="card-panel folder">
-                <button
-                  @click="toggleShared(index), getSpecificAclData(url, index)"
-                  class="icon-button full-width"
-                >
-                  <i class="material-icons not-colored left">{{
-                    containerCheck(url) ? "folder" : "description"
-                  }}</i>
-                  <span class="resource-name">{{ url }}</span>
-                  <i class="material-icons not-colored info-icon">
-                    {{
-                      showSharedIndex === index
-                        ? "keyboard_arrow_down lock"
-                        : "chevron_right lock"
-                    }}</i
+                <div class="folder-header">
+                  <button
+                    @click="toggleShared(index), getSpecificAclData(url, index)"
+                    class="icon-button full-width"
                   >
-                </button>
+                    <div class="icon-hash">
+                      <i class="material-icons not-colored">{{
+                        containerCheck(url) ? "folder" : "description"
+                      }}</i>
+                      <span class="resource-hash">{{ url }}</span>
+                    </div>
+                    <i class="material-icons not-colored info-icon">
+                      {{
+                        showSharedIndex === index
+                          ? "keyboard_arrow_down lock"
+                          : "chevron_right lock"
+                      }}</i
+                    >
+                  </button>
+                </div>
 
                 <!-- Current access rights -->
                 <div
@@ -279,9 +284,11 @@
                       >
                         <div class="user-id">
                           <div class="left-content">
-                            <span class="user-tag">Agent:<br /></span>
-                            <span class="the-user"
-                              ><i>{{ inde }}</i>
+                            <span class="user-tag">Agent:</span>
+                            <!-- WebID chip keeps identity values visually distinct from permission fields. -->
+                            <span class="the-user" :title="inde.toString()">
+                              <i class="material-icons webid-icon">person</i>
+                              <span class="webid-value">{{ inde }}</span>
                             </span>
                           </div>
                           <button
@@ -626,6 +633,8 @@ import {
   sharedSomething,
   SharedWithMeData,
   saveNewAccessTime,
+  getEnabledAccessModeIris,
+  getRevokedAccessModeIris,
 } from "./privacyEdit";
 import {
   fetchPermissionsData,
@@ -850,29 +859,85 @@ export default {
     },
 
     /**
-     * method that submits the alterations to the specified .acl permissions file
+     * Normalizes permission toggles before ACL + notification writes.
+     * WAC semantics require Append when Write is enabled.
+     */
+    normalizePermissionsInput(): Permissions {
+      return {
+        ...this.permissions,
+        append: this.permissions.append || this.permissions.write,
+      };
+    },
+
+    /**
+     * Resolves the previous ACL state for the currently selected target (Agent/Public).
+     * This is used to detect revocations and emit LDPN `as:Undo` entries.
+     */
+    getPreviousPermissionsForTarget(targetWebId: string): Permissions {
+      const previousAccessForTarget =
+        this.accessType === "Public"
+          ? this.hasAccess.Public
+          : this.hasAccess[targetWebId];
+      return {
+        read: Boolean(previousAccessForTarget?.read),
+        append: Boolean(previousAccessForTarget?.append),
+        write: Boolean(previousAccessForTarget?.write),
+        control: Boolean(previousAccessForTarget?.control),
+      };
+    },
+
+    /**
+     * Creates a compact user-facing summary of the selected permissions.
+     */
+    formatPermissionsSummary(permissions: Permissions): string {
+      if (permissions.control) {
+        return "Control";
+      }
+
+      const entries: string[] = [];
+      if (permissions.read) {
+        entries.push("Read");
+      }
+      if (permissions.write) {
+        entries.push("Write");
+      } else if (permissions.append) {
+        entries.push("Append");
+      }
+      if (entries.length === 0) {
+        entries.push("No");
+      }
+      return entries.join(" / ");
+    },
+
+    /**
+     * Persists ACL changes and mirrors those changes into LDPN notification logs.
      *
-     * @param url the URL of the container that .acl changes are being made to
+     * @param url The container/resource URL whose ACL is being updated.
      */
     async submitForm(url: string) {
-      // Handle permissions specified
-      if (this.permissions.read) {
-        this.permissionsString += "Read / ";
-      }
-      if (this.permissions.write) {
-        this.permissions.append = true;
-        this.permissionsString += "Write / ";
-      }
-      if (this.permissions.append && !this.permissions.write) {
-        this.permissionsString += "Append / ";
-      }
-      if (this.permissions.control) {
-        this.permissions.control = true;
-        this.permissionsString = "Control / ";
-      }
-      if (this.permissionsString === "") {
-        this.permissionsString = "No / ";
-      }
+      // Reset status flags for this submission cycle.
+      this.postedMe = false;
+      this.recordedOthers = false;
+
+      // Normalize permissions before persisting + logging (Write implies Append in WAC semantics).
+      const normalizedPermissions = this.normalizePermissionsInput();
+      this.permissions = normalizedPermissions;
+
+      // Capture current access state to derive revocations for LDPN as:Undo entries.
+      const previousPermissions = this.getPreviousPermissionsForTarget(
+        this.userUrl
+      );
+      const revokedModeIris = getRevokedAccessModeIris(
+        previousPermissions,
+        normalizedPermissions
+      );
+      const hasGrantedModes =
+        getEnabledAccessModeIris(normalizedPermissions).length > 0;
+
+      // Derive status label shown after successful submission.
+      this.permissionsString = this.formatPermissionsSummary(
+        normalizedPermissions
+      );
 
       this.loading = true; // Start loading
 
@@ -880,50 +945,74 @@ export default {
       if (this.accessType === "Agent") {
         this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
         if (!this.userUrlInvalid) {
-          // add condition for different agents here ...
-          // actual .acl changing
-          await changeAclAgent(url, this.userUrl, this.permissions);
-          // write changes to specified user's sharedWithMe.ttl file
-          this.postedMe = await updateSharedWithMe(
-            this.userUrl,
-            this.webId,
-            url,
-            this.permissions
-          );
+          // Apply ACL changes for the selected agent target.
+          await changeAclAgent(url, this.userUrl, normalizedPermissions);
 
-          // write changes to current user's sharedWithOthers.ttl file
-          this.recordedOthers = await updateSharedWithOthers(
-            this.selectedPodUrl,
-            url,
-            this.userUrl,
-            this.permissions
-          );
+          // If permissions were removed, append explicit revocation notifications first.
+          if (revokedModeIris.length > 0) {
+            this.postedMe = await updateSharedWithMe(
+              this.userUrl,
+              this.webId,
+              url,
+              normalizedPermissions,
+              { forceUndo: true, modeIris: revokedModeIris }
+            );
+            this.recordedOthers = await updateSharedWithOthers(
+              this.selectedPodUrl,
+              url,
+              this.userUrl,
+              normalizedPermissions,
+              { forceUndo: true, modeIris: revokedModeIris }
+            );
+          }
+
+          // Append grant/update notifications with resulting access modes.
+          if (hasGrantedModes) {
+            const postMeOffer = await updateSharedWithMe(
+              this.userUrl,
+              this.webId,
+              url,
+              normalizedPermissions
+            );
+            const postOthersOffer = await updateSharedWithOthers(
+              this.selectedPodUrl,
+              url,
+              this.userUrl,
+              normalizedPermissions
+            );
+            this.postedMe = this.postedMe || postMeOffer;
+            this.recordedOthers = this.recordedOthers || postOthersOffer;
+          }
         }
       }
 
       // for Public ACL changes
       if (this.accessType === "Public") {
-        await changeAclPublic(url, this.permissions);
+        await changeAclPublic(url, normalizedPermissions);
+        const publicAgent = "http://xmlns.com/foaf/0.1/Agent";
 
-        // write changes to current user's sharedWithOthers.ttl file
-        this.recordedOthers = await updateSharedWithOthers(
-          this.selectedPodUrl,
-          url,
-          "http://xmlns.com/foaf/0.1/Agent",
-          this.permissions
-        );
+        if (revokedModeIris.length > 0) {
+          this.recordedOthers = await updateSharedWithOthers(
+            this.selectedPodUrl,
+            url,
+            publicAgent,
+            normalizedPermissions,
+            { forceUndo: true, modeIris: revokedModeIris }
+          );
+        }
+
+        if (hasGrantedModes) {
+          const publicOffer = await updateSharedWithOthers(
+            this.selectedPodUrl,
+            url,
+            publicAgent,
+            normalizedPermissions
+          );
+          this.recordedOthers = this.recordedOthers || publicOffer;
+        }
       }
 
       // Message that tells the changes that have been made
-      const ex = [
-        this.permissionsString.length - 3,
-        this.permissionsString.length - 2,
-        this.permissionsString.length - 1,
-      ];
-      this.permissionsString = this.permissionsString
-        .split("")
-        .filter((char, index) => !ex.includes(index))
-        .join("");
       this.submissionDone = true;
 
       await this.getSpecificAclData(url);
@@ -1450,10 +1539,18 @@ button:focus {
 .left-content {
   display: flex;
   align-items: center;
-  gap: 5rem;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
 }
-.user-tag {
+.user-tag,
+.permissions-tag {
   color: var(--text-secondary);
+  font-size: var(--font-size-section-kicker);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .user-id button {
   padding: 3px;
@@ -1463,16 +1560,32 @@ button:focus {
   opacity: 0.5;
 }
 .the-user {
-  margin-left: 10px;
-  font-size: large;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: min(100%, 52rem);
+  padding: 0.35rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border) 68%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev) 90%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  line-height: 1.25;
 }
 .the-user i {
-  font-size: large;
-  color: var(--text-secondary);
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--primary) 72%, var(--text-secondary) 28%);
 }
-.permissions-tag {
-  font-size: large;
+.webid-value {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .permission-item {
   display: grid;
   grid-template-columns: auto 1fr; /* Two columns: auto width for label, remaining space for value */
@@ -2051,9 +2164,15 @@ label span {
   width: auto;
 }
 
-.privacy-browser-shell {
+.browser-shell {
   display: grid;
   gap: 0.85rem;
+  width: 100%;
+}
+.container-location {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
 }
 .path-card,
 .items-card {
@@ -2062,13 +2181,16 @@ label span {
   background: var(--panel);
   box-shadow: var(--shadow-1);
   font-family: "Oxanium", monospace;
+  width: 100%;
+  min-width: 0;
 }
-.privacy-path-card {
+.path-card {
   padding: 1rem 1.05rem;
 }
 .path-card-header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 0.8rem;
   margin-bottom: 0.85rem;
 }
@@ -2083,7 +2205,9 @@ label span {
 .path-origin {
   display: grid;
   gap: 0.2rem;
-  max-width: 22rem;
+  flex: 1 1 20rem;
+  min-width: 0;
+  max-width: none;
   padding: 0.7rem 0.85rem;
   border-radius: 12px;
   background: var(--panel-elev);
@@ -2100,16 +2224,22 @@ label span {
   line-height: 1.45;
   color: var(--text-primary);
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 .browser-layout {
   display: grid;
   gap: 0.85rem;
+  width: 100%;
+}
+/* Keep the embedded container browser stretched to the full card width. */
+.browser-layout :deep(.browser-card) {
+  width: 100%;
+  margin: 0;
+  background-color: none;
 }
 
-.privacy-items-card {
+.items-card {
   padding: 1rem 1.1rem;
 }
 .items-header {
@@ -2175,13 +2305,95 @@ label span {
 }
 .full-width {
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
   gap: 0.75rem;
   padding: 0.85rem 0.95rem;
+}
+.folder-header {
+  width: 100%;
+}
+.icon-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
+  flex: 1;
 }
 .resource-name {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.privacy-items-list .resource-hash {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.privacy-items-list .folder {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--panel-elev);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin: 0.15rem 0;
+  transition: all 0.25s ease;
+}
+.privacy-items-list .folder:hover {
+  background: color-mix(in srgb, var(--hover) 84%, var(--panel-elev) 16%);
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+}
+.privacy-items-list .full-width:hover {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  border-radius: 8px;
+}
+.privacy-items-list .full-width {
+  padding: 0.62rem 0.78rem;
+}
+.privacy-items-list .icon-hash {
+  gap: 0.62rem;
+}
+.privacy-items-list .info-icon {
+  color: var(--text-muted);
+}
+
+/* Keep embedded container selector surfaces aligned with the lighter page card tone. */
+.browser-layout :deep(.dir-nav) {
+  background: transparent !important;
+}
+.browser-layout :deep(.browser-card) {
+  background: transparent;
+}
+.browser-layout :deep(.current-folder-bar) {
+  background: color-mix(in srgb, var(--panel) 96%, var(--primary-100) 4%);
+  border-color: color-mix(in srgb, var(--border) 86%, var(--primary) 14%);
+  box-shadow: none;
+}
+.browser-layout :deep(.folder-section) {
+  background: transparent;
+}
+.browser-layout :deep(.crumb) {
+  /* Higher-contrast breadcrumb chip so labels remain readable in light + dark themes. */
+  background: color-mix(in srgb, var(--primary) 14%, var(--panel-elev) 86%) !important;
+  border: 1px solid
+    color-mix(in srgb, var(--primary) 34%, var(--border) 66%) !important;
+  color: color-mix(in srgb, var(--text-primary) 92%, var(--primary) 8%) !important;
+}
+.browser-layout :deep(.crumb:hover),
+.browser-layout :deep(.crumb.active) {
+  background: color-mix(in srgb, var(--primary) 22%, var(--panel-elev) 78%) !important;
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border) 48%) !important;
+}
+.browser-layout :deep(.folder-card) {
+  background: color-mix(in srgb, var(--panel) 95%, var(--panel-elev) 5%);
+  border-color: color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
 }
 .form-container {
   margin-top: 0.35rem;
@@ -2202,6 +2414,43 @@ label span {
   border-radius: 18px;
   background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
   box-shadow: var(--shadow-2);
+}
+
+/* Final normalization layer: keeps typography and hover behavior aligned with shared app tokens. */
+.content-container {
+  --privacy-hover-surface: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  --privacy-hover-border: color-mix(in srgb, var(--primary) 24%, var(--border));
+}
+.privacy-side-nav .nav-text {
+  font-size: var(--font-size-subsection-title);
+}
+.path-origin-value,
+.items-count,
+.privacy-items-list .resource-hash,
+.loading-text,
+.notifications-dropdown span,
+.mark-read {
+  font-size: var(--font-size-page-summary);
+}
+.notification-title {
+  font-size: var(--font-size-section-title) !important;
+}
+.notification-hint {
+  font-size: var(--font-size-section-kicker) !important;
+}
+
+.header-icon-button:hover,
+.privacy-side-nav li button:hover,
+.privacy-items-list .folder:hover,
+.privacy-items-list .full-width:hover,
+.notification-button:hover,
+.mark-read:hover,
+.new-acl:hover,
+#resetButton button:hover,
+#submitButton button:hover,
+form button:hover {
+  background: var(--privacy-hover-surface) !important;
+  border-color: var(--privacy-hover-border) !important;
 }
 
 @media (max-width: 980px) {
