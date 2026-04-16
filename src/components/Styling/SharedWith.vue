@@ -1,201 +1,194 @@
 <template>
   <div class="shared-container">
-    <div class="with-me" v-if="currentOperation === 'sharedWithMe'">
+    <div class="shared-section" v-if="currentOperation === 'sharedWithMe'">
       <span class="shared-title">Shared With Me</span>
 
-      <!-- Iterates over list of shared hashes in sharedWithMe.tll -->
       <div class="no-items" v-if="sharedMeItems.length === 0">
         <p>No resources have been shared with you.</p>
       </div>
-      <div v-else>
-        <li v-for="(item, index) in sharedMeItems" :key="index">
-          <div class="card-panel folder">
-            <div class="folder-header">
-              <button @click="toggleItem(index)" class="icon-button full-width">
-                <div class="icon-hash">
-                  <i class="material-icons not-colored">{{
-                    containerCheck(item.usersSharedWith[0].resourceUrl)
-                      ? "folder"
-                      : "description"
-                  }}</i>
-                  <span class="resource-hash">{{
-                    item.usersSharedWith[0].resourceUrl ===
-                    "http://xmlns.com/foaf/0.1/Agent"
-                      ? "Public"
-                      : item.usersSharedWith[0].resourceUrl
+
+      <!-- Compact cards mirror the My Pod card style while showing full metadata on expand. -->
+      <ul v-else class="shared-list" role="list">
+        <li v-for="(item, index) in sharedMeItems" :key="`${item.resourceHash}-${index}`">
+          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+            <button @click="toggleItem(index)" class="entry-toggle">
+              <div class="entry-main">
+                <i class="material-icons not-colored">{{
+                  containerCheck(getPrimaryResourceUrl(item)) ? "folder" : "description"
+                }}</i>
+                <div class="entry-copy">
+                  <span class="entry-title" :title="getPrimaryResourceUrl(item)">
+                    {{ normalizeTargetLabel(getPrimaryResourceUrl(item)) }}
+                  </span>
+                  <span class="entry-subtitle">
+                    Shared by {{ normalizeTargetLabel(item.owner) }}
+                  </span>
+                </div>
+              </div>
+              <i class="material-icons not-colored info-icon">
+                {{ showItemIndex === index ? "keyboard_arrow_down" : "chevron_right" }}
+              </i>
+            </button>
+
+            <div class="entry-details" v-if="showItemIndex === index">
+              <div class="entry-field-grid">
+                <div class="entry-field">
+                  <span class="field-label">Resource URL</span>
+                  <span class="field-value mono" :title="getPrimaryResourceUrl(item)">
+                    {{ getPrimaryResourceUrl(item) }}
+                  </span>
+                </div>
+                <div class="entry-field">
+                  <span class="field-label">Resource hash</span>
+                  <span class="field-value mono" :title="item.resourceHash">{{
+                    item.resourceHash || "N/A"
                   }}</span>
                 </div>
-                <i class="material-icons not-colored info-icon">
-                  {{
-                    showItemIndex === index
-                      ? "keyboard_arrow_down info"
-                      : "chevron_right info"
-                  }}</i
-                >
-              </button>
-            </div>
-
-            <!-- The Users Resource is shared with -->
-            <div class="shared-with" v-if="showItemIndex === index">
-              <div class="specific-access">
-                <!-- The user that shared the resource -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Owner: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{
-                      "person"
-                    }}</i>
-                    <a class="the-user">{{ item.owner }}</a>
-                  </div>
+                <div class="entry-field">
+                  <span class="field-label">Owner</span>
+                  <span class="field-value">{{ normalizeTargetLabel(item.owner) }}</span>
                 </div>
-
-                <!-- The information about this User's access -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Access Modes: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{ "lock" }}</i>
-                    <li
-                      v-for="(ac, ind) in item.usersSharedWith[0].accessModes"
-                    >
-                      <a class="the-user">{{ ac }}</a>
-                    </li>
-                  </div>
+                <div class="entry-field">
+                  <span class="field-label">Target</span>
+                  <span class="field-value">{{
+                    normalizeTargetLabel(item.usersSharedWith[0]?.sharedWith ?? "N/A")
+                  }}</span>
                 </div>
+                <div class="entry-field">
+                  <span class="field-label">Activity type</span>
+                  <span class="field-value">{{ formatKind(item.whatKind) }}</span>
+                </div>
+                <div class="entry-field">
+                  <span class="field-label">Created</span>
+                  <span class="field-value">{{
+                    formatDate(item.usersSharedWith[0]?.created ?? "N/A")
+                  }}</span>
+                </div>
+              </div>
 
-                <!-- When these access rights were given -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Date: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{
-                      "schedule"
-                    }}</i>
-                    <span class="the-user"
-                      ><i>{{ item.usersSharedWith[0].created }}</i></span
-                    >
-                  </div>
+              <div class="mode-row">
+                <span class="field-label">Access modes</span>
+                <div class="mode-chips">
+                  <span
+                    v-for="(ac, acIndex) in normalizeModeList(item.usersSharedWith[0]?.accessModes)"
+                    :key="`mode-${acIndex}`"
+                    class="mode-chip"
+                    :title="ac"
+                    >{{ formatMode(ac) }}</span
+                  >
                 </div>
               </div>
             </div>
-          </div>
+          </article>
         </li>
-      </div>
+      </ul>
     </div>
 
-    <div class="with-others" v-if="currentOperation === 'sharedWithOthers'">
+    <div class="shared-section" v-if="currentOperation === 'sharedWithOthers'">
       <span class="shared-title">Shared With Others</span>
 
       <div class="no-items" v-if="sharedItems.length === 0">
         <p>You have not shared any resources with others.</p>
       </div>
-      <div v-else>
-        <!-- Iterates over list of resources in sharedWithOthers.tll -->
-        <li v-for="(item, index) in sharedItems" :key="index">
-          <div class="card-panel folder">
-            <div class="folder-header">
-              <button @click="toggleItem(index)" class="icon-button full-width">
-                <div class="icon-hash">
-                  <i class="material-icons not-colored left">{{
-                    containerCheck(item.resourceHash) ? "folder" : "description"
-                  }}</i>
-                  <span class="resource-hash">{{ item.resourceHash }}</span>
+
+      <!-- Each expanded card shows resource-level data and all recipient-level metadata. -->
+      <ul v-else class="shared-list" role="list">
+        <li v-for="(item, index) in sharedItems" :key="`${item.resourceHash}-${index}`">
+          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+            <button @click="toggleItem(index)" class="entry-toggle">
+              <div class="entry-main">
+                <i class="material-icons not-colored">{{
+                  containerCheck(item.resourceHash) ? "folder" : "description"
+                }}</i>
+                <div class="entry-copy">
+                  <span class="entry-title" :title="item.resourceHash">{{ item.resourceHash }}</span>
+                  <span class="entry-subtitle">
+                    {{ getRecipientSummary(item) }} · {{ formatDate(getLatestEntryDate(item)) }}
+                  </span>
                 </div>
-                <i class="material-icons not-colored info-icon">
-                  {{
-                    showItemIndex === index
-                      ? "keyboard_arrow_down info"
-                      : "chevron_right info"
-                  }}</i
+              </div>
+              <i class="material-icons not-colored info-icon">
+                {{ showItemIndex === index ? "keyboard_arrow_down" : "chevron_right" }}
+              </i>
+            </button>
+
+            <div class="entry-details" v-if="showItemIndex === index">
+              <div class="entry-field-grid">
+                <div class="entry-field">
+                  <span class="field-label">Resource hash</span>
+                  <span class="field-value mono" :title="item.resourceHash">{{
+                    item.resourceHash || "N/A"
+                  }}</span>
+                </div>
+                <div class="entry-field">
+                  <span class="field-label">Owner</span>
+                  <span class="field-value">{{ normalizeTargetLabel(item.owner) }}</span>
+                </div>
+                <div class="entry-field">
+                  <span class="field-label">Activity type</span>
+                  <span class="field-value">{{ formatKind(item.whatKind) }}</span>
+                </div>
+                <div class="entry-field">
+                  <span class="field-label">Recipients</span>
+                  <span class="field-value">{{ getRecipientSummary(item) }}</span>
+                </div>
+              </div>
+
+              <div class="recipient-list">
+                <article
+                  class="recipient-card"
+                  v-for="(mode, userIndex) in item.usersSharedWith"
+                  :key="`${mode.sharedWith}-${mode.created}-${userIndex}`"
                 >
-              </button>
-            </div>
-
-            <!-- The Users Resource is shared with -->
-            <div class="shared-with" v-if="showItemIndex === index">
-              <span class="users-title">Shared with Users: <br /></span>
-              <!-- List of all Users -->
-              <div class="user-list">
-                <li
-                  class="shared-with-item"
-                  v-for="(mode, i) in item.usersSharedWith"
-                  :key="i"
-                >
-                  <!-- The user that shared the resource -->
-                  <div class="specific-access">
-                    <button
-                      @click="toggleUser(i)"
-                      class="user-icon-button full-width"
-                    >
-                      <div class="icon-hash">
-                        <i class="material-icons not-colored left">{{
-                          "person"
-                        }}</i>
-                        <span class="query-hash">{{
-                          mode.sharedWith === "http://xmlns.com/foaf/0.1/Agent"
-                            ? "Public"
-                            : mode.sharedWith
-                        }}</span>
-                      </div>
-                      <i class="material-icons not-colored info-icon">
-                        {{
-                          showUserIndex === i
-                            ? "keyboard_arrow_down info"
-                            : "chevron_right info"
-                        }}</i
-                      >
-                    </button>
-
-                    <!-- The information about this User's access -->
-                    <div
-                      class="expandable-item"
-                      v-if="showUserIndex === i && showItemIndex === index"
-                    >
-                      <!-- Access modes for this user -->
-                      <span class="shared-with-title">Access Modes <br /></span>
-                      <div class="shared-with-item">
-                        <div class="icon-hash">
-                          <i class="material-icons not-colored left">{{
-                            "lock"
-                          }}</i>
-                          <li
-                            class="access-modes-items"
-                            v-for="(ac, ind) in mode.accessModes"
-                            :key="i"
-                          >
-                            <a class="the-user">{{ ac }}</a>
-                          </li>
-                        </div>
-                      </div>
-
-                      <!-- When these access rights were given -->
-                      <span class="shared-with-title">Date: <br /></span>
-                      <div class="shared-with-item">
-                        <div class="icon-hash">
-                          <i class="material-icons not-colored left">{{
-                            "schedule"
-                          }}</i>
-                          <span class="the-user">{{ mode.created }}</span>
-                        </div>
+                  <div class="recipient-header">
+                    <span class="recipient-target" :title="mode.sharedWith">
+                      <i class="material-icons tiny not-colored">person</i>
+                      {{ normalizeTargetLabel(mode.sharedWith) }}
+                    </span>
+                    <span class="recipient-date">
+                      <i class="material-icons tiny not-colored">schedule</i>
+                      {{ formatDate(mode.created) }}
+                    </span>
+                  </div>
+                  <div class="recipient-body">
+                    <div class="entry-field compact">
+                      <span class="field-label">Resource URL</span>
+                      <span class="field-value mono" :title="mode.resourceUrl">
+                        {{ mode.resourceUrl || "N/A" }}
+                      </span>
+                    </div>
+                    <div class="entry-field compact">
+                      <span class="field-label">Target URL</span>
+                      <span class="field-value mono" :title="mode.sharedWith">
+                        {{ mode.sharedWith || "N/A" }}
+                      </span>
+                    </div>
+                    <div class="mode-row">
+                      <span class="field-label">Access modes</span>
+                      <div class="mode-chips">
+                        <span
+                          v-for="(ac, acIndex) in normalizeModeList(mode.accessModes)"
+                          :key="`${mode.sharedWith}-mode-${acIndex}`"
+                          class="mode-chip"
+                          :title="ac"
+                          >{{ formatMode(ac) }}</span
+                        >
                       </div>
                     </div>
                   </div>
-                </li>
+                </article>
               </div>
             </div>
-          </div>
+          </article>
         </li>
-      </div>
+      </ul>
     </div>
   </div>
 </template>
 
 <script lang="ts">
 import { toRaw } from "vue";
-import {
-  sharedSomething,
-  getSharedWithMe,
-  getSharedWithOthers,
-  SharedWithMeData,
-} from "../privacyEdit";
+import { sharedSomething, getSharedWithMe, getSharedWithOthers } from "../privacyEdit";
 import { getStoredTtl } from "../queryPod";
 
 export default {
@@ -218,23 +211,13 @@ export default {
       sharedItems: [] as sharedSomething[],
       sharedMeItems: [] as sharedSomething[],
       showItemIndex: null as number | null,
-      showUserIndex: null as number | null,
       foundDoc: false as boolean,
-      showRetrievedQuery: false,
-      showRetrievedResults: false,
-      retrievedQuery: null as string | null,
-      retrievedResults: null as string | null,
     };
   },
   methods: {
-    // details about a specific query
-    async toggleItem(index) {
+    // Expand/collapse one shared entry at a time for a compact, readable list.
+    toggleItem(index: number) {
       this.showItemIndex = this.showItemIndex === index ? null : index;
-      await this.loadFileTtl();
-    },
-    // details about a specific user
-    toggleUser(indexTwo) {
-      this.showUserIndex = this.showUserIndex === indexTwo ? null : indexTwo;
     },
     /*
     Checks if the input item url is a container
@@ -242,34 +225,129 @@ export default {
     containerCheck(itemUrl: string) {
       return itemUrl.endsWith("/");
     },
+    // Convert FOAF public-agent values to user-facing labels.
+    normalizeTargetLabel(target: string) {
+      return target === "http://xmlns.com/foaf/0.1/Agent" ? "Public" : target;
+    },
+    // Render compact labels for ACL mode IRIs.
+    formatMode(modeIri: string): string {
+      if (!modeIri || modeIri === "N/A") {
+        return "N/A";
+      }
+      const hashLabel = modeIri.split("#").pop();
+      if (hashLabel && hashLabel !== modeIri) {
+        return hashLabel;
+      }
+      const pathSegments = modeIri.split("/").filter(Boolean);
+      return pathSegments[pathSegments.length - 1] || modeIri;
+    },
+    // Ensure the access-mode field is always explicitly represented in the UI.
+    normalizeModeList(modes: string[] | undefined): string[] {
+      if (!modes || modes.length === 0) {
+        return ["N/A"];
+      }
+      return modes;
+    },
+    // Render compact labels for ActivityStreams/RDF type IRIs.
+    formatKind(kindIri: string): string {
+      if (!kindIri || kindIri === "N/A") {
+        return "N/A";
+      }
+      const hashLabel = kindIri.split("#").pop();
+      if (hashLabel && hashLabel !== kindIri) {
+        return hashLabel;
+      }
+      const pathSegments = kindIri.split("/").filter(Boolean);
+      return pathSegments[pathSegments.length - 1] || kindIri;
+    },
+    // Human-readable timestamp while preserving raw values as tooltip text.
+    formatDate(dateValue: string): string {
+      if (!dateValue || dateValue === "N/A") {
+        return "Unknown";
+      }
+      const parsed = new Date(dateValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return dateValue;
+      }
+      return parsed.toLocaleString();
+    },
+    // SharedWithMe entries derive the resource URL from the first userHash row.
+    getPrimaryResourceUrl(item: sharedSomething): string {
+      return item.usersSharedWith[0]?.resourceUrl || item.resourceHash || "N/A";
+    },
+    // Compute an informative recipient summary for collapsed card subtitles.
+    getRecipientSummary(item: sharedSomething): string {
+      const count = item.usersSharedWith.length;
+      return count === 1 ? "1 recipient" : `${count} recipients`;
+    },
+    // Find the newest created timestamp among all recipients of one resource.
+    getLatestEntryDate(item: sharedSomething): string {
+      const times = item.usersSharedWith
+        .map((entry) => new Date(entry.created).getTime())
+        .filter((value) => !Number.isNaN(value));
+      if (times.length === 0) {
+        return "Unknown";
+      }
+      return new Date(Math.max(...times)).toISOString();
+    },
+    // Keep newest shared entries at the top for both list variants.
+    sortByNewest(items: sharedSomething[]): sharedSomething[] {
+      return [...items].sort((a, b) => {
+        const aTime = new Date(this.getLatestEntryDate(a)).getTime();
+        const bTime = new Date(this.getLatestEntryDate(b)).getTime();
+        return bTime - aTime;
+      });
+    },
     /*
     Fetches the sharedWith data from the user's inbox/
     */
     async loadFileTtl() {
-      this.foundDoc = await getStoredTtl(
-        this.currentPod + "inbox/" + this.currentOperation + ".ttl"
-      );
-      if (this.foundDoc) {
-        if (this.currentOperation === "sharedWithOthers") {
-          try {
-            const sharedItemsThings = await getSharedWithOthers(
-              this.currentPod,
-              this.currentWebId
-            );
-            this.sharedItems = await toRaw(sharedItemsThings);
-          } catch (err) {
-            console.error("Error fetching shared items:", err);
-          }
-        }
+      this.showItemIndex = null;
+      this.sharedItems = [];
+      this.sharedMeItems = [];
+
+      // Guard against transient empty props during mount/route transitions.
+      if (!this.currentPod || !this.currentOperation) {
+        return;
       }
-      if (this.currentOperation === "sharedWithMe") {
+
+      // Normalize pod root so path joins remain valid even when the selected
+      // pod URL is missing a trailing slash.
+      const podRoot = this.currentPod.endsWith("/")
+        ? this.currentPod
+        : `${this.currentPod}/`;
+      const ttlUrl = `${podRoot}inbox/${this.currentOperation}.ttl`;
+
+      // Keep this probe as a hint for diagnostics, but do not block direct
+      // shared-data loading when it fails.
+      this.foundDoc = await getStoredTtl(ttlUrl);
+
+      if (this.currentOperation === "sharedWithOthers") {
         try {
-          const sharedItemsThings = await getSharedWithMe(this.currentPod);
-          this.sharedMeItems = sharedItemsThings.sharedItems;
+          const sharedItemsThings = await getSharedWithOthers(podRoot, this.currentWebId);
+          this.sharedItems = this.sortByNewest(toRaw(sharedItemsThings));
         } catch (err) {
-          console.error("Error fetching shared items:", err);
+          console.error("Error fetching shared-with-others items:", err);
+        }
+      } else if (this.currentOperation === "sharedWithMe") {
+        try {
+          const sharedItemsThings = await getSharedWithMe(podRoot);
+          this.sharedMeItems = this.sortByNewest(sharedItemsThings.sharedItems);
+        } catch (err) {
+          console.error("Error fetching shared-with-me items:", err);
         }
       }
+    },
+  },
+  watch: {
+    currentOperation() {
+      this.loadFileTtl();
+    },
+    currentPod() {
+      this.loadFileTtl();
+    },
+    currentWebId() {
+      this.loadFileTtl();
     },
   },
   mounted() {
@@ -279,187 +357,212 @@ export default {
 </script>
 
 <style scoped>
-/* sharedWithMe and sharedWithOthers Display */
 .shared-container {
   width: 100%;
   font-family: "Oxanium", monospace;
-  padding: 0.5rem;
+  padding: 0.15rem 0.1rem;
 }
-.shared-container li {
-  list-style: none;
-  padding: 0;
+.shared-section {
+  width: 100%;
 }
 .shared-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--text-secondary);
-  margin-bottom: 20px;
+  display: block;
+  margin: 0 0 0.55rem;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
 }
-
 .no-items {
-  font-family: "Oxanium", monospace;
-  padding: 1rem 0.5rem;
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, var(--primary) 30%);
+  border-radius: 12px;
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+}
+.no-items p {
+  margin: 0;
 }
 
-/* Query List Items */
-ul {
+.shared-list {
   list-style: none;
+  margin: 0;
   padding: 0;
+  display: grid;
+  gap: 0.58rem;
 }
-/* Query Card */
-.folder {
-  display: flex;
-  flex-direction: column;
+.shared-entry {
+  border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 94%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+.shared-entry:hover {
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--hover) 86%, var(--panel-elev) 14%);
+}
+.shared-entry.expanded {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+}
+
+.entry-toggle {
   width: 100%;
-  background-color: var(--panel-elev);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  margin: 10px 0;
-  transition: all 0.3s ease-in-out;
-}
-.folder:hover {
-  background-color: var(--hover);
-  cursor: pointer;
-}
-/* Folder Header */
-.folder-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: large;
-  font-family: "Oxanium", monospace;
-}
-/* Icon Button */
-.icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%; /* Make button cover full width */
-  padding: 12px 16px; /* Add padding for better click area */
-  background: transparent;
   border: none;
-  cursor: pointer;
-  text-align: left;
-  font-family: "Oxanium", monospace;
-  font-size: large;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: background 0.3s ease-in-out;
-}
-.user-icon-button {
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%; /* Make button cover full width */
-  padding: 0.5rem 0.7rem; /* Add padding for better click area */
-  background: transparent;
-  border: none;
+  gap: 0.7rem;
+  padding: 0.62rem 0.78rem;
   cursor: pointer;
-  text-align: left;
   font-family: "Oxanium", monospace;
-  font-size: large;
-  font-weight: 600;
   color: var(--text-secondary);
-  transition: background 0.3s ease-in-out;
 }
-/* Ensure full-width coverage */
-.full-width {
-  width: 100%;
-  height: 100%;
-  display: flex;
-}
-/* Icon & Query Text Layout */
-.icon-hash {
-  display: flex;
+.entry-main {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
 }
-/* Ensures icons align correctly */
-.material-icons {
-  font-size: 24px;
+.entry-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
 }
-/* Ensures the info icon is at the right */
+.entry-title {
+  display: block;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry-subtitle {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+  line-height: 1.35;
+}
 .info-icon {
-  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
 }
-/* Query Title */
-.query-title {
-  flex-grow: 1;
-  text-align: left;
-  padding-left: 10px;
+
+.entry-details {
+  border-top: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+  padding: 0.68rem 0.78rem 0.76rem;
+  display: grid;
+  gap: 0.64rem;
+}
+.entry-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.52rem;
+}
+.entry-field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.entry-field.compact {
+  gap: 0.14rem;
+}
+.field-label {
+  font-size: var(--font-size-section-kicker);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.field-value {
+  font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
-.card-panel .not-colored {
-  color: var(--text-secondary);
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-/* Item Details (Hidden by Default) */
-.specific-access {
+
+.mode-row {
+  display: grid;
+  gap: 0.28rem;
+}
+.mode-chips {
   display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  padding: 0.8rem;
-  margin: 1rem 0;
-  border-radius: 5px;
-  color: var(--text-secondary);
+  flex-wrap: wrap;
+  gap: 0.32rem;
 }
-/* Users Details Spacing */
-.specific-access div {
-  padding: 8px;
-}
-.specific-access div:last-child {
-  border-bottom: none;
-}
-.access-modes-items {
-  margin-left: 0;
-}
-/* Query Labels */
-.user-tag {
-  font-weight: bold;
-  color: var(--text-secondary);
-}
-/* File Data */
-.the-user {
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
   color: var(--yasqe-keyword);
-  font-weight: 600;
-  font-style: italic;
+  padding: 0.14rem 0.46rem;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
-.shared-with-item {
-  margin: 0 0 0.3rem 0;
+
+.recipient-list {
+  display: grid;
+  gap: 0.5rem;
 }
-.expandable-item {
-  margin: 0;
+.recipient-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+  padding: 0.54rem 0.62rem;
+  display: grid;
+  gap: 0.5rem;
 }
-.shared-with {
-  margin-top: 0.5rem;
+.recipient-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.6rem;
 }
-.user-list {
-  margin: 0;
+.recipient-target,
+.recipient-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+  font-size: var(--font-size-page-summary);
 }
-/* Query Sources */
-.shared-with ul {
-  padding-left: 20px;
+.recipient-target {
+  color: var(--text-primary);
+  font-weight: 700;
 }
-.shared-with-title {
-  font-weight: bold;
-  font-size: 12pt;
+.recipient-date {
+  color: var(--text-muted);
 }
-.users-title {
-  font-weight: bold;
-  font-size: 12pt;
-  margin-top: 1rem;
+.recipient-body {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.material-icons.not-colored {
   color: var(--text-secondary);
 }
-.shared-with a {
-  color: var(--accent-700);
-  text-decoration: none;
+.material-icons.tiny {
+  font-size: 1rem;
 }
-.shared-with a:hover {
-  text-decoration: underline;
+
+@media (max-width: 860px) {
+  .entry-toggle {
+    padding: 0.58rem 0.7rem;
+  }
+  .entry-details {
+    padding: 0.6rem 0.7rem 0.68rem;
+  }
+  .entry-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 </style>

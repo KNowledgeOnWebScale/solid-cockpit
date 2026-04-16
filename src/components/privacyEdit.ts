@@ -892,6 +892,47 @@ export interface SharedWithMeData {
   lastAccessed: string;
   sharedItems: sharedSomething[];
 }
+
+/**
+ * Extracts unread share notifications by comparing item creation timestamps
+ * against the `lastAccessed` marker in `sharedWithMe.ttl`.
+ *
+ * A missing/invalid `lastAccessed` value is treated as "show all entries".
+ */
+export function getUnreadSharedWithMeNotifications(
+  sharedData: SharedWithMeData
+): sharedSomething[] {
+  const lastAccessedDate = new Date(sharedData.lastAccessed);
+  const hasValidLastAccess = !Number.isNaN(lastAccessedDate.getTime());
+
+  return sharedData.sharedItems.filter((item) => {
+    const createdValue = item.usersSharedWith?.[0]?.created;
+    if (!createdValue) {
+      return false;
+    }
+
+    const createdDate = new Date(createdValue);
+    if (Number.isNaN(createdDate.getTime())) {
+      return false;
+    }
+
+    return hasValidLastAccess ? createdDate > lastAccessedDate : true;
+  });
+}
+
+/**
+ * Sorts shared-notification entries by newest first using their first
+ * associated `created` timestamp.
+ */
+export function sortSharedNotificationsByNewest(
+  sharedItems: sharedSomething[]
+): sharedSomething[] {
+  return [...sharedItems].sort((a, b) => {
+    const aCreated = new Date(a.usersSharedWith?.[0]?.created ?? 0).getTime();
+    const bCreated = new Date(b.usersSharedWith?.[0]?.created ?? 0).getTime();
+    return bCreated - aCreated;
+  });
+}
 /**
  * Retrieves all shared data entries from a sharedWithMe.ttl file.
  *

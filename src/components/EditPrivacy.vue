@@ -1,9 +1,4 @@
 <template>
-  <!-- Materialize CSS -->
-  <link
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    rel="stylesheet"
-  />
 
   <!-- Title bar -->
   <div class="content-container" :key="renderKey">
@@ -11,7 +6,7 @@
       <!-- Page header now matches the modern card styling used elsewhere in the app. -->
       <div class="privacy-header-shell">
         <div class="privacy-header-copy">
-          <span>Privacy Editing</span>
+          <span class="privacy-page-title">Privacy Editing</span>
           <p class="page-summary">
             Review access controls in your pod, inspect shared items, and manage
             sharing permissions from one workspace.
@@ -39,24 +34,20 @@
             <!-- Notifications stay attached to the header action area. -->
             <div v-if="showNotifications" class="notifications-dropdown">
               <div class="notifications-content">
-                <div class="notifications-header-container">
-                  <ul class="notifications-header">
-                    <div class="notifications-header-text">
-                      <li>
-                        <span class="notification-title">Notifications:</span>
-                      </li>
-                      <li>
-                        <span class="notification-hint"
-                          >(See "Shared with me" for more details)</span
-                        >
-                      </li>
-                    </div>
-                    <li v-if="notifications.length != 0">
-                      <button class="mark-read" @click="markNotificationsRead">
-                        Mark Read
-                      </button>
-                    </li>
-                  </ul>
+                <div class="notifications-header-row">
+                  <div class="notifications-header-text">
+                    <p class="notification-title">Notifications</p>
+                    <p class="notification-hint">
+                      See "Shared with me" for more details
+                    </p>
+                  </div>
+                  <button
+                    v-if="notifications.length !== 0"
+                    class="mark-read"
+                    @click="markNotificationsRead"
+                  >
+                    Mark read
+                  </button>
                 </div>
 
                 <div class="no-notifications" v-if="notifications.length === 0">
@@ -66,10 +57,10 @@
                   <li
                     v-for="(item, index) in notifications"
                     :key="index"
-                    class="card-panel folder compact"
+                    class="notification-card"
                   >
-                    <div class="row header">
-                      <i class="material-icons left not-colored">
+                    <div class="notification-card-header">
+                      <i class="material-icons not-colored notification-type-icon">
                         {{
                           containerCheck(item.usersSharedWith[0].resourceUrl)
                             ? "folder"
@@ -87,34 +78,35 @@
                         :key="i"
                         class="user-row"
                       >
-                        <span class="cell user">
-                          <i class="material-icons tiny not-colored">person</i>
-                          <span class="truncate">
-                            {{
-                              item.owner === "http://xmlns.com/foaf/0.1/Agent"
-                                ? "Public"
-                                : item.owner
-                            }}
+                        <div class="cell-row">
+                          <span class="cell user">
+                            <i class="material-icons tiny not-colored">person</i>
+                            <span class="truncate">
+                              {{
+                                item.owner === "http://xmlns.com/foaf/0.1/Agent"
+                                  ? "Public"
+                                  : item.owner
+                              }}
+                            </span>
                           </span>
-                        </span>
+                          <span class="cell date">
+                            <i class="material-icons tiny not-colored">schedule</i>
+                            <time :datetime="mode.created">{{
+                              formatDate(mode.created)
+                            }}</time>
+                          </span>
+                        </div>
 
                         <span class="cell modes">
                           <i class="material-icons tiny not-colored">lock</i>
-                          <span class="chips">
+                          <span class="notification-mode-chips">
                             <span
                               v-for="(ac, ind) in mode.accessModes"
                               :key="ind"
-                              class="chip"
+                              class="notification-mode-chip"
                               >{{ ac.split("#")[1] }}</span
                             >
                           </span>
-                        </span>
-
-                        <span class="cell date">
-                          <i class="material-icons tiny not-colored">schedule</i>
-                          <time :datetime="mode.created">{{
-                            formatDate(mode.created)
-                          }}</time>
                         </span>
                       </li>
                     </ul>
@@ -135,41 +127,38 @@
     <!-- the side nav -->
     <div class="body-container" v-if="selectedPodUrl !== ''">
       <aside class="privacy-nav-card">
-        <ul class="side-nav privacy-side-nav">
+        <ul class="privacy-side-nav" role="list">
           <li>
             <button
               :class="{ highlight: navValue === 0 }"
               @click="toggleNavValue(0)"
             >
-              <a class="nav-text"
-                ><i class="material-icons">dashboard</i>My Pod</a
+              <span class="nav-text"
+                ><i class="material-icons">dashboard</i>My Pod</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
           <li>
             <button
               :class="{ highlight: navValue === 1 }"
               @click="toggleNavValue(1)"
             >
-              <a class="nav-text"
-                ><i class="material-icons">people</i>Shared with me</a
+              <span class="nav-text"
+                ><i class="material-icons">people</i>Shared with me</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
           <li>
             <button
               :class="{ highlight: navValue === 2 }"
               @click="toggleNavValue(2)"
               class="nav-button"
             >
-              <a class="nav-text"
-                ><i class="material-icons">star</i>Shared with others</a
+              <span class="nav-text"
+                ><i class="material-icons">star</i>Shared with others</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
         </ul>
       </aside>
 
@@ -227,7 +216,11 @@
                 <div class="spinner"></div>
                 <span class="loading-text">Loading access rights...</span>
               </div>
-              <div v-else class="card-panel folder">
+              <div
+                v-else
+                class="card-panel folder"
+                :class="{ 'is-expanded': showSharedIndex === index }"
+              >
                 <div class="folder-header">
                   <button
                     @click="toggleShared(index), getSpecificAclData(url, index)"
@@ -334,7 +327,10 @@
 
                     <!-- Show add access form -->
                     <div id="addAccess">
-                      <button @click="toggleForm(index)" class="icon-button">
+                      <button
+                        @click="toggleForm(index)"
+                        class="icon-button add-access-toggle"
+                      >
                         <span>Add access rights </span>
                         <i
                           v-if="showFormIndex === null"
@@ -363,13 +359,13 @@
                       v-if="showFormIndex === index"
                       class="form-container"
                     >
-                      <form @submit.prevent="submitForm(url)">
-                        <div class="check-boxes" id="checkBoxes">
+                      <form @submit.prevent="submitForm(url)" class="access-form-shell">
+                        <div class="check-boxes access-mode-grid" id="checkBoxes">
                           <!-- Designate access to give -->
                           <span id="permissionsInstructions"
                             >Select access rights:</span
                           >
-                          <label>
+                          <label class="access-mode-option">
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
                             <v-tooltip
@@ -379,7 +375,7 @@
                               >Observe existing content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.append"
@@ -392,7 +388,7 @@
                               >Add to to existing content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.write"
@@ -405,7 +401,7 @@
                               >Change existing content + create new content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.control"
@@ -460,13 +456,17 @@
                               type="text"
                               v-model="userUrl"
                               placeholder="Enter user's WebID:"
-                              class="border p-2 w-full"
+                              class="webid-input border p-2 w-full"
                             />
                           </div>
                         </div>
                         <!-- Provide added user's WebID -->
                         <div id="submitButton">
-                          <button @click="clearPermissionString" type="submit">
+                          <button
+                            @click="clearPermissionString"
+                            type="submit"
+                            class="primary-action-button"
+                          >
                             Submit
                           </button>
                         </div>
@@ -550,7 +550,9 @@
 
                           <!-- Button to reset form -->
                           <div id="resetButton">
-                            <button @click="clearForm">Reset Form</button>
+                            <button @click="clearForm" class="secondary-action-button">
+                              Reset Form
+                            </button>
                           </div>
                         </div>
                       </form>
@@ -635,6 +637,8 @@ import {
   saveNewAccessTime,
   getEnabledAccessModeIris,
   getRevokedAccessModeIris,
+  getUnreadSharedWithMeNotifications,
+  sortSharedNotificationsByNewest,
 } from "./privacyEdit";
 import {
   fetchPermissionsData,
@@ -1149,21 +1153,15 @@ export default {
       // When there is an error obtaining sharedWithMe data
       if (sharedData === null) {
         this.notifications = [];
+        this.hasNotifications = false;
         return;
       }
 
-      // Filter items created after the last accessed date
-      const lastAccessedDate = new Date(sharedData.lastAccessed);
-      this.notifications = sharedData.sharedItems.filter((item) => {
-        const createdDate = new Date(item.usersSharedWith[0].created);
-        return createdDate > lastAccessedDate;
-      });
-
-      if (this.notifications.length > 0) {
-        this.hasNotifications = true;
-      } else {
-        this.hasNotifications = false;
-      }
+      // Shared helpers keep unread sorting/filtering aligned with TheHeader.
+      this.notifications = sortSharedNotificationsByNewest(
+        getUnreadSharedWithMeNotifications(sharedData)
+      );
+      this.hasNotifications = this.notifications.length > 0;
     },
 
     // Records the current date and time as the last access time
@@ -1190,6 +1188,27 @@ export default {
     updateRenderKey() {
       this.renderKey += 1;
     },
+    /**
+     * Maps optional route query hints into the privacy page UI state.
+     *
+     * Supported query keys:
+     * - view=sharedWithMe|sharedWithOthers|myPod
+     * - notifications=open
+     */
+    applyRouteDisplayState() {
+      const routeQuery = this.$route?.query ?? {};
+      const queryView = routeQuery.view;
+      if (queryView === "sharedWithMe") {
+        this.toggleNavValue(1);
+      } else if (queryView === "sharedWithOthers") {
+        this.toggleNavValue(2);
+      } else if (queryView === "myPod") {
+        this.toggleNavValue(0);
+      }
+
+      const notificationsMode = routeQuery.notifications;
+      this.showNotifications = notificationsMode === "open";
+    },
     toggleNotifications() {
       this.showNotifications = !this.showNotifications;
     },
@@ -1205,6 +1224,7 @@ export default {
   },
   mounted() {
     try {
+      this.applyRouteDisplayState();
       if (this.selectedPodUrl != "") {
         this.currentLocation = this.selectedPodUrl;
         this.getGeneralData();
@@ -1223,6 +1243,12 @@ export default {
         this.compareDates();
         this.updateRenderKey();
       }
+    },
+    "$route.query": {
+      handler() {
+        this.applyRouteDisplayState();
+      },
+      deep: true,
     },
   },
 };
@@ -1250,9 +1276,6 @@ button:focus {
   resize: vertical;
   overflow: auto;
 }
-.side-nav {
-  flex: 1 1 auto;
-}
 .pod-directories {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1278,7 +1301,7 @@ button:focus {
   background-color: transparent;
   margin: 0;
 }
-.title-container span {
+.privacy-page-title {
   font-size: 30pt;
   font-family: "Oxanium", monospace;
   font-weight: 500;
@@ -1411,56 +1434,6 @@ button:focus {
   min-width: 150px;
   margin-top: 5px;
   font-family: "Oxanium", monospace;
-}
-
-/* sidenav */
-.side-nav.floating {
-  margin-top: 0;
-  padding-top: 2px;
-  border-radius: 2px;
-  box-shadow: 0 1px 8px VAR(--v-shadow-2);
-}
-.side-nav .divider {
-  margin: 2px 0;
-}
-.side-nav li a i.material-icons {
-  height: 1.5rem;
-  line-height: 2rem;
-  margin: 0 1.5rem 0.5rem 0;
-}
-.side-nav .nav-button {
-  display: flex;
-  align-items: center;
-}
-.side-nav .nav-text {
-  display: flex;
-  align-items: center;
-  font-size: 14pt;
-  font-weight: 700;
-  align-items: center;
-  padding: 10px 20px 10px 5px;
-}
-.side-nav li button {
-  display: flex;
-  font-family: "Oxanium", monospace;
-  align-content: center;
-  padding: 5px;
-  width: 100%;
-  text-decoration: none;
-  color: var(--text-secondary);
-}
-.side-nav li button.highlight {
-  background-color: VAR(--primary) !important;
-  color: var(--main-white);
-  border-radius: 6px;
-}
-.side-nav li button:hover {
-  background-color: var(--text-muted);
-  color: var(--main-white);
-  width: 100%;
-}
-.side-nav li a {
-  all: unset;
 }
 
 /* folders */
@@ -1609,38 +1582,62 @@ button:focus {
   color: var(--yasqe-string-2);
 }
 
-#sharebox {
-  display: flex;
-}
-label {
-  margin-left: 20px;
-  font-family: "Oxanium", monospace;
-}
 #checkBoxes {
-  margin-bottom: 10px;
+  margin-bottom: 0.3rem;
 }
-#checkBoxes span {
+.access-form-shell {
+  display: grid;
+  gap: 0.78rem;
+}
+.access-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+.access-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  font-family: "Oxanium", monospace;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.access-mode-option:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+.access-mode-option span {
   color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
 }
-input[type="checkbox"] {
+.access-mode-option input[type="checkbox"] {
   appearance: none; /* Hide default checkbox */
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--border); /* Default border */
   border-radius: 3px;
   background-color: transparent;
   position: relative;
   cursor: pointer;
   outline: none;
+  flex: 0 0 auto;
 }
-input[type="checkbox"]:checked {
+.access-mode-option input[type="checkbox"]:checked {
   background-color: var(--success); /* Green color when checked */
   border-color: var(--success); /* Match the border */
 }
-input[type="checkbox"]:checked::before {
+.access-mode-option input[type="checkbox"]:checked::before {
   content: "✔";
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: bold;
   position: absolute;
   left: 50%;
@@ -1650,67 +1647,95 @@ input[type="checkbox"]:checked::before {
 .icon-button span {
   color: var(--text-secondary);
 }
+.add-access-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin-top: 0.15rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  background: color-mix(in srgb, var(--panel) 94%, var(--panel-elev) 6%);
+  font-weight: 600;
+  font-size: var(--font-size-page-summary);
+}
 /* Access rights Agent + Public buttons */
 .access-choose {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 0.5rem;
   width: 100%;
-  margin: 1rem 0;
+  margin: 0.2rem 0;
 }
 .access-choose button {
-  width: 100%;
-  border-radius: 5px;
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  background: color-mix(in srgb, var(--panel-elev) 95%, var(--panel) 5%);
+  min-height: 2.15rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 .access-choose button.highlight {
-  background-color: VAR(--primary) !important;
+  background-color: var(--primary) !important;
   color: var(--main-white);
-  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
 }
 
-form input[type="text"] {
-  padding: 3px;
-  margin-bottom: 5px;
-  border: 1px solid var(--text-secondary) !important;
-  border-radius: 4px;
-  font-family: "Courier New", Courier, monospace;
-  font-size: large;
+.mt-2 input {
+  width: 100%;
+}
+.webid-input {
+  margin-top: 0.35rem;
+  min-height: 2.3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--primary) 24%) !important;
+  border-radius: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
   max-width: 100%;
   color: var(--text-secondary);
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
   box-shadow: none !important;
 }
-form input::placeholder {
-  padding-left: 0.5rem;
-  color: var(--text-muted); /* Slight transparency */
+.webid-input::placeholder {
+  color: var(--text-muted);
 }
 .agent-button,
 .public-button {
-  padding: 10px;
-  margin-top: 5px;
-  background-color: var(--border);
-  color: var(--text-secondary);
-  border: none;
+  padding: 0.55rem 0.65rem;
+  margin-top: 0;
   cursor: pointer;
-  font-size: large;
 }
-#submitButton button {
+.primary-action-button {
   font-family: "Oxanium", monospace;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 10px;
   margin-top: 0.25rem;
-  padding: 0.75rem;
+  padding: 0.62rem 0.78rem;
+  border: 1px solid transparent;
   background-color: var(--primary);
   color: var(--main-white);
 }
-form button:hover {
-  background-color: var(--hover);
+.primary-action-button:hover {
+  background: color-mix(in srgb, var(--primary) 84%, var(--primary-700) 16%);
 }
-#submitButton button:hover {
-  background-color: var(--text-muted);
-}
-label span {
+.secondary-action-button {
   font-family: "Oxanium", monospace;
-  font-size: 14px;
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  background-color: color-mix(in srgb, var(--panel-elev) 92%, var(--panel) 8%);
   color: var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  padding: 0.55rem 0.72rem;
+  border-radius: 10px;
+  margin-top: 0.22rem;
+}
+.secondary-action-button:hover {
+  background: color-mix(in srgb, var(--primary) 9%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 #errorIndicator {
   margin-top: 10px;
@@ -1739,24 +1764,6 @@ label span {
   border-radius: 6px;
 }
 .new-acl:hover {
-  background-color: var(--hover);
-}
-
-/* Shared with displays */
-.shared-with {
-  width: 80%;
-}
-
-#resetButton button {
-  font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  background-color: var(--muted);
-  color: var(--text-secondary);
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-top: 0.25rem;
-}
-#resetButton button:hover {
   background-color: var(--hover);
 }
 
@@ -1812,185 +1819,174 @@ label span {
 }
 .notifications-dropdown {
   position: absolute;
-  top: 4rem;
-  right: 20px;
-  border-radius: 1rem;
+  top: calc(100% + 0.55rem);
+  right: 0;
   z-index: 1000;
-  background-color: var(--panel-elev);
+  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
   border: 1px solid var(--border);
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 40%;
-  min-width: fit-content;
+  box-shadow: var(--shadow-2);
+  border-radius: 18px;
+  width: min(42rem, 88vw);
+  max-width: min(42rem, 88vw);
+  padding: 0.75rem;
   line-height: normal;
 }
-.notifications-dropdown span {
-  font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  color: var(--text-secondary);
-}
-.notifications-dropdown ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.notifications-dropdown li {
-  padding: 0.5rem;
-  transition: background 0.3s;
-}
 .notifications-content {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
-  max-width: 100%;
-  margin: 0 0 0 0.5rem;
-  justify-content: flex-start;
-}
-.notifications-content li {
-  padding: 0;
-}
-.notifications-header-container {
+  display: grid;
+  gap: 0.65rem;
   width: 100%;
 }
-.notifications-header {
+.notifications-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  width: 100%;
+  gap: 0.65rem;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem !important;
+  padding-bottom: 0.5rem;
 }
 .notifications-header-text {
   display: flex;
   flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  font-family: "Oxanium", monospace;
 }
 .mark-read {
-  font-size: 14pt;
-  font-family: "oxanium", monospace;
-  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: "Oxanium", monospace;
+  border-radius: 10px;
+  border: 1px solid transparent;
   color: var(--main-white);
   cursor: pointer;
   background-color: var(--primary);
-  padding: 0.4rem 0.5rem;
+  padding: 0.42rem 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .mark-read:hover {
-  color: var(--main-white);
-  background-color: var(--hover);
+  background: color-mix(in srgb, var(--primary) 78%, var(--primary-700) 22%);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
 }
 .notification-title {
-  font-size: 20pt !important;
-  font-weight: 600;
+  margin: 0;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
 }
 .notification-hint {
-  font-size: 10pt !important;
+  margin: 0;
+  font-size: var(--font-size-section-kicker);
   color: var(--text-secondary);
 }
 .no-notifications {
-  margin: 0.5rem 0;
+  margin: 0.2rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  border-radius: 12px;
   font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  color: var(--text-secondary);
+  font-size: 0.92rem;
+  color: var(--text-muted);
 }
 
-/* Ensure user rows are displayed in a vertical list */
-.user-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem; /* Add spacing between items */
-}
-.share-list,
-.user-rows {
-  font-size: 10pt;
+.share-list {
+  display: grid;
+  gap: 0.55rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-
-.folder.compact {
-  margin: 0.5rem 0 0 0;
-  border-radius: 8px;
-  width: 100%;
+.notification-card {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 88%, transparent);
+  padding: 0.7rem 0.78rem;
+  display: grid;
+  gap: 0.55rem;
 }
-.row.header {
+.notification-card-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin: 0 0 0 0.5rem;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.notification-type-icon {
+  font-size: 1.3rem;
+  flex: 0 0 auto;
 }
 .mono {
   font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
 }
-.spacer {
-  flex: 1;
-}
-.meta {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-}
-.count {
-  font-weight: 600;
-}
 .user-rows {
-  margin: 0 0 0 0.5rem;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .user-row {
-  align-items: flex-start;
+  display: grid;
+  gap: 0.35rem;
+}
+.cell-row {
   display: flex;
-  flex-direction: column;
-  border-radius: 6px;
-  margin: 0 0 0 1rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.45rem 0.8rem;
 }
 .cell {
   display: inline-flex;
   align-items: center;
-  gap: 1rem;
-  min-width: 0; /* enable truncate */
-  font-size: 13px;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
 }
 .user .truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: min(25rem, 62vw);
 }
-.chips {
+.date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.notification-mode-chips {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  border: none;
+  gap: 0.3rem;
   margin: 0;
 }
-.chip {
+.notification-mode-chip {
   display: inline-flex;
   align-items: center;
+  padding: 0.16rem 0.45rem;
   border-radius: 999px;
   border: 1px solid
     color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
   background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: 700;
+  font-size: 0.76rem;
   margin: 0;
   color: var(--yasqe-keyword);
 }
 .material-icons.tiny {
-  font-size: 20px;
-}
-.left {
-  vertical-align: middle;
+  font-size: 1rem;
 }
 .not-colored {
   color: var(--text-secondary);
 }
 .resource-hash {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 0.95rem;
   color: var(--text-primary);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Modern page shell overrides align Privacy Editing with the newer workspace pages. */
@@ -2024,7 +2020,7 @@ label span {
   gap: 0.55rem;
   min-width: 0;
 }
-.title-container span {
+.privacy-page-title {
   display: block;
   font-size: var(--font-size-page-title);
   line-height: var(--line-height-page-title);
@@ -2116,6 +2112,8 @@ label span {
   padding: 0.7rem;
 }
 .privacy-side-nav {
+  display: grid;
+  gap: 0.48rem;
   position: static;
   width: auto;
   height: auto;
@@ -2123,17 +2121,35 @@ label span {
   overflow: visible;
   margin: 0;
   padding: 0;
+  list-style: none;
   background: transparent;
   box-shadow: none;
   border: none;
 }
+.privacy-side-nav ul,
+.privacy-side-nav li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .privacy-side-nav li button {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
   padding: 0.7rem 0.8rem;
   border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 .privacy-side-nav .nav-text {
   display: inline-flex;
@@ -2143,13 +2159,12 @@ label span {
   font-size: 0.98rem;
   font-weight: 700;
 }
-.privacy-side-nav .divider {
-  margin: 0.35rem 0;
-  border-bottom-color: color-mix(in srgb, var(--primary) 10%, var(--border));
-}
 .privacy-side-nav li button.highlight {
   background: linear-gradient(135deg, var(--primary), var(--primary-600)) !important;
   color: var(--main-white);
+}
+.privacy-side-nav li button.highlight .material-icons {
+  color: inherit;
 }
 .privacy-side-nav li button:hover {
   background: color-mix(in srgb, var(--primary) 12%, var(--panel));
@@ -2347,12 +2362,19 @@ label span {
   transition: all 0.25s ease;
 }
 .privacy-items-list .folder:hover {
-  background: color-mix(in srgb, var(--hover) 84%, var(--panel-elev) 16%);
-  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: color-mix(in srgb, var(--hover) 70%, var(--panel-elev) 30%);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+}
+.privacy-items-list .folder.is-expanded:hover {
+  background: color-mix(in srgb, var(--panel-elev) 96%, var(--primary) 4%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
 }
 .privacy-items-list .full-width:hover {
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
   border-radius: 8px;
+}
+.privacy-items-list .folder.is-expanded .full-width:hover {
+  background: transparent;
 }
 .privacy-items-list .full-width {
   padding: 0.62rem 0.78rem;
@@ -2400,6 +2422,17 @@ label span {
   padding: 0.9rem 0.95rem 0.1rem;
   border-top: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border));
 }
+#addAccess {
+  margin-top: 0.55rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+}
+#shareBox {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-elev) 95%, transparent);
+  padding-bottom: 0.55rem;
+}
 
 .shared-with :deep(.container) {
   margin: 0;
@@ -2430,9 +2463,7 @@ label span {
 .path-origin-value,
 .items-count,
 .privacy-items-list .resource-hash,
-.loading-text,
-.notifications-dropdown span,
-.mark-read {
+.loading-text {
   font-size: var(--font-size-page-summary);
 }
 .notification-title {
@@ -2447,11 +2478,9 @@ label span {
 .privacy-items-list .folder:hover,
 .privacy-items-list .full-width:hover,
 .notification-button:hover,
-.mark-read:hover,
 .new-acl:hover,
-#resetButton button:hover,
-#submitButton button:hover,
-form button:hover {
+#resetButton .secondary-action-button:hover,
+.add-access-toggle:hover {
   background: var(--privacy-hover-surface) !important;
   border-color: var(--privacy-hover-border) !important;
 }
@@ -2503,7 +2532,7 @@ form button:hover {
   .title-container {
     padding: 1rem;
   }
-  .title-container span {
+  .privacy-page-title {
     font-size: var(--font-size-page-title-mobile);
   }
   .privacy-main-panel {
