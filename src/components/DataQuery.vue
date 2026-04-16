@@ -171,10 +171,18 @@
                   v-model="selectedExample"
                   @update:modelValue="onSelectExample"
                   density="compact"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-lightbulb-on-outline"
+                  menu-icon="mdi-chevron-down"
                   rounded
-                  flat
                   label="Sample Queries"
+                  return-object
                 ></v-select>
+                <div v-if="selectedExampleInfo" class="sample-query-meta">
+                  <span class="sample-query-category">{{
+                    selectedExampleInfo.category
+                  }}</span>
+                </div>
               </div>
             </div>
 
@@ -329,6 +337,20 @@
 
               <div class="sparql-guide">
                 <button
+                  v-show="currentQuery.query !== ''"
+                  class="share-url-button"
+                  @click="copyCurrentQueryUrl"
+                  :disabled="loading || !canShareCurrentQueryUrl"
+                  :title="
+                    canShareCurrentQueryUrl
+                      ? 'Copy URL for this executed query'
+                      : 'Execute this query before sharing its URL'
+                  "
+                >
+                  Copy Query URL
+                </button>
+
+                <button
                   v-show="currentQuery.query != ''"
                   class="clear-button"
                   @click="clearQuery"
@@ -354,6 +376,13 @@
                 </v-tooltip>
               </div>
             </div>
+            <p
+              v-if="queryUrlShareFeedback !== null"
+              class="share-url-feedback"
+              :class="{ success: queryUrlShareSuccess }"
+            >
+              {{ queryUrlShareFeedback }}
+            </p>
           </ul>
         </div>
 
@@ -1030,6 +1059,34 @@ import DataQueryGuide from "./Guides/DataQueryGuide.vue";
 import { toRaw, shallowRef, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth";
 
+type ExampleQueryCategory =
+  | "Single SPARQL endpoint query"
+  | "Federated query"
+  | "Solid query"
+  | "Mixed source federated query";
+
+type ExampleQueryRecord = {
+  name: string;
+  sources: string[];
+  query: string;
+  category: ExampleQueryCategory;
+  description: string;
+};
+
+const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
+  ExampleQueryCategory,
+  string
+> = {
+  "Single SPARQL endpoint query":
+    "Runs against one SPARQL endpoint only. Best for focused lookups in a single knowledge graph.",
+  "Federated query":
+    "Combines multiple endpoint services in one query execution, usually via SERVICE clauses.",
+  "Solid query":
+    "Targets Solid/local RDF resources instead of classic SPARQL endpoints.",
+  "Mixed source federated query":
+    "Combines Solid/local RDF sources with endpoint federation in one execution flow.",
+};
+
 export default {
   components: {
     PodLogin,
@@ -1046,13 +1103,9 @@ export default {
       queryError: null as Error | null,
       successfulLogin: false as boolean,
       currentView: "newQuery" as "newQuery" | "previousQueries",
-      selectedExample: null as any,
+      selectedExample: null as ExampleQueryRecord | null,
       loadExampleQuery: false as boolean,
-      exampleQueries: [] as Array<{
-        name: string;
-        sources: string[];
-        query: string;
-      }>,
+      exampleQueries: [] as ExampleQueryRecord[],
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
         "<https://glyconnect.expasy.org/sparql>",
@@ -1152,6 +1205,12 @@ export default {
         | "name-desc"
         | "sources-asc"
         | "sources-desc",
+      // URL and local draft synchronization keep query editor state recoverable.
+      syncingQueryStateFromUrl: false as boolean,
+      queryStateSyncTimerId: null as number | null,
+      lastExecutedQuerySignature: "" as string,
+      queryUrlShareFeedback: null as string | null,
+      queryUrlShareSuccess: false as boolean,
     };
   },
   computed: {
@@ -1169,6 +1228,30 @@ export default {
     },
     effectiveQueryNavCollapsed() {
       return this.queryNavCollapsed;
+    },
+    /**
+     * Only enables URL sharing after the current query state has been executed.
+     * Any edit to query text/sources/options invalidates this until re-execution.
+     */
+    canShareCurrentQueryUrl() {
+      return (
+        this.currentQuery.query.trim().length > 0 &&
+        this.lastExecutedQuerySignature.length > 0 &&
+        this.lastExecutedQuerySignature === this.getCurrentQuerySignature()
+      );
+    },
+    /**
+     * Exposes category/description metadata for the currently selected sample
+     * query so users can quickly understand what the example demonstrates.
+     */
+    selectedExampleInfo() {
+      if (!this.selectedExample) {
+        return null;
+      }
+
+      return {
+        category: this.selectedExample.category,
+      };
     },
     /**
      * Keeps the suggestion list aligned with the current editor text while
@@ -1285,6 +1368,223 @@ export default {
     updateQueryLayoutMode() {
       if (typeof window === "undefined") return;
       this.isCompactQueryLayout = window.innerWidth <= 1080;
+    },
+    /**
+     * Produces a stable representation of the active query state so the share
+     * action can require a fresh execution whenever the user edits the query.
+     */
+    getCurrentQuerySignature() {
+      return JSON.stringify({
+        query: this.currentQuery.query.trim(),
+        sources: [...this.currentQuery.sources],
+        saveQuery: this.saveQuery,
+        useCustomCachePath: this.useCustomCachePath,
+        customCachePath: this.customCachePath.trim(),
+      });
+    },
+    /**
+     * Keeps query drafts scoped to the active user/pod pairing when available.
+     */
+    getQueryDraftStorageKey() {
+      const webIdScope = this.webId || "anonymous";
+      const podScope = this.selectedPodUrl || "no-pod-selected";
+      return `solid-cockpit:data-query-draft:v1:${webIdScope}:${podScope}`;
+    },
+    saveQueryDraftToStorage() {
+      if (typeof window === "undefined") return;
+
+      const draft = {
+        query: this.currentQuery.query,
+        sources: [...this.currentQuery.sources],
+        saveQuery: this.saveQuery,
+        useCustomCachePath: this.useCustomCachePath,
+        customCachePath: this.customCachePath,
+      };
+      window.localStorage.setItem(
+        this.getQueryDraftStorageKey(),
+        JSON.stringify(draft),
+      );
+    },
+    restoreQueryDraftFromStorage() {
+      if (typeof window === "undefined") return;
+
+      const rawDraft = window.localStorage.getItem(this.getQueryDraftStorageKey());
+      if (!rawDraft) return;
+
+      try {
+        const parsedDraft = JSON.parse(rawDraft) as {
+          query?: string;
+          sources?: string[];
+          saveQuery?: boolean;
+          useCustomCachePath?: boolean;
+          customCachePath?: string;
+        };
+
+        this.syncingQueryStateFromUrl = true;
+        this.currentQuery.query = parsedDraft.query ?? this.currentQuery.query;
+        this.currentQuery.sources = Array.isArray(parsedDraft.sources)
+          ? parsedDraft.sources
+          : this.currentQuery.sources;
+        this.saveQuery = parsedDraft.saveQuery ?? this.saveQuery;
+        this.useCustomCachePath =
+          parsedDraft.useCustomCachePath ?? this.useCustomCachePath;
+        this.customCachePath =
+          parsedDraft.customCachePath ?? this.customCachePath;
+        if (this.useCustomCachePath || this.customCachePath.trim()) {
+          this.showCustomCache = true;
+        }
+      } catch (error) {
+        console.error("Could not restore query draft state:", error);
+      } finally {
+        this.syncingQueryStateFromUrl = false;
+      }
+    },
+    /**
+     * Serializes the active query into the page hash so users can share/open
+     * the exact query state from a URL similar to query.comunica.dev.
+     */
+    buildQueryStateHash() {
+      const params = new URLSearchParams();
+      const queryText = this.currentQuery.query.trim();
+      const normalizedSources = this.currentQuery.sources
+        .map((source) => source.trim())
+        .filter((source) => source.length > 0);
+
+      if (queryText) {
+        params.set("query", queryText);
+      }
+      if (normalizedSources.length > 0) {
+        params.set("transientDatasources", normalizedSources.join(","));
+      }
+      if (this.saveQuery) {
+        params.set("saveQuery", "true");
+      }
+      if (this.useCustomCachePath) {
+        params.set("useCustomCachePath", "true");
+      }
+      if (this.customCachePath.trim()) {
+        params.set("customCachePath", this.customCachePath.trim());
+      }
+
+      return params.toString();
+    },
+    replaceUrlHashWithQueryState() {
+      if (typeof window === "undefined" || this.syncingQueryStateFromUrl) return;
+
+      const hashPayload = this.buildQueryStateHash();
+      const nextHash = hashPayload ? `#${hashPayload}` : "";
+      if (window.location.hash === nextHash) return;
+
+      const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+      window.history.replaceState({}, "", nextUrl);
+    },
+    /**
+     * Reads query state from URL hash and applies it to the editor model.
+     */
+    applyQueryStateFromUrlHash() {
+      if (typeof window === "undefined") return;
+
+      const rawHash = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      if (!rawHash) return;
+
+      const params = new URLSearchParams(rawHash);
+      const queryText = params.get("query");
+      const explicitSources = params.getAll("source");
+      const transientSources = params.get("transientDatasources");
+      const hasSourceParam =
+        explicitSources.length > 0 || params.has("transientDatasources");
+      const parsedSources =
+        explicitSources.length > 0
+          ? explicitSources
+          : transientSources
+            ? transientSources
+                .split(",")
+                .map((source) => source.trim())
+                .filter((source) => source.length > 0)
+            : [];
+
+      this.syncingQueryStateFromUrl = true;
+      try {
+        if (queryText !== null) {
+          this.currentQuery.query = queryText;
+        }
+        if (hasSourceParam) {
+          this.currentQuery.sources = parsedSources;
+        } else if (queryText !== null) {
+          // Query URLs without datasource params intentionally represent
+          // source-less execution and should override any stored draft sources.
+          this.currentQuery.sources = [];
+        }
+
+        const saveQueryFlag = params.get("saveQuery");
+        if (saveQueryFlag !== null) {
+          this.saveQuery = saveQueryFlag === "true";
+        } else if (queryText !== null) {
+          this.saveQuery = false;
+        }
+
+        const customCacheEnabledFlag = params.get("useCustomCachePath");
+        if (customCacheEnabledFlag !== null) {
+          this.useCustomCachePath = customCacheEnabledFlag === "true";
+        } else if (queryText !== null) {
+          this.useCustomCachePath = false;
+        }
+
+        const customCachePath = params.get("customCachePath");
+        if (customCachePath !== null) {
+          this.customCachePath = customCachePath;
+        } else if (queryText !== null) {
+          this.customCachePath = "";
+        }
+        this.showCustomCache = !!(
+          this.useCustomCachePath || this.customCachePath.trim()
+        );
+      } finally {
+        this.syncingQueryStateFromUrl = false;
+      }
+    },
+    handleQueryHashChange() {
+      this.applyQueryStateFromUrlHash();
+    },
+    /**
+     * Debounces draft persistence + URL hash updates to avoid excessive writes
+     * while users type into the query editor.
+     */
+    scheduleQueryStateSync() {
+      if (this.syncingQueryStateFromUrl) return;
+
+      if (this.queryStateSyncTimerId !== null) {
+        window.clearTimeout(this.queryStateSyncTimerId);
+      }
+      this.queryStateSyncTimerId = window.setTimeout(() => {
+        this.saveQueryDraftToStorage();
+        this.replaceUrlHashWithQueryState();
+        this.queryStateSyncTimerId = null;
+      }, 250);
+    },
+    async copyCurrentQueryUrl() {
+      this.queryUrlShareFeedback = null;
+      this.queryUrlShareSuccess = false;
+
+      if (!this.canShareCurrentQueryUrl) {
+        this.queryUrlShareFeedback =
+          "Execute this query before copying a shareable URL.";
+        return;
+      }
+
+      try {
+        this.replaceUrlHashWithQueryState();
+        const shareUrl = window.location.href;
+        await navigator.clipboard.writeText(shareUrl);
+        this.queryUrlShareSuccess = true;
+        this.queryUrlShareFeedback = "Query URL copied to clipboard.";
+      } catch (error) {
+        console.error("Could not copy query URL:", error);
+        this.queryUrlShareFeedback =
+          "Could not copy query URL. Please copy it directly from the browser address bar.";
+      }
     },
     provType(p: string) {
       return p === "equality" ? "equivalent to" : "a specialization of";
@@ -1614,10 +1914,52 @@ export default {
         title: item,
       };
     },
+    isLikelySparqlEndpointSource(source: string) {
+      const normalizedSource = this.normalizeSourceUrlForValidation(source);
+      return /\/sparql\/?$/i.test(normalizedSource) || /sparql/i.test(normalizedSource);
+    },
+    isLikelySolidOrRdfSource(source: string) {
+      return !this.isLikelySparqlEndpointSource(source);
+    },
+    /**
+     * Categorizes example queries so users can pick the right starting point
+     * for endpoint-only, federated, Solid, or mixed-source workflows.
+     */
+    categorizeExampleQuery(
+      queryText: string,
+      sources: string[],
+    ): ExampleQueryCategory {
+      const hasServiceClause = /service\s*<[^>]+>/i.test(queryText);
+      const endpointSourceCount = sources.filter((source) =>
+        this.isLikelySparqlEndpointSource(source),
+      ).length;
+      const solidOrRdfSourceCount = sources.filter((source) =>
+        this.isLikelySolidOrRdfSource(source),
+      ).length;
+
+      if (solidOrRdfSourceCount > 0 && endpointSourceCount > 0) {
+        return "Mixed source federated query";
+      }
+
+      if (solidOrRdfSourceCount > 0 && endpointSourceCount === 0) {
+        return "Solid query";
+      }
+
+      if (
+        hasServiceClause ||
+        endpointSourceCount > 1 ||
+        (endpointSourceCount === 1 && sources.length > 1)
+      ) {
+        return "Federated query";
+      }
+
+      return "Single SPARQL endpoint query";
+    },
     // For selecting an example query
-    itemPropsExampleQueries(item2: { name: string }) {
+    itemPropsExampleQueries(item: ExampleQueryRecord) {
       return {
-        title: item2.name,
+        title: item.name,
+        subtitle: item.category,
       };
     },
     // loads example queries from the demonstrator folder
@@ -1626,7 +1968,7 @@ export default {
         query: "?raw",
         import: "default",
       });
-      const queries = [];
+      const queries: ExampleQueryRecord[] = [];
 
       for (const path in demonstratorFiles) {
         const content = await demonstratorFiles[path]();
@@ -1650,13 +1992,20 @@ export default {
           .join("\n")
           .trim();
 
-        queries.push({ name, sources, query });
+        const category = this.categorizeExampleQuery(query, sources);
+        queries.push({
+          name,
+          sources,
+          query,
+          category,
+          description: EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS[category],
+        });
       }
       this.exampleQueries = queries;
     },
     // displays example query in YASQUE
-    onSelectExample(ex: any) {
-      if (!this.selectedExample || !this.yasqe) return;
+    onSelectExample(ex: ExampleQueryRecord | null) {
+      if (!ex || !this.yasqe) return;
 
       if (ex && Array.isArray(ex.sources)) {
         this.currentQuery.sources = ex.sources;
@@ -1751,7 +2100,6 @@ export default {
           }
 
           // obtaining query cache hash if the cache contains a similar query
-          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -1869,7 +2217,6 @@ export default {
           }
 
           // try to obtain cache hash if the cache contains a similar query
-          // TODO: Fix getCacheEntryHash
           if (
             this.currentQuery.output &&
             this.currentQuery.output.provenanceOutput != null
@@ -1898,6 +2245,14 @@ export default {
         }
         // pass found results to YASR (if save query was not selected)
         this.resultsForYasr = this.currentQuery.output.resultsOutput;
+        // Mark this exact state as shareable only after successful execution.
+        if (
+          !this.cancelRequested &&
+          !(this.currentQuery.output instanceof Error)
+        ) {
+          this.lastExecutedQuerySignature = this.getCurrentQuerySignature();
+          this.scheduleQueryStateSync();
+        }
       } catch (err) {
         if (this.cancelRequested) {
           console.log("Query canceled by user.");
@@ -2021,14 +2376,17 @@ export default {
         query: "",
         output: null,
       };
+      this.lastExecutedQuerySignature = "";
+      this.queryUrlShareFeedback = null;
+      this.queryUrlShareSuccess = false;
       if (this.yasqe) {
         this.yasqe.setValue("");
       }
       this.selectedExample = null;
       this.resultsForYasr = null;
+      this.scheduleQueryStateSync();
     },
 
-    // TODO: FIX THIS MESS -- Display Result using YASR
     // initializes the YASR instance
     initYasr() {
       const parent = document.getElementById("yasr-container");
@@ -2352,6 +2710,31 @@ export default {
       if (newValue) {
         this.showCustomCache = true;
       }
+      if (!this.syncingQueryStateFromUrl) {
+        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
+          this.queryUrlShareFeedback = null;
+          this.queryUrlShareSuccess = false;
+        }
+        this.scheduleQueryStateSync();
+      }
+    },
+    customCachePath() {
+      if (!this.syncingQueryStateFromUrl) {
+        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
+          this.queryUrlShareFeedback = null;
+          this.queryUrlShareSuccess = false;
+        }
+        this.scheduleQueryStateSync();
+      }
+    },
+    saveQuery() {
+      if (!this.syncingQueryStateFromUrl) {
+        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
+          this.queryUrlShareFeedback = null;
+          this.queryUrlShareSuccess = false;
+        }
+        this.scheduleQueryStateSync();
+      }
     },
     cacheError(newValue) {
       if (newValue) {
@@ -2365,6 +2748,13 @@ export default {
       ) {
         this.cancelSourceEdit();
       }
+      if (!this.syncingQueryStateFromUrl) {
+        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
+          this.queryUrlShareFeedback = null;
+          this.queryUrlShareSuccess = false;
+        }
+        this.scheduleQueryStateSync();
+      }
     },
     currentQuery: {
       handler(newQuery) {
@@ -2373,6 +2763,15 @@ export default {
             this.yasqe.setValue(newQuery.query);
           }
         });
+        if (!this.syncingQueryStateFromUrl) {
+          if (
+            this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()
+          ) {
+            this.queryUrlShareFeedback = null;
+            this.queryUrlShareSuccess = false;
+          }
+          this.scheduleQueryStateSync();
+        }
       },
       deep: true,
     },
@@ -2389,6 +2788,12 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.updateQueryLayoutMode);
+    window.removeEventListener("hashchange", this.handleQueryHashChange);
+    if (this.queryStateSyncTimerId !== null) {
+      window.clearTimeout(this.queryStateSyncTimerId);
+      this.queryStateSyncTimerId = null;
+    }
+    this.saveQueryDraftToStorage();
     if (this.worker) this.worker.terminate();
     if (this.yasqe) this.yasqe.destroy();
     if (this.yasr && (this.yasr as any).destroy) (this.yasr as any).destroy();
@@ -2399,6 +2804,9 @@ export default {
   async mounted() {
     await this.authStore.initializeAuth();
     this.loadExampleQueries();
+    // Restore draft first, then let an explicit URL hash override it.
+    this.restoreQueryDraftFromStorage();
+    this.applyQueryStateFromUrlHash();
     this.yasqe = new Yasqe(document.getElementById("yasqe-container")!, {
       showQueryButton: false,
     });
@@ -2408,6 +2816,8 @@ export default {
     });
     this.updateQueryLayoutMode();
     window.addEventListener("resize", this.updateQueryLayoutMode);
+    window.addEventListener("hashchange", this.handleQueryHashChange);
+    this.scheduleQueryStateSync();
     this.handleDelay();
   },
 };
@@ -2785,6 +3195,10 @@ body {
 }
 
 .example-dropdown {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
   min-width: min(22rem, 100%);
 }
 .query-container ul {
@@ -2806,8 +3220,43 @@ body {
   max-width: 24rem;
   margin: 0;
 }
+.example-queries :deep(.v-field) {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--panel) 94%, var(--primary) 6%),
+    var(--panel)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.example-queries :deep(.v-label),
+.example-queries :deep(.v-field__input),
+.example-queries :deep(.v-list-item-title),
+.example-queries :deep(.v-list-item-subtitle) {
+  font-family: "Oxanium", monospace;
+}
 .example-queries :deep(.v-input__details) {
   display: none;
+}
+.sample-query-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+.sample-query-category {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.26rem 0.56rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 .top-container {
   display: flex;
@@ -3147,13 +3596,24 @@ body {
   color: var(--text-muted);
   display: flex;
   align-items: center;
+  gap: 0.45rem;
 }
+.share-url-button,
 .clear-button {
   padding: 0.65rem 0.9rem;
-  margin-right: 0.5rem;
   border: 2px solid var(--yasqe-bg);
   border-radius: 14px;
   color: var(--text-secondary);
+}
+.share-url-button {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--yasqe-bg));
+}
+.query-container .share-url-button:hover {
+  background-color: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.query-container .share-url-button:disabled {
+  background-color: var(--text-muted);
+  cursor: not-allowed;
 }
 .query-container .clear-button:hover {
   background-color: var(--danger);
@@ -3161,6 +3621,15 @@ body {
 .query-container .clear-button:disabled {
   background-color: var(--text-muted);
   cursor: not-allowed;
+}
+.share-url-feedback {
+  margin: 0.55rem 0 0;
+  font-family: "Oxanium", monospace;
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--danger) 88%, var(--text-secondary));
+}
+.share-url-feedback.success {
+  color: color-mix(in srgb, var(--success) 70%, var(--text-primary));
 }
 .save-query {
   display: flex;
@@ -3891,6 +4360,10 @@ ul {
   .custom-cache-input {
     width: 100%;
     max-width: none;
+  }
+
+  .sample-query-meta {
+    align-items: flex-start;
   }
 
   .nav-header-row {

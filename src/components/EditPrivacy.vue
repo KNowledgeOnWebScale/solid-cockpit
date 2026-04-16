@@ -2404,6 +2404,9 @@ label span {
 .shared-with :deep(.container) {
   margin: 0;
 }
+.use-guide {
+  margin: 1rem 0 0 0;
+}
 
 .notifications-dropdown {
   top: calc(100% + 0.55rem);

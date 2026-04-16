@@ -363,7 +363,7 @@
     </div>
   </section>
 
-  <div class="browser-guide">
+  <div class="use-guide">
     <PodBrowserGuide />
   </div>
 </template>
@@ -1667,11 +1667,8 @@ button:focus {
   justify-content: flex-start;
 }
 
-.browser-guide {
-  margin: 0 0.5rem 0.5rem 0.5rem;
-}
-.browser-guide :deep(.container) {
-  margin: 0;
+.use-guide {
+  margin: 1rem 0 0 0;
 }
 @media (max-width: 900px) {
   .path-card-header,
@@ -1694,7 +1691,6 @@ button:focus {
   .pod-chooseContainer,
   .container-location,
   .pod-directories,
-  .browser-guide,
   .success-popup {
     margin-left: 0.35rem;
     margin-right: 0.35rem;

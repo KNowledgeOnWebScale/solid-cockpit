@@ -38,7 +38,7 @@
       </div>
     </section>
 
-    <div class="guide-surface">
+    <div class="use-guide">
       <landing-guide />
     </div>
   </section>
@@ -191,8 +191,7 @@ img {
   gap: 0.5rem;
   margin: 0 0.5rem;
 }
-.surface-card,
-.guide-surface {
+.surface-card {
   border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--panel);
@@ -205,11 +204,7 @@ img {
 .pod-surface {
   padding: 0;
 }
-.guide-surface {
-  margin: 0 0.5rem 0.5rem 0.5rem;
-  overflow: hidden;
-}
-.guide-surface :deep(.container) {
+.use-guide {
   margin: 0;
 }
 @media (max-width: 980px) {
@@ -231,8 +226,7 @@ img {
 @media (max-width: 760px) {
   /* Mobile spacing mirrors the compact card rhythm used elsewhere in the app. */
   .hero-card,
-  .action-grid,
-  .guide-surface {
+  .action-grid {
     margin-left: 0.35rem;
     margin-right: 0.35rem;
   }

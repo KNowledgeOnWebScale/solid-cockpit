@@ -49,7 +49,9 @@
               </div>
               <div class="path-origin">
                 <span class="path-origin-label">Selected Container</span>
-                <span class="path-origin-value">{{ normalizedUploadPath }}</span>
+                <span class="path-origin-value">{{
+                  normalizedUploadPath
+                }}</span>
               </div>
             </div>
 
@@ -66,11 +68,15 @@
               />
               <div class="check-path-row">
                 <div class="status-pill" v-if="vaildURL === true">
-                  <v-icon size="18" color="var(--success)">mdi-check-circle</v-icon>
+                  <v-icon size="18" color="var(--success)"
+                    >mdi-check-circle</v-icon
+                  >
                   <span>Path looks valid and will be used for upload</span>
                 </div>
                 <div class="status-pill invalid" v-else-if="vaildURL === false">
-                  <v-icon size="18" color="var(--error)">mdi-alert-circle</v-icon>
+                  <v-icon size="18" color="var(--error)"
+                    >mdi-alert-circle</v-icon
+                  >
                   <span>Enter a complete valid URL</span>
                 </div>
               </div>
@@ -88,7 +94,10 @@
     </div>
 
     <div class="upload-container">
-      <div v-if="selectedPodUrl !== '' && selectedPodUrl !== undefined" class="upload-section">
+      <div
+        v-if="selectedPodUrl !== '' && selectedPodUrl !== undefined"
+        class="upload-section"
+      >
         <!-- Upload card groups file selection, action, and feedback into one flow. -->
         <div class="upload-card-header">
           <div>
@@ -128,10 +137,7 @@
                   {{ fileName }}
                 </v-chip>
 
-                <span
-                  v-else-if="index === 2"
-                  class="selected-file-count"
-                >
+                <span v-else-if="index === 2" class="selected-file-count">
                   +{{ files.length - 2 }} more
                 </span>
               </template>
@@ -168,11 +174,7 @@
                   Try logging out and logging back in. If the problem continues,
                   clear browser cookies and retry.
                 </v-tooltip>
-                <v-icon
-                  small
-                  color="var(--primary)"
-                  class="result-info-icon"
-                >
+                <v-icon small color="var(--primary)" class="result-info-icon">
                   mdi-information
                 </v-icon>
               </span>
@@ -200,8 +202,9 @@
                   class="result-message error-message"
                 >
                   <span>
-                    There was an error uploading <b>{{ uploadedFiles[index].name }}</b>
-                    to <b>{{ uploadedPath }}</b>
+                    There was an error uploading
+                    <b>{{ uploadedFiles[index].name }}</b> to
+                    <b>{{ uploadedPath }}</b>
                   </span>
                 </div>
                 <div v-else class="result-message success-message">
@@ -216,11 +219,11 @@
         </form>
       </div>
     </div>
-  </section>
 
-  <div class="use-guide">
-    <DataUploadGuide />
-  </div>
+    <div class="use-guide">
+      <DataUploadGuide />
+    </div>
+  </section>
 </template>
 
 <script lang="ts">
@@ -280,7 +283,9 @@ export default {
       if (!this.uploadPath) {
         return "No folder selected yet";
       }
-      return this.uploadPath.endsWith("/") ? this.uploadPath : `${this.uploadPath}/`;
+      return this.uploadPath.endsWith("/")
+        ? this.uploadPath
+        : `${this.uploadPath}/`;
     },
   },
   methods: {
@@ -334,7 +339,7 @@ export default {
       this.filesUploaded = await handleFiles(
         this.files,
         this.uploadPath,
-        this.selectedPodUrl
+        this.selectedPodUrl,
       );
       this.uploadSuccessful = uploadSuccess(this.filesUploaded);
       this.uploading = false;
@@ -344,7 +349,9 @@ export default {
 
     clearFiles() {
       this.files = [];
-      this.$nextTick(() => { this.inputKey++; });
+      this.$nextTick(() => {
+        this.inputKey++;
+      });
     },
 
     /* Takes in the emitted value from ContainerNav.vue */
@@ -372,7 +379,7 @@ export default {
     if (this.selectedPodUrl !== "") {
       this.uploadPath = this.selectedPodUrl;
     }
-  }
+  },
 };
 </script>
 
@@ -383,8 +390,11 @@ export default {
   gap: 0.5rem;
 }
 .title-container {
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+  background: radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--primary) 11%, transparent) 0,
+      transparent 32%
+    ),
     linear-gradient(
       145deg,
       color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
@@ -697,9 +707,6 @@ export default {
   }
 }
 .use-guide {
-  margin: 0 0.5rem;
-}
-.use-guide :deep(.container) {
   margin: 0;
 }
 @media (max-width: 980px) {
@@ -721,8 +728,7 @@ export default {
   }
   .pod-chooseContainer,
   .path-container,
-  .upload-container,
-  .use-guide {
+  .upload-container {
     margin-left: 0.35rem;
     margin-right: 0.35rem;
   }
