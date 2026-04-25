@@ -32,8 +32,14 @@ import {
   addDatetime,
 } from "@inrupt/solid-client";
 import { fetch } from "@inrupt/solid-client-authn-browser";
-import { WorkingData, fetchData, fetchPermissionsData } from "./getData";
-import { generateSeededHash } from "./queryPod";
+import {
+  WorkingData,
+  fetchData,
+  fetchPermissionsData,
+  fetchAclAgents,
+  fetchPublicAccess,
+} from "./getData";
+import { generateSeededHash } from "../query/queryPod";
 
 export type Permissions = {
   read: boolean;
@@ -46,11 +52,15 @@ export const { freeze } = Object;
 
 const DCT_CREATOR = "http://purl.org/dc/terms/creator";
 const DCT_CREATED = "http://purl.org/dc/terms/created";
+const DCT_VALID = "http://purl.org/dc/terms/valid";
 const LDP_INBOX = "http://www.w3.org/ns/ldp#inbox";
 const ACL_ACCESS_TO = "http://www.w3.org/ns/auth/acl#accessTo";
 const AS_TARGET = "https://www.w3.org/ns/activitystreams#target";
 const AS_OFFER = "https://www.w3.org/ns/activitystreams#Offer";
+const AS_UNDO = "https://www.w3.org/ns/activitystreams#Undo";
+const AS_OBJECT = "https://www.w3.org/ns/activitystreams#object";
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const FOAF_AGENT = "http://xmlns.com/foaf/0.1/Agent";
 
 const ACL_MODE_BY_PERMISSION: Record<keyof Permissions, string> = {
   read: "http://www.w3.org/ns/auth/acl#Read",
@@ -78,6 +88,8 @@ const SHARED_WITH_OTHERS_PREFIXES = `
 export interface NotificationWriteOptions {
   forceUndo?: boolean;
   modeIris?: string[];
+  revokeAt?: string;
+  revokedOfferIri?: string;
 }
 
 /**
@@ -207,11 +219,24 @@ export function buildSharedWithOthersInsertData(params: {
   resourceUrl: string;
   sharedWith: string;
   modeIris: string[];
+  revokeAt?: string;
   revokedOfferIri?: string;
 }): string {
-  const { entryId, resourceUrl, sharedWith, modeIris, revokedOfferIri } = params;
+  const {
+    entryId,
+    resourceUrl,
+    sharedWith,
+    modeIris,
+    revokeAt,
+    revokedOfferIri,
+  } = params;
   const now = getCurrentRdfDateTime();
   const typedDate = `"${now}"^^<http://www.w3.org/2001/XMLSchema#dateTime>`;
+  const parsedRevokeDate = revokeAt ? new Date(revokeAt) : null;
+  const typedRevokeDate =
+    parsedRevokeDate && !Number.isNaN(parsedRevokeDate.getTime())
+      ? `"${parsedRevokeDate.toISOString()}"^^<http://www.w3.org/2001/XMLSchema#dateTime>`
+      : null;
 
   if (revokedOfferIri) {
     return `
@@ -236,6 +261,7 @@ export function buildSharedWithOthersInsertData(params: {
       as:target <${sharedWith}> ;
       acl:accessTo <${resourceUrl}> ;
       acl:mode ${toSparqlIriList(modeIris)} ;
+      ${typedRevokeDate ? `dct:valid ${typedRevokeDate} ;` : ""}
       dct:created ${typedDate} .
   `;
 }
@@ -647,10 +673,12 @@ export async function updateSharedWithMe(
 
   let revokedOfferIri: string | undefined = undefined;
   if (isRevocation) {
-    const previousOffer = await findLatestOfferIri(otherSharedWithMeUrl, {
-      creator: sharedBy,
-      accessTo: resourceURL,
-    });
+    const previousOffer =
+      options?.revokedOfferIri ||
+      (await findLatestOfferIri(otherSharedWithMeUrl, {
+        creator: sharedBy,
+        accessTo: resourceURL,
+      }));
     if (!previousOffer) {
       console.warn(
         `No prior as:Offer entry found in ${otherSharedWithMeUrl}; cannot append spec-compliant as:Undo entry.`
@@ -715,13 +743,15 @@ export async function updateSharedWithOthers(
 
   let revokedOfferIri: string | undefined = undefined;
   if (isRevocation) {
-    const previousOffer = await findLatestOfferIri(
-      `${inboxUrl}${fileName}`,
-      {
-        target: sharedWith,
-        accessTo: resourceUrl,
-      }
-    );
+    const previousOffer =
+      options?.revokedOfferIri ||
+      (await findLatestOfferIri(
+        `${inboxUrl}${fileName}`,
+        {
+          target: sharedWith,
+          accessTo: resourceUrl,
+        }
+      ));
     if (!previousOffer) {
       console.warn(
         `No prior as:Offer entry found in ${inboxUrl}${fileName}; cannot append spec-compliant as:Undo entry.`
@@ -738,6 +768,7 @@ export async function updateSharedWithOthers(
       resourceUrl,
       sharedWith,
       modeIris,
+      revokeAt: !isRevocation ? options?.revokeAt : undefined,
       revokedOfferIri,
     });
     await patchLdpnLog(
@@ -765,6 +796,8 @@ export interface userHash {
   accessModes: string[];
   resourceUrl: string;
   created: string;
+  revokeAt?: string;
+  offerIri?: string;
 }
 
 export interface indexedUserHash {
@@ -798,12 +831,19 @@ export async function getSharedWithOthers(
     fetch,
   });
   const things: Thing[] = getThingAll(dataset);
-  const sharedItems: sharedSomething[] = [];
+  const thingByUrl = new Map<string, Thing>();
+  things.forEach((thing) => thingByUrl.set(thing.url, thing));
 
-  let i = 0;
+  // Undo entries explicitly revoke prior offers through as:object.
+  const revokedOfferIris = new Set<string>(
+    things
+      .filter((thing) => getIri(thing, RDF_TYPE) === AS_UNDO)
+      .map((thing) => getUrl(thing, AS_OBJECT))
+      .filter((iri): iri is string => Boolean(iri))
+  );
+  const sharedItems: sharedSomething[] = [];
   things.forEach((thing) => {
     // Extract the hash from the Thing’s URL fragment.
-    i += 1;
     const thingUrl = thing.url;
     const resourceHash = thingUrl.includes("#")
       ? `${thingUrl.split("#")[1]}`
@@ -819,20 +859,20 @@ export async function getSharedWithOthers(
       const sharedHashes = getIriAll(
         thing,
         AS_OFFER
-      ) || ["N/A"];
-      const usersSharedWith = thingsUsersSharedWithParse(
-        sharedHashes,
-        things,
-        i
-      );
+      )
+        // Offers that are already referenced by Undo entries are no longer active.
+        .filter((offerIri) => !revokedOfferIris.has(offerIri));
+      const usersSharedWith = thingsUsersSharedWithParse(sharedHashes, thingByUrl);
       const owner = currentUserWebId;
 
-      sharedItems.push({
-        resourceHash,
-        usersSharedWith,
-        owner,
-        whatKind,
-      });
+      if (usersSharedWith.length > 0) {
+        sharedItems.push({
+          resourceHash,
+          usersSharedWith,
+          owner,
+          whatKind,
+        });
+      }
     }
   });
   return sharedItems;
@@ -847,45 +887,207 @@ export async function getSharedWithOthers(
  */
 function thingsUsersSharedWithParse(
   userHashes: string[],
-  things: Thing[],
-  index: number
+  thingByUrl: Map<string, Thing>
 ): userHash[] {
   const usersSharedWith: userHash[] = [];
-
-  // Iterate through the Things array and extract the users a resource is shared with
-  let userIndex = 0;
-  while (index < things.length && userIndex < userHashes.length) {
-    // See is the current thing is a user hash
-    if (userHashes[userIndex] === things[index].url) {
-      const created =
-        getDatetime(
-          things[index],
-          "http://purl.org/dc/terms/created"
-        )?.toISOString() || "N/A";
-      const sharedWith =
-        getUrl(things[index], "https://www.w3.org/ns/activitystreams#target") ||
-        "N/A";
-      const resourceUrl =
-        getUrl(things[index], "http://www.w3.org/ns/auth/acl#accessTo") ||
-        "N/A";
-      const access = getIriAll(
-        things[index],
-        "http://www.w3.org/ns/auth/acl#mode"
-      ) || ["N/A"];
-
-      usersSharedWith.push({
-        sharedWith,
-        resourceUrl,
-        accessModes: access,
-        created,
-      });
-      userIndex += 1;
-      index += 1;
-    } else {
-      index += 1;
+  userHashes.forEach((hashIri) => {
+    const hashThing = thingByUrl.get(hashIri);
+    if (!hashThing) {
+      return;
     }
-  }
+    const created = getDatetime(hashThing, DCT_CREATED)?.toISOString() || "N/A";
+    const sharedWith = getUrl(hashThing, AS_TARGET) || "N/A";
+    const resourceUrl = getUrl(hashThing, ACL_ACCESS_TO) || "N/A";
+    const access = getIriAll(hashThing, "http://www.w3.org/ns/auth/acl#mode") || ["N/A"];
+    const revokeAt = getDatetime(hashThing, DCT_VALID)?.toISOString();
+
+    usersSharedWith.push({
+      sharedWith,
+      resourceUrl,
+      accessModes: access,
+      created,
+      revokeAt,
+      offerIri: hashThing.url,
+    });
+  });
   return usersSharedWith;
+}
+
+export interface ScheduledRevocationCandidate {
+  resourceHash: string;
+  resourceUrl: string;
+  sharedWith: string;
+  modeIris: string[];
+  revokeAt: string;
+  offerIri: string;
+}
+
+export interface ScheduledRevocationRunSummary {
+  considered: number;
+  revoked: number;
+  failed: number;
+}
+
+/**
+ * Extracts scheduled-revocation entries that are due at the provided reference time.
+ */
+export function getDueSharedWithOthersRevocations(
+  sharedItems: sharedSomething[],
+  now: Date = new Date()
+): ScheduledRevocationCandidate[] {
+  return sharedItems.flatMap((item) =>
+    item.usersSharedWith
+      .filter((entry) => {
+        if (!entry.revokeAt || !entry.offerIri) {
+          return false;
+        }
+        const revokeDate = new Date(entry.revokeAt);
+        return !Number.isNaN(revokeDate.getTime()) && revokeDate.getTime() <= now.getTime();
+      })
+      .map((entry) => ({
+        resourceHash: item.resourceHash,
+        resourceUrl: entry.resourceUrl,
+        sharedWith: entry.sharedWith,
+        modeIris: (() => {
+          const validModes = entry.accessModes.filter((mode) => mode.startsWith("http"));
+          return validModes.length > 0
+            ? validModes
+            : Object.values(ACL_MODE_BY_PERMISSION);
+        })(),
+        revokeAt: entry.revokeAt as string,
+        offerIri: entry.offerIri as string,
+      }))
+  );
+}
+
+/**
+ * Converts a list of ACL mode IRIs into the permissions shape used by ACL helpers.
+ */
+function permissionsFromModeIris(modeIris: string[]): Permissions {
+  const modeSet = new Set(modeIris);
+  return {
+    read: modeSet.has(ACL_MODE_BY_PERMISSION.read),
+    append: modeSet.has(ACL_MODE_BY_PERMISSION.append),
+    write: modeSet.has(ACL_MODE_BY_PERMISSION.write),
+    control: modeSet.has(ACL_MODE_BY_PERMISSION.control),
+  };
+}
+
+/**
+ * Returns currently active ACL modes for one recipient on one resource.
+ */
+async function getCurrentAccessModeIris(
+  resourceUrl: string,
+  sharedWith: string
+): Promise<string[]> {
+  try {
+    if (sharedWith === FOAF_AGENT) {
+      const publicAccess = await fetchPublicAccess(resourceUrl);
+      return getEnabledAccessModeIris({
+        read: Boolean(publicAccess?.read),
+        append: Boolean(publicAccess?.append),
+        write: Boolean(publicAccess?.write),
+        control: Boolean(publicAccess?.control),
+      });
+    }
+
+    const agentAccess = await fetchAclAgents(resourceUrl);
+    const entry = agentAccess?.[sharedWith];
+    return getEnabledAccessModeIris({
+      read: Boolean(entry?.read),
+      append: Boolean(entry?.append),
+      write: Boolean(entry?.write),
+      control: Boolean(entry?.control),
+    });
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
+ * Applies due scheduled revocations by removing ACL access and appending
+ * matching `as:Undo` entries to LDPN logs.
+ */
+export async function applyDueScheduledRevocations(
+  podUrl: string,
+  ownerWebId: string,
+  now: Date = new Date()
+): Promise<ScheduledRevocationRunSummary> {
+  const summary: ScheduledRevocationRunSummary = {
+    considered: 0,
+    revoked: 0,
+    failed: 0,
+  };
+
+  try {
+    const sharedItems = await getSharedWithOthers(podUrl, ownerWebId);
+    const dueEntries = getDueSharedWithOthersRevocations(sharedItems, now);
+    summary.considered = dueEntries.length;
+
+    const noAccess: Permissions = {
+      read: false,
+      append: false,
+      write: false,
+      control: false,
+    };
+
+    for (const dueEntry of dueEntries) {
+      try {
+        // Determine which modes are currently active before revocation updates ACL.
+        const currentlyEnabledModes = await getCurrentAccessModeIris(
+          dueEntry.resourceUrl,
+          dueEntry.sharedWith
+        );
+        const undoModeIris =
+          currentlyEnabledModes.length > 0 ? currentlyEnabledModes : dueEntry.modeIris;
+
+        // Remove ACL access first so expiration enforces the live pod permissions.
+        if (dueEntry.sharedWith === FOAF_AGENT) {
+          await changeAclPublic(dueEntry.resourceUrl, noAccess);
+        } else {
+          await changeAclAgent(dueEntry.resourceUrl, dueEntry.sharedWith, noAccess);
+        }
+
+        await updateSharedWithOthers(
+          podUrl,
+          dueEntry.resourceUrl,
+          dueEntry.sharedWith,
+          permissionsFromModeIris(undoModeIris),
+          {
+            forceUndo: true,
+            modeIris: undoModeIris,
+            revokedOfferIri: dueEntry.offerIri,
+          }
+        );
+
+        if (dueEntry.sharedWith !== FOAF_AGENT) {
+          await updateSharedWithMe(
+            dueEntry.sharedWith,
+            ownerWebId,
+            dueEntry.resourceUrl,
+            permissionsFromModeIris(undoModeIris),
+            {
+              forceUndo: true,
+              modeIris: undoModeIris,
+            }
+          );
+        }
+
+        summary.revoked += 1;
+      } catch (error) {
+        console.error(
+          `Failed scheduled revoke for ${dueEntry.sharedWith} on ${dueEntry.resourceUrl}`,
+          error
+        );
+        summary.failed += 1;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to process scheduled revocations.", error);
+    summary.failed += 1;
+  }
+
+  return summary;
 }
 
 export interface SharedWithMeData {

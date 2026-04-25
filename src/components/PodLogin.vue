@@ -110,7 +110,12 @@
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, session } from "./login";
+import {
+  startLogin,
+  isLoggedin,
+  currentWebId,
+  session,
+} from "../services/solid/login";
 import { provide } from "vue";
 import { useAuthStore } from "../stores/auth";
 

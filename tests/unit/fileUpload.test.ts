@@ -5,8 +5,8 @@ import {
   derefrenceFile,
   getMimeType,
   uploadSuccess,
-} from "../../src/components/fileUploadUtils.ts";
-import { mimeTypes } from "../../src/components/mime_types.js";
+} from "../../src/services/solid/fileUploadUtils.ts";
+import { mimeTypes } from "../../src/services/solid/mime_types.js";
 
 test("getMimeType resolves known MIME types case-insensitively", () => {
   assert.equal(getMimeType(".TTL"), mimeTypes[".ttl"]);

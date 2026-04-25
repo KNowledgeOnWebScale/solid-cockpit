@@ -44,23 +44,23 @@ const {
   };
 });
 
-vi.mock("../../src/components/getData.ts", () => ({
+vi.mock("../../src/services/solid/getData.ts", () => ({
   fetchData: fetchDataMock,
 }));
 
-vi.mock("../../src/components/login.ts", () => ({
+vi.mock("../../src/services/solid/login.ts", () => ({
   currentWebId: vi.fn(() => "https://user.example/profile/card#me"),
   getPodURLs: vi.fn(async () => ["https://pod.example/"]),
 }));
 
-vi.mock("../../src/components/fileUpload.ts", () => ({
+vi.mock("../../src/services/solid/fileUpload.ts", () => ({
   deleteFromPod: vi.fn(async () => true),
   deleteContainer: vi.fn(async () => true),
   movePodItem: movePodItemMock,
   renamePodItem: renamePodItemMock,
 }));
 
-vi.mock("../../src/components/privacyEdit.ts", () => ({
+vi.mock("../../src/services/solid/privacyEdit.ts", () => ({
   checkUrl: vi.fn(() => false),
 }));
 

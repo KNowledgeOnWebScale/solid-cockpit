@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createCoiFetch } from "../../src/components/z3-headers.ts";
+import { createCoiFetch } from "../../src/services/query/z3-headers.ts";
 
 test("createCoiFetch injects isolation and CORS headers by default", async () => {
   const baseFetch = async () =>

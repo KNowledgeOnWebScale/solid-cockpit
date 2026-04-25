@@ -1,13 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-import LandingPage from "./components/LandingPage.vue";
-
-import PodLogin from "./components/PodLogin.vue";
-import PodUpload from "./components/PodUpload.vue";
-import PodBrowser from "./components/PodBrowser.vue";
-import DataQuery from "./components/DataQuery.vue";
-import EditPrivacy from "./components/EditPrivacy.vue";
-import NotFound from "./components/Styling/NotFound.vue";
+const LandingPage = () => import("./components/LandingPage.vue");
+const PodLogin = () => import("./components/PodLogin.vue");
+const PodUpload = () => import("./components/PodUpload.vue");
+const PodBrowser = () => import("./components/PodBrowser.vue");
+const DataQuery = () => import("./components/DataQuery.vue");
+const EditPrivacy = () => import("./components/EditPrivacy.vue");
+const NotFound = () => import("./components/Styling/NotFound.vue");
 
 import { useAuthStore } from "./stores/auth";
 import { PUBLIC_ROUTE_NAMES } from "./navigation";

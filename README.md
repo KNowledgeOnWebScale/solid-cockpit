@@ -107,10 +107,20 @@ You can also use:
 - Inrupt Solid client/auth libraries
 - Comunica SPARQL engine
 
+### Source Layout
+
+- `src/components/`: Vue UI components only
+- `src/services/solid/`: Solid auth, pod access, upload, and ACL helper modules
+- `src/services/query/`: query execution, parsing, and worker code
+- `src/stores/`: Pinia state modules
+
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22.x (LTS recommended)
 - npm 10+ (repo now uses `package-lock.json`)
+
+Node 24 note:
+- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`, so this repo pins to Node 22 for strict engine compatibility.
 
 ### Local Setup
 
@@ -132,6 +142,12 @@ Build production assets:
 npm run build
 ```
 
+If you hit a Node heap out-of-memory error during production builds, rerun with an increased heap size:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 npm run build
+```
+
 Preview production build:
 
 ```bash
@@ -144,6 +160,7 @@ npm run serve
 | --- | --- |
 | `npm run dev` | Start Vite development server |
 | `npm run build` | Build production assets into `dist/` |
+| `npm run build:highmem` | Build production assets with an 8GB Node heap |
 | `npm run serve` | Preview the production build locally |
 | `npm run test:unit` | Run unit tests (Node built-in runner + TS loader) |
 | `npm run test:unit:watch` | Run unit tests in watch mode |
@@ -194,16 +211,16 @@ Compliance thresholds (gating):
 
 Tracked files:
 
-- `src/components/fileUploadUtils.ts`
-- `src/components/mime_types.js`
-- `src/components/queryPodUtils.ts`
-- `src/components/z3-headers.ts`
+- `src/services/solid/fileUploadUtils.ts`
+- `src/services/solid/mime_types.js`
+- `src/services/query/queryPodUtils.ts`
+- `src/services/query/z3-headers.ts`
 
 Advisory (non-gating) coverage is also reported for:
 
-- `src/components/login.ts`
-- `src/components/getData.ts`
-- `src/components/privacyEdit.ts`
+- `src/services/solid/login.ts`
+- `src/services/solid/getData.ts`
+- `src/services/solid/privacyEdit.ts`
 
 Override thresholds with env vars:
 
@@ -261,7 +278,7 @@ npm version X.Y.Z
 
 ```bash
 npm run test:unit
-npm run build
+npm run build:highmem
 ```
 
 3. Create and push release tags:
@@ -288,13 +305,13 @@ Runtime dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@comunica/context-entries` | `^4.2.0` |
-| `@comunica/logger-pretty` | `^4.2.0` |
-| `@comunica/query-sparql` | `^4.3.0` |
-| `@comunica/query-sparql-solid` | `^4.0.2` |
-| `@inrupt/solid-client` | `2.1.2` |
-| `@inrupt/solid-client-authn-browser` | `3.1.0` |
-| `@inrupt/solid-client-authn-node` | `^3.1.0` |
+| `@comunica/context-entries` | `^5.2.0` |
+| `@comunica/logger-pretty` | `^5.2.0` |
+| `@comunica/query-sparql` | `^5.2.0` |
+| `@comunica/query-sparql-solid` | `^5.0.1` |
+| `@inrupt/solid-client` | `^3.0.0` |
+| `@inrupt/solid-client-authn-browser` | `^4.0.0` |
+| `@inrupt/solid-client-authn-node` | `^4.0.0` |
 | `@triply/yasqe` | `^4.2.28` |
 | `@triply/yasr` | `^4.2.28` |
 | `@vitejs/plugin-vue` | `^5.2.3` |
@@ -315,10 +332,10 @@ Development dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@tsconfig/node20` | `^20.1.5` |
+| `@tsconfig/node22` | `^22.0.2` |
 | `@typescript-eslint/eslint-plugin` | `^5.4.0` |
 | `@typescript-eslint/parser` | `^5.4.0` |
-| `@vitest/coverage-v8` | `2.1.9` |
+| `@vitest/coverage-istanbul` | `2.1.9` |
 | `@vue/test-utils` | `2.4.6` |
 | `eslint` | `^7.32.0` |
 | `eslint-config-prettier` | `^8.3.0` |

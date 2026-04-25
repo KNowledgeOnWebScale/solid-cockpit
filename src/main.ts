@@ -5,6 +5,11 @@ import router from './router';
 import { createPinia } from 'pinia';
 import { useAuthStore } from "./stores/auth";
 
+// Restore icon font packs used throughout the app:
+// - MDI for Vuetify `<v-icon>` aliases
+// - Material Icons for legacy `<i class="material-icons">` markup
+import '@mdi/font/css/materialdesignicons.css';
+import 'material-icons/iconfont/material-icons.css';
 import 'vuetify/styles';
 import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';

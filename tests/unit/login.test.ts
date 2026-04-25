@@ -9,7 +9,7 @@ import {
   getPodURLs,
   redirectToHomepage,
   redirectToLogin,
-} from "../../src/components/login.ts";
+} from "../../src/services/solid/login.ts";
 
 function createSessionStorageMock() {
   const store = new Map<string, string>();

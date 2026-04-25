@@ -55,6 +55,7 @@
   --text-secondary: var(--ink);
   --text-muted: hsl(215 11% 40%); /* #5b6269 */
   --primary: var(--main-purple);
+  --pod-url-emphasis: var(--primary);
   --primary-600: hsl(262 92% 58%); /* #6f23ec */
   --primary-700: hsl(262 92% 52%); /* #5b09e5 */
   --primary-100: hsl(262 92% 95%); /* #f2ebfd */
@@ -62,10 +63,10 @@
   --accent-100: hsl(195 85% 94%); /* #e4f6fc */
   --accent-700: hsl(195 85% 36%); /* #107eab */
 
-  --success: hsl(160 72% 42%); /* #1fba74 */
-  --warning: #ffd904; /* #f7a611 */
-  --danger: #ff7f7fbb;
-  --error: #ff1e00c2;
+  --success: #1b9e77;
+  --warning: #a66300;
+  --danger: #c44536;
+  --error: #b3261e;
   --info: hsl(195 85% 48%); /* #1ba9e0 */
 
   --focus-ring: 2px solid hsl(262 92% 65% / 0.7); /* #8a42f4 */
@@ -103,6 +104,8 @@
   --text-secondary: var(--main-white);
   --text-muted: hsl(260 14% 72%); /* #b3b0be */
   --primary: var(--main-purple);
+  /* Higher-contrast URL tone on dark surfaces while keeping purple branding. */
+  --pod-url-emphasis: hsl(262 100% 84%);
   --primary-600: hsl(262 92% 58%); /* #6f23ec */
   --primary-700: hsl(262 92% 50%); /* #5605e0 */
   --primary-100: hsl(262 92% 20%); /* #1b023b */
@@ -110,10 +113,10 @@
   --accent-100: hsl(195 85% 22%); /* #083a4d */
   --accent-700: hsl(195 85% 60%); /* #4dc0ec */
 
-  --success: hsl(160 72% 46%); /* #26c980 */
-  --warning: #ffd700;
-  --danger: #ff7f7fbb;
-  --error: #ff1e00;
+  --success: #30c48d;
+  --warning: #f0ad2e;
+  --danger: #ef7d6f;
+  --error: #ff6b5f;
   --info: hsl(195 85% 54%); /* #34b8e6 */
 
   --focus-ring: 2px solid hsl(262 92% 65% / 0.8); /* #8a42f4 */
@@ -143,8 +146,19 @@
   color: var(--text);
 }
 
-/* optional: smoothen transitions between themes */
-* {
+/* Keep transitions scoped to interactive controls to avoid full-page repaint churn. */
+:where(
+    a,
+    button,
+    input,
+    textarea,
+    select,
+    .v-btn,
+    .v-chip,
+    .v-field,
+    .v-list-item,
+    .v-card
+  ) {
   transition: background-color 0.18s ease, color 0.18s ease,
     border-color 0.18s ease;
 }

@@ -227,7 +227,11 @@
 </template>
 
 <script lang="ts">
-import { handleFiles, uploadSuccess, alreadyExistsCheck } from "./fileUpload";
+import {
+  handleFiles,
+  uploadSuccess,
+  alreadyExistsCheck,
+} from "../services/solid/fileUpload";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataUploadGuide from "./Guides/DataUploadGuide.vue";

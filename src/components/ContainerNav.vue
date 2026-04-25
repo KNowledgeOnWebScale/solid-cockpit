@@ -78,11 +78,38 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import { getContainedResourceUrlAll } from "@inrupt/solid-client";
-import { currentWebId } from "./login";
-import { fetchData, WorkingData } from "./getData";
+import { currentWebId } from "../services/solid/login";
+import { fetchData, WorkingData } from "../services/solid/getData";
 
 interface ContainerNavProps {
   currentPod: string;
+}
+
+interface ContainerListingCacheEntry {
+  urls: string[];
+  createdAt: number;
+}
+
+const CONTAINER_NAV_CACHE_TTL_MS = 15000;
+const containerListingCache = new Map<string, ContainerListingCacheEntry>();
+
+function getCachedContainerUrls(path: string): string[] | null {
+  const cachedEntry = containerListingCache.get(path);
+  if (!cachedEntry) {
+    return null;
+  }
+  if (Date.now() - cachedEntry.createdAt > CONTAINER_NAV_CACHE_TTL_MS) {
+    containerListingCache.delete(path);
+    return null;
+  }
+  return [...cachedEntry.urls];
+}
+
+function cacheContainerUrls(path: string, urls: string[]): void {
+  containerListingCache.set(path, {
+    urls: [...urls],
+    createdAt: Date.now(),
+  });
 }
 
 export default defineComponent({
@@ -178,20 +205,27 @@ export default defineComponent({
       if (!this.currentPod) {
         return;
       }
-      try {
-        this.dirContents = await fetchData(this.currentPod);
-        this.urls = getContainedResourceUrlAll(this.dirContents);
-        this.separateUrls();
-      } catch (err) {
-        console.log(err);
-      }
+      await this.loadContainerListing(this.currentPod);
     },
     /**
      * Obtains a list of containers and/or resources located in the provided container.
      */
     async getSpecificData(path: string): Promise<void> {
+      await this.loadContainerListing(path);
+    },
+    /**
+     * Reuses a short-lived listing cache to keep repeated nav open/close actions snappy.
+     */
+    async loadContainerListing(path: string): Promise<void> {
+      const cachedUrls = getCachedContainerUrls(path);
+      if (cachedUrls) {
+        this.urls = cachedUrls;
+        this.separateUrls();
+        return;
+      }
       this.dirContents = await fetchData(path);
       this.urls = getContainedResourceUrlAll(this.dirContents);
+      cacheContainerUrls(path, this.urls);
       this.separateUrls();
     },
     /**

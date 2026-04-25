@@ -17,11 +17,12 @@ import {
   createNewAcl,
   getEnabledAccessModeIris,
   getCurrentRdfDateTime,
+  getDueSharedWithOthersRevocations,
   getRevokedAccessModeIris,
   getWebIdDocumentUrl,
   recordLastAccessTime,
   saveNewAccessTime,
-} from "../../src/components/privacyEdit.ts";
+} from "../../src/services/solid/privacyEdit.ts";
 
 const DCT_MODIFIED = "http://purl.org/dc/terms/modified";
 
@@ -195,6 +196,19 @@ test("buildSharedWithOthersInsertData creates a spec-compliant as:Offer notifica
   assert.match(payload, /as:target <https:\/\/target\.example\/profile\/card#me>/);
   assert.match(payload, /acl:accessTo <https:\/\/owner\.example\/docs\/>/);
   assert.match(payload, /acl:mode <http:\/\/www\.w3\.org\/ns\/auth\/acl#Read>, <http:\/\/www\.w3\.org\/ns\/auth\/acl#Append>/);
+  assert.doesNotMatch(payload, /dct:valid/);
+});
+
+test("buildSharedWithOthersInsertData includes revoke timestamp when provided", () => {
+  const payload = buildSharedWithOthersInsertData({
+    entryId: "offer789",
+    resourceUrl: "https://owner.example/docs/",
+    sharedWith: "https://target.example/profile/card#me",
+    modeIris: ["http://www.w3.org/ns/auth/acl#Read"],
+    revokeAt: "2030-01-01T12:00:00.000Z",
+  });
+
+  assert.match(payload, /dct:valid "2030-01-01T12:00:00.000Z"\^\^<http:\/\/www\.w3\.org\/2001\/XMLSchema#dateTime>/);
 });
 
 test("buildSharedWithOthersInsertData creates a spec-compliant as:Undo notification payload", () => {
@@ -211,4 +225,42 @@ test("buildSharedWithOthersInsertData creates a spec-compliant as:Undo notificat
   assert.match(payload, /as:target <https:\/\/target\.example\/profile\/card#me>/);
   assert.match(payload, /acl:accessTo <https:\/\/owner\.example\/docs\/>/);
   assert.match(payload, /acl:mode <http:\/\/www\.w3\.org\/ns\/auth\/acl#Write>/);
+});
+
+test("getDueSharedWithOthersRevocations returns only entries with expired revoke schedules", () => {
+  const dueEntries = getDueSharedWithOthersRevocations(
+    [
+      {
+        resourceHash: "https://owner.example/docs/",
+        owner: "https://owner.example/profile/card#me",
+        whatKind: "https://www.w3.org/ns/ldp#Container",
+        usersSharedWith: [
+          {
+            sharedWith: "https://target.example/profile/card#me",
+            accessModes: ["http://www.w3.org/ns/auth/acl#Read"],
+            resourceUrl: "https://owner.example/docs/",
+            created: "2029-01-01T00:00:00.000Z",
+            revokeAt: "2030-01-01T00:00:00.000Z",
+            offerIri: "https://owner.example/inbox/sharedWithOthers.ttl#offer-a",
+          },
+          {
+            sharedWith: "https://other.example/profile/card#me",
+            accessModes: ["http://www.w3.org/ns/auth/acl#Read"],
+            resourceUrl: "https://owner.example/docs/",
+            created: "2029-01-01T00:00:00.000Z",
+            revokeAt: "2031-01-01T00:00:00.000Z",
+            offerIri: "https://owner.example/inbox/sharedWithOthers.ttl#offer-b",
+          },
+        ],
+      },
+    ],
+    new Date("2030-06-01T00:00:00.000Z")
+  );
+
+  assert.equal(dueEntries.length, 1);
+  assert.equal(dueEntries[0].sharedWith, "https://target.example/profile/card#me");
+  assert.equal(
+    dueEntries[0].offerIri,
+    "https://owner.example/inbox/sharedWithOthers.ttl#offer-a"
+  );
 });

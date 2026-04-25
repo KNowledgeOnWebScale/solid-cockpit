@@ -70,22 +70,65 @@
               <span>Notifications become available once you are connected and a pod is selected.</span>
             </div>
 
-            <ul v-else-if="unreadNotifications.length > 0" class="notification-list">
+            <ul v-else-if="unreadNotifications.length > 0" class="share-list">
               <li
                 v-for="(item, index) in unreadNotifications"
                 :key="`${item.resourceHash}-${index}`"
+                class="notification-card"
               >
-                <button class="notification-row" @click="openNotificationInPrivacy">
-                  <span class="notification-resource" :title="getNotificationResource(item)">
-                    {{ getNotificationResource(item) }}
-                  </span>
-                  <span class="notification-meta">
-                    <span class="notification-owner" :title="item.owner">{{ item.owner }}</span>
-                    <span class="notification-date">{{ formatDate(getNotificationCreated(item)) }}</span>
-                  </span>
-                  <span class="notification-modes" :title="getNotificationModesLabel(item)">
-                    {{ getNotificationModesLabel(item) }}
-                  </span>
+                <button class="notification-card-button" @click="openNotificationInPrivacy">
+                  <div class="notification-card-header">
+                    <i class="material-icons not-colored notification-type-icon">
+                      {{
+                        containerCheck(getNotificationResource(item))
+                          ? "folder"
+                          : "description"
+                      }}
+                    </i>
+                    <span class="resource-hash mono" :title="getNotificationResource(item)">
+                      {{ getNotificationResource(item) }}
+                    </span>
+                  </div>
+
+                  <ul class="user-rows">
+                    <li
+                      v-for="(mode, rowIndex) in item.usersSharedWith || []"
+                      :key="`${item.resourceHash}-${index}-${rowIndex}`"
+                      class="user-row"
+                    >
+                      <div class="cell-row">
+                        <span class="cell user">
+                          <i class="material-icons tiny not-colored">person</i>
+                          <span class="truncate">
+                            {{
+                              item.owner === "http://xmlns.com/foaf/0.1/Agent"
+                                ? "Public"
+                                : item.owner
+                            }}
+                          </span>
+                        </span>
+                        <span class="cell date">
+                          <i class="material-icons tiny not-colored">schedule</i>
+                          <time :datetime="mode.created">{{
+                            formatDate(mode.created)
+                          }}</time>
+                        </span>
+                      </div>
+
+                      <span class="cell modes">
+                        <i class="material-icons tiny not-colored">lock</i>
+                        <span class="notification-mode-chips">
+                          <span
+                            v-for="(ac, modeIndex) in mode.accessModes"
+                            :key="`${item.resourceHash}-${index}-${rowIndex}-${modeIndex}`"
+                            class="notification-mode-chip"
+                          >
+                            {{ getModeLabel(ac) }}
+                          </span>
+                        </span>
+                      </span>
+                    </li>
+                  </ul>
                 </button>
               </li>
             </ul>
@@ -197,14 +240,18 @@
 <script lang="ts">
 import ThemeSwitch from "./ThemeSwitch.vue";
 import { useAuthStore } from "../../stores/auth";
-import { handleRedirectAfterPageLoad, redirectToLogin, logOut } from "./../login";
+import {
+  handleRedirectAfterPageLoad,
+  redirectToLogin,
+  logOut,
+} from "../../services/solid/login";
 import {
   getSharedWithMe,
   getUnreadSharedWithMeNotifications,
   saveNewAccessTime,
   sharedSomething,
   sortSharedNotificationsByNewest,
-} from "../privacyEdit";
+} from "../../services/solid/privacyEdit";
 
 export default {
   components: {
@@ -218,6 +265,7 @@ export default {
       notificationsMenuOpen: false as boolean,
       loginStatusIntervalId: null as number | null,
       notificationPollIntervalId: null as number | null,
+      notificationRefreshTimerId: null as number | null,
       unreadNotifications: [] as sharedSomething[],
       notificationsLoading: false as boolean,
       notificationLoadError: "" as string,
@@ -304,17 +352,11 @@ export default {
     getNotificationResource(item: sharedSomething) {
       return item.usersSharedWith?.[0]?.resourceUrl || item.resourceHash || "Unknown resource";
     },
-    getNotificationCreated(item: sharedSomething) {
-      return item.usersSharedWith?.[0]?.created || "";
+    containerCheck(itemUrl: string) {
+      return itemUrl.endsWith("/");
     },
-    getNotificationModesLabel(item: sharedSomething) {
-      const modes = item.usersSharedWith?.[0]?.accessModes ?? [];
-      if (modes.length === 0) {
-        return "No modes";
-      }
-      return modes
-        .map((mode) => mode.split("#")[1] ?? mode)
-        .join(", ");
+    getModeLabel(mode: string) {
+      return mode.split("#")[1] ?? mode;
     },
     async refreshNotifications() {
       if (!this.canLoadNotifications) {
@@ -339,6 +381,18 @@ export default {
         this.notificationsLoading = false;
       }
     },
+    /**
+     * Debounces repeated refresh triggers from auth/pod state changes.
+     */
+    scheduleRefreshNotifications() {
+      if (this.notificationRefreshTimerId !== null) {
+        window.clearTimeout(this.notificationRefreshTimerId);
+      }
+      this.notificationRefreshTimerId = window.setTimeout(() => {
+        this.notificationRefreshTimerId = null;
+        this.refreshNotifications();
+      }, 120);
+    },
     async markNotificationsReadFromHeader() {
       if (!this.canLoadNotifications || !this.hasUnreadNotifications) {
         return;
@@ -356,7 +410,6 @@ export default {
         name: "Data Privacy",
         query: {
           view: "sharedWithMe",
-          notifications: "open",
         },
       });
     },
@@ -370,11 +423,17 @@ export default {
 
     // Keep auth state in sync with external login redirects.
     this.loginStatusIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       this.loginCheck();
     }, 30000);
 
     // Keep unread notification badge fresh across pages.
     this.notificationPollIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       this.refreshNotifications();
     }, 45000);
   },
@@ -387,13 +446,17 @@ export default {
       window.clearInterval(this.notificationPollIntervalId);
       this.notificationPollIntervalId = null;
     }
+    if (this.notificationRefreshTimerId !== null) {
+      window.clearTimeout(this.notificationRefreshTimerId);
+      this.notificationRefreshTimerId = null;
+    }
   },
   watch: {
     loggedIn() {
-      this.refreshNotifications();
+      this.scheduleRefreshNotifications();
     },
     selectedPodUrl() {
-      this.refreshNotifications();
+      this.scheduleRefreshNotifications();
     },
   },
 };
@@ -586,7 +649,7 @@ export default {
   color: color-mix(in srgb, var(--danger) 65%, var(--text-secondary));
 }
 
-.notification-list {
+.share-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -595,53 +658,111 @@ export default {
   max-height: 16rem;
   overflow: auto;
 }
-.notification-row {
+.notification-card {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 88%, transparent);
+}
+.notification-card-button {
   width: 100%;
   text-align: left;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel-elev) 88%, transparent);
-  padding: 0.55rem 0.64rem;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  padding: 0.7rem 0.78rem;
   display: grid;
-  gap: 0.24rem;
+  gap: 0.55rem;
   color: var(--text-secondary);
   font-family: "Oxanium", monospace;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
-.notification-row:hover {
-  background: color-mix(in srgb, var(--primary) 12%, var(--panel-elev));
-  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+.notification-card-button:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
 }
-.notification-resource {
-  font-size: 0.86rem;
+.notification-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.notification-type-icon {
+  font-size: 1.3rem;
+  flex: 0 0 auto;
+}
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+.resource-hash {
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.notification-meta {
-  display: flex;
-  justify-content: space-between;
+.not-colored {
+  color: var(--text-secondary);
+}
+.user-rows {
+  display: grid;
   gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.user-row {
+  display: grid;
+  gap: 0.35rem;
+}
+.cell-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.45rem 0.8rem;
+}
+.cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+.user .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(18rem, 48vw);
+}
+.date {
   color: var(--text-muted);
-  font-size: 0.75rem;
-}
-.notification-owner {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 16rem;
-}
-.notification-date {
   white-space: nowrap;
 }
-.notification-modes {
-  font-size: 0.73rem;
-  color: var(--primary);
+.notification-mode-chips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+}
+.notification-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid
+    color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
+  background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.76rem;
+  margin: 0;
+  color: var(--yasqe-keyword);
+}
+.material-icons.tiny {
+  font-size: 1rem;
 }
 
 .account-details-grid {

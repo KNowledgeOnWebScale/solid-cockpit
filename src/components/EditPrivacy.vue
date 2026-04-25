@@ -14,107 +14,51 @@
         </div>
 
         <div class="privacy-header-actions">
-          <button class="header-icon-button" type="button" aria-label="Privacy guide">
-            <i class="material-icons">info</i>
-          </button>
+          <!-- ACL info is available inline here now that notifications live in TheHeader. -->
+          <v-menu
+            v-model="aclInfoMenuOpen"
+            :close-on-content-click="false"
+            location="bottom end"
+          >
+            <template #activator="{ props }">
+              <button
+                class="header-icon-button"
+                type="button"
+                aria-label="ACL information"
+                v-bind="props"
+              >
+                <i class="material-icons">info</i>
+              </button>
+            </template>
 
-          <div class="notifications-shell">
-            <button
-              class="notification-button header-icon-button"
-              @click="toggleNotifications"
-              type="button"
-              aria-label="Notifications"
-            >
-              <i class="material-icons">
-                {{ hasNotifications ? "notifications" : "notifications_none" }}
-              </i>
-              <i v-if="hasNotifications" class="badge"></i>
-            </button>
-
-            <!-- Notifications stay attached to the header action area. -->
-            <div v-if="showNotifications" class="notifications-dropdown">
-              <div class="notifications-content">
-                <div class="notifications-header-row">
-                  <div class="notifications-header-text">
-                    <p class="notification-title">Notifications</p>
-                    <p class="notification-hint">
-                      See "Shared with me" for more details
-                    </p>
-                  </div>
-                  <button
-                    v-if="notifications.length !== 0"
-                    class="mark-read"
-                    @click="markNotificationsRead"
-                  >
-                    Mark read
-                  </button>
-                </div>
-
-                <div class="no-notifications" v-if="notifications.length === 0">
-                  <span>No new notifications</span>
-                </div>
-                <ul class="share-list">
-                  <li
-                    v-for="(item, index) in notifications"
-                    :key="index"
-                    class="notification-card"
-                  >
-                    <div class="notification-card-header">
-                      <i class="material-icons not-colored notification-type-icon">
-                        {{
-                          containerCheck(item.usersSharedWith[0].resourceUrl)
-                            ? "folder"
-                            : "description"
-                        }}
-                      </i>
-                      <span class="resource-hash mono">{{
-                        item.usersSharedWith[0].resourceUrl
-                      }}</span>
-                    </div>
-
-                    <ul class="user-rows">
-                      <li
-                        v-for="(mode, i) in item.usersSharedWith"
-                        :key="i"
-                        class="user-row"
-                      >
-                        <div class="cell-row">
-                          <span class="cell user">
-                            <i class="material-icons tiny not-colored">person</i>
-                            <span class="truncate">
-                              {{
-                                item.owner === "http://xmlns.com/foaf/0.1/Agent"
-                                  ? "Public"
-                                  : item.owner
-                              }}
-                            </span>
-                          </span>
-                          <span class="cell date">
-                            <i class="material-icons tiny not-colored">schedule</i>
-                            <time :datetime="mode.created">{{
-                              formatDate(mode.created)
-                            }}</time>
-                          </span>
-                        </div>
-
-                        <span class="cell modes">
-                          <i class="material-icons tiny not-colored">lock</i>
-                          <span class="notification-mode-chips">
-                            <span
-                              v-for="(ac, ind) in mode.accessModes"
-                              :key="ind"
-                              class="notification-mode-chip"
-                              >{{ ac.split("#")[1] }}</span
-                            >
-                          </span>
-                        </span>
-                      </li>
-                    </ul>
-                  </li>
-                </ul>
+            <v-card class="acl-info-menu-card">
+              <div class="acl-info-header">
+                <p class="acl-info-kicker">Access Control Guide</p>
+                <h3>How ACL files work</h3>
               </div>
-            </div>
-          </div>
+              <ul class="acl-info-list">
+                <li>
+                  <span class="acl-info-emphasis">`.acl` files</span> are Web Access Control rules that define who can
+                  read, append, write, or control a container/resource.
+                </li>
+                <li>
+                  If a resource does not have its own `.acl`, Solid servers usually fall back to the nearest parent container ACL.
+                </li>
+                <li>
+                  File-level ACL behavior depends on pod server capabilities. In this app, ACL automation is most reliable for
+                  RDF containers/resources.
+                </li>
+                <li>
+                  You need <span class="acl-info-emphasis">Control</span> permission to edit ACL entries.
+                </li>
+              </ul>
+              <div class="acl-info-actions">
+                <button class="secondary-action-button compact" @click="aclInfoMenuOpen = false">
+                  Close
+                </button>
+              </div>
+            </v-card>
+          </v-menu>
         </div>
       </div>
     </div>
@@ -459,6 +403,53 @@
                               class="webid-input border p-2 w-full"
                             />
                           </div>
+
+                          <!-- Optional scheduled revoke controls (duration or exact date/time). -->
+                          <div class="revoke-scheduler">
+                            <label class="revoke-label" for="revokeMode">
+                              Automatic revoke (optional)
+                            </label>
+                            <select
+                              id="revokeMode"
+                              v-model="revokeMode"
+                              class="revoke-select"
+                              @change="clearRevokeValidationError"
+                            >
+                              <option value="none">No automatic revoke</option>
+                              <option value="duration">After a duration</option>
+                              <option value="datetime">At a date/time</option>
+                            </select>
+
+                            <div v-if="revokeMode === 'duration'" class="revoke-row">
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                v-model.number="revokeDurationValue"
+                                placeholder="Duration"
+                                class="revoke-input"
+                                @input="clearRevokeValidationError"
+                              />
+                              <select
+                                v-model="revokeDurationUnit"
+                                class="revoke-select compact"
+                                @change="clearRevokeValidationError"
+                              >
+                                <option value="minutes">Minutes</option>
+                                <option value="hours">Hours</option>
+                                <option value="days">Days</option>
+                              </select>
+                            </div>
+
+                            <div v-if="revokeMode === 'datetime'" class="revoke-row">
+                              <input
+                                type="datetime-local"
+                                v-model="revokeDateTimeLocal"
+                                class="revoke-input"
+                                @input="clearRevokeValidationError"
+                              />
+                            </div>
+                          </div>
                         </div>
                         <!-- Provide added user's WebID -->
                         <div id="submitButton">
@@ -512,6 +503,19 @@
                           >
                         </div>
 
+                        <!-- If revoke scheduling input is not valid -->
+                        <div id="errorIndicator" v-if="revokeValidationError !== ''">
+                          <v-alert
+                            closable
+                            title="Invalid revoke schedule"
+                            type="error"
+                            icon="$error"
+                            @click:close="clearRevokeValidationError"
+                          >
+                            {{ revokeValidationError }}
+                          </v-alert>
+                        </div>
+
                         <!-- If added permissions are successful -->
                         <div id="successIndicator" v-if="submissionDone">
                           <v-alert
@@ -532,6 +536,11 @@
                             <br />
                             These changes were added to their sharedWithMe.ttl:
                             <i>{{ postedMe }}</i>
+                            <br v-if="scheduledRevokeLabel" />
+                            <span v-if="scheduledRevokeLabel"
+                              >Automatic revoke scheduled for:
+                              <i>{{ scheduledRevokeLabel }}</i></span
+                            >
                           </v-alert>
 
                           <v-alert
@@ -545,7 +554,12 @@
                             ><br />
                             Was given:
                             <i>{{ permissionsString }}</i> rights<br />
-                            To resources in the container: <i>{{ url }}</i>
+                            To resources in the container: <i>{{ url }}</i
+                            ><br v-if="scheduledRevokeLabel" />
+                            <span v-if="scheduledRevokeLabel"
+                              >Automatic revoke scheduled for:
+                              <i>{{ scheduledRevokeLabel }}</i></span
+                            >
                           </v-alert>
 
                           <!-- Button to reset form -->
@@ -631,26 +645,20 @@ import {
   createInboxWithACL,
   updateSharedWithMe,
   updateSharedWithOthers,
-  getSharedWithMe,
-  sharedSomething,
-  SharedWithMeData,
-  saveNewAccessTime,
+  applyDueScheduledRevocations,
   getEnabledAccessModeIris,
   getRevokedAccessModeIris,
-  getUnreadSharedWithMeNotifications,
-  sortSharedNotificationsByNewest,
-} from "./privacyEdit";
+} from "../services/solid/privacyEdit";
 import {
   fetchPermissionsData,
   fetchData,
   fetchAclAgents,
   fetchPublicAccess,
   WorkingData,
-} from "./getData";
+} from "../services/solid/getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import SharedWith from "./Styling/SharedWith.vue";
-import { ref } from "vue";
 import { useAuthStore } from "../stores/auth";
 
 interface Permissions {
@@ -681,14 +689,20 @@ export default {
       showFormIndex: null as number | null,
       userUrl: "" as string,
       userUrlInvalid: false as boolean,
+      revokeValidationError: "" as string,
       submissionDone: false as boolean,
       recordedOthers: false as boolean,
+      scheduledRevokeLabel: "" as string,
       permissions: {
         read: false,
         append: false,
         write: false,
         control: false,
       } as Permissions,
+      revokeMode: "none" as "none" | "duration" | "datetime",
+      revokeDurationValue: null as number | null,
+      revokeDurationUnit: "hours" as "minutes" | "hours" | "days",
+      revokeDateTimeLocal: "" as string,
       navValue: 0 as number,
       permissionsString: "" as string,
       dirContents: null as WorkingData | null,
@@ -714,9 +728,7 @@ export default {
       loading: false as boolean,
       loadingIndex: null as number | null,
       renderKey: 0 as number,
-      notifications: [] as sharedSomething[],
-      showNotifications: false as boolean,
-      hasNotifications: false as boolean,
+      aclInfoMenuOpen: false as boolean,
     };
   },
   computed: {
@@ -914,6 +926,53 @@ export default {
     },
 
     /**
+     * Clears any revoke-schedule validation error as soon as user edits inputs.
+     */
+    clearRevokeValidationError() {
+      this.revokeValidationError = "";
+    },
+
+    /**
+     * Converts optional revoke-scheduler fields to an ISO timestamp.
+     * Returns null when no scheduling is requested, and throws on invalid values.
+     */
+    resolveRevokeAtIsoOrThrow(): string | null {
+      if (this.revokeMode === "none") {
+        this.scheduledRevokeLabel = "";
+        return null;
+      }
+
+      if (this.revokeMode === "duration") {
+        const durationValue = Number(this.revokeDurationValue);
+        if (!Number.isFinite(durationValue) || durationValue <= 0) {
+          throw new Error("Provide a duration greater than 0.");
+        }
+
+        const unitToMs: Record<"minutes" | "hours" | "days", number> = {
+          minutes: 60 * 1000,
+          hours: 60 * 60 * 1000,
+          days: 24 * 60 * 60 * 1000,
+        };
+        const revokeAt = new Date(Date.now() + durationValue * unitToMs[this.revokeDurationUnit]);
+        const revokeAtIso = revokeAt.toISOString();
+        this.scheduledRevokeLabel = revokeAt.toLocaleString();
+        return revokeAtIso;
+      }
+
+      const revokeDate = new Date(this.revokeDateTimeLocal);
+      if (!this.revokeDateTimeLocal || Number.isNaN(revokeDate.getTime())) {
+        throw new Error("Provide a valid future date/time.");
+      }
+      if (revokeDate.getTime() <= Date.now()) {
+        throw new Error("Revoke date/time must be in the future.");
+      }
+
+      const revokeAtIso = revokeDate.toISOString();
+      this.scheduledRevokeLabel = revokeDate.toLocaleString();
+      return revokeAtIso;
+    },
+
+    /**
      * Persists ACL changes and mirrors those changes into LDPN notification logs.
      *
      * @param url The container/resource URL whose ACL is being updated.
@@ -922,10 +981,21 @@ export default {
       // Reset status flags for this submission cycle.
       this.postedMe = false;
       this.recordedOthers = false;
+      this.revokeValidationError = "";
 
       // Normalize permissions before persisting + logging (Write implies Append in WAC semantics).
       const normalizedPermissions = this.normalizePermissionsInput();
       this.permissions = normalizedPermissions;
+
+      // Resolve optional scheduled revoke timestamp before writing ACL + logs.
+      let scheduledRevokeAt: string | null = null;
+      try {
+        scheduledRevokeAt = this.resolveRevokeAtIsoOrThrow();
+      } catch (error) {
+        this.revokeValidationError =
+          error instanceof Error ? error.message : "Invalid revoke schedule.";
+        return;
+      }
 
       // Capture current access state to derive revocations for LDPN as:Undo entries.
       const previousPermissions = this.getPreviousPermissionsForTarget(
@@ -937,6 +1007,9 @@ export default {
       );
       const hasGrantedModes =
         getEnabledAccessModeIris(normalizedPermissions).length > 0;
+      if (!hasGrantedModes) {
+        this.scheduledRevokeLabel = "";
+      }
 
       // Derive status label shown after successful submission.
       this.permissionsString = this.formatPermissionsSummary(
@@ -982,7 +1055,8 @@ export default {
               this.selectedPodUrl,
               url,
               this.userUrl,
-              normalizedPermissions
+              normalizedPermissions,
+              scheduledRevokeAt ? { revokeAt: scheduledRevokeAt } : undefined
             );
             this.postedMe = this.postedMe || postMeOffer;
             this.recordedOthers = this.recordedOthers || postOthersOffer;
@@ -1010,7 +1084,8 @@ export default {
             this.selectedPodUrl,
             url,
             publicAgent,
-            normalizedPermissions
+            normalizedPermissions,
+            scheduledRevokeAt ? { revokeAt: scheduledRevokeAt } : undefined
           );
           this.recordedOthers = this.recordedOthers || publicOffer;
         }
@@ -1031,6 +1106,12 @@ export default {
     clearForm() {
       this.userUrl = "";
       this.permissionsString = "";
+      this.scheduledRevokeLabel = "";
+      this.revokeValidationError = "";
+      this.revokeMode = "none";
+      this.revokeDurationValue = null;
+      this.revokeDurationUnit = "hours";
+      this.revokeDateTimeLocal = "";
       this.permissions = {
         read: false,
         write: false,
@@ -1042,6 +1123,7 @@ export default {
     clearPermissionString() {
       this.permissionsString = "";
       this.submissionDone = false;
+      this.scheduledRevokeLabel = "";
     },
 
     /**
@@ -1136,49 +1218,43 @@ export default {
       }
     },
 
-    /* Compares each of the dates created on items in sharedWithMe */
-    async obtainSharedWithMeData(): Promise<SharedWithMeData | null> {
-      try {
-        const sharedItemsThings = await getSharedWithMe(this.selectedPodUrl);
-        return sharedItemsThings;
-      } catch (err) {
-        console.error("Error fetching shared items:", err);
-        return null;
-      }
-    },
-
-    /* Compares each of the dates created on items in sharedWithMe */
-    async compareDates() {
-      const sharedData = await this.obtainSharedWithMeData();
-      // When there is an error obtaining sharedWithMe data
-      if (sharedData === null) {
-        this.notifications = [];
-        this.hasNotifications = false;
-        return;
-      }
-
-      // Shared helpers keep unread sorting/filtering aligned with TheHeader.
-      this.notifications = sortSharedNotificationsByNewest(
-        getUnreadSharedWithMeNotifications(sharedData)
+    /**
+     * Evaluates pending scheduled revocations and applies any expired entries.
+     * This runs whenever a pod is loaded in Privacy Editing.
+     */
+    async runDueRevocationSweep() {
+      const summary = await applyDueScheduledRevocations(
+        this.selectedPodUrl,
+        this.webId
       );
-      this.hasNotifications = this.notifications.length > 0;
-    },
-
-    // Records the current date and time as the last access time
-    async markNotificationsRead() {
-      const newAccessSuccess = await saveNewAccessTime(this.selectedPodUrl);
-      if (newAccessSuccess) {
-        await this.compareDates();
-      } else {
-        console.log("Failed to update last access time.");
+      if (summary.considered > 0) {
+        console.log(
+          `Scheduled revocation sweep: ${summary.revoked}/${summary.considered} applied, ${summary.failed} failed.`
+        );
       }
     },
 
     /* creates files and directories if not already present */
     async createStuff() {
       await createInboxWithACL(this.selectedPodUrl, this.webId);
+      await this.runDueRevocationSweep();
       await this.getGeneralData();
-      this.$forceUpdate(); // Forces a re-render of the component
+    },
+    /**
+     * Centralized refresh to avoid duplicated fetch/create cycles across
+     * lifecycle hooks and pod-selection watchers.
+     */
+    async refreshPrivacyViewForSelectedPod(shouldRefreshRenderKey = false) {
+      if (!this.selectedPodUrl) {
+        return;
+      }
+
+      this.currentLocation = this.selectedPodUrl;
+      await this.createStuff();
+
+      if (shouldRefreshRenderKey) {
+        this.updateRenderKey();
+      }
     },
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer: string) {
@@ -1193,7 +1269,6 @@ export default {
      *
      * Supported query keys:
      * - view=sharedWithMe|sharedWithOthers|myPod
-     * - notifications=open
      */
     applyRouteDisplayState() {
       const routeQuery = this.$route?.query ?? {};
@@ -1205,50 +1280,26 @@ export default {
       } else if (queryView === "myPod") {
         this.toggleNavValue(0);
       }
-
-      const notificationsMode = routeQuery.notifications;
-      this.showNotifications = notificationsMode === "open";
-    },
-    toggleNotifications() {
-      this.showNotifications = !this.showNotifications;
-    },
-    formatDate(d: string) {
-      const date = new Date(d);
-      if (isNaN(date.getTime())) return d; // fallback if not a valid date
-      return date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
     },
   },
-  mounted() {
+  async mounted() {
     try {
       this.applyRouteDisplayState();
-      if (this.selectedPodUrl != "") {
-        this.currentLocation = this.selectedPodUrl;
-        this.getGeneralData();
-        this.createStuff();
-        this.compareDates();
-      }
+      await this.refreshPrivacyViewForSelectedPod();
     } catch (error) {
       console.error("Error during component mount:", error);
     }
   },
   watch: {
-    selectedPodUrl(newValue, oldValue) {
+    async selectedPodUrl(newValue, oldValue) {
       if (newValue !== oldValue) {
-        this.getGeneralData();
-        this.createStuff();
-        this.compareDates();
-        this.updateRenderKey();
+        await this.refreshPrivacyViewForSelectedPod(true);
       }
     },
     "$route.query": {
       handler() {
         this.applyRouteDisplayState();
       },
-      deep: true,
     },
   },
 };
@@ -1703,6 +1754,38 @@ button:focus {
 .webid-input::placeholder {
   color: var(--text-muted);
 }
+.revoke-scheduler {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.42rem;
+}
+.revoke-label {
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-section-kicker);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.revoke-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+.revoke-select,
+.revoke-input {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--primary) 24%) !important;
+  border-radius: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  box-shadow: none !important;
+}
+.revoke-select.compact {
+  min-width: 8rem;
+}
 .agent-button,
 .public-button {
   padding: 0.55rem 0.65rem;
@@ -1799,194 +1882,60 @@ button:focus {
   }
 }
 
-/* Notifications */
-.notification-button {
-  padding: 0 0.5rem;
-}
-.notification-button:hover {
-  background-color: var(--hover);
-  color: var(--main-white);
-  border-radius: 6px;
-}
-.badge {
-  position: absolute;
-  top: 17px;
-  right: 15px;
-  width: 12px;
-  height: 12px;
-  background: var(--error);
-  border-radius: 50%;
-}
-.notifications-dropdown {
-  position: absolute;
-  top: calc(100% + 0.55rem);
-  right: 0;
-  z-index: 1000;
-  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-2);
-  border-radius: 18px;
-  width: min(42rem, 88vw);
-  max-width: min(42rem, 88vw);
-  padding: 0.75rem;
-  line-height: normal;
-}
-.notifications-content {
-  display: grid;
-  gap: 0.65rem;
-  width: 100%;
-}
-.notifications-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.65rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
-}
-.notifications-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-  font-family: "Oxanium", monospace;
-}
-.mark-read {
-  font-size: 0.9rem;
-  font-family: "Oxanium", monospace;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  color: var(--main-white);
-  cursor: pointer;
-  background-color: var(--primary);
-  padding: 0.42rem 0.7rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.mark-read:hover {
-  background: color-mix(in srgb, var(--primary) 78%, var(--primary-700) 22%);
-  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
-}
-.notification-title {
-  margin: 0;
-  font-size: var(--font-size-section-title);
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.notification-hint {
-  margin: 0;
-  font-size: var(--font-size-section-kicker);
-  color: var(--text-secondary);
-}
-.no-notifications {
-  margin: 0.2rem 0 0;
-  padding: 0.65rem 0.75rem;
-  border: 1px dashed color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
-  border-radius: 12px;
-  font-family: "Oxanium", monospace;
-  font-size: 0.92rem;
-  color: var(--text-muted);
-}
-
-.share-list {
-  display: grid;
-  gap: 0.55rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.notification-card {
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+/* ACL helper menu (replaces the previous in-page notifications dropdown). */
+.acl-info-menu-card {
+  width: min(34rem, 90vw);
+  padding: 0.8rem;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--panel-elev) 88%, transparent);
-  padding: 0.7rem 0.78rem;
-  display: grid;
-  gap: 0.55rem;
-}
-.notification-card-header {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 0;
-}
-.notification-type-icon {
-  font-size: 1.3rem;
-  flex: 0 0 auto;
-}
-.mono {
-  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
-    monospace;
-}
-.user-rows {
-  display: grid;
-  gap: 0.45rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.user-row {
-  display: grid;
-  gap: 0.35rem;
-}
-.cell-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.45rem 0.8rem;
-}
-.cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--panel) 96%, var(--primary) 4%),
+    var(--panel)
+  ) !important;
   color: var(--text-secondary);
-  line-height: 1.35;
 }
-.user .truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: min(25rem, 62vw);
+.acl-info-header {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.55rem;
 }
-.date {
+.acl-info-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: var(--font-size-section-kicker);
+  font-family: "Oxanium", monospace;
   color: var(--text-muted);
-  white-space: nowrap;
 }
-.notification-mode-chips {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+.acl-info-header h3 {
   margin: 0;
-}
-.notification-mode-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.16rem 0.45rem;
-  border-radius: 999px;
-  border: 1px solid
-    color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
-  background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
-  font-weight: 700;
-  font-size: 0.76rem;
-  margin: 0;
-  color: var(--yasqe-keyword);
-}
-.material-icons.tiny {
-  font-size: 1rem;
-}
-.not-colored {
-  color: var(--text-secondary);
-}
-.resource-hash {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-section-title);
   color: var(--text-primary);
-  letter-spacing: 0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.acl-info-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.42rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.acl-info-emphasis {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.acl-info-actions {
+  margin-top: 0.68rem;
+  display: flex;
+  justify-content: flex-end;
+}
+.secondary-action-button.compact {
+  padding: 0.35rem 0.68rem;
+  min-height: auto;
 }
 
 /* Modern page shell overrides align Privacy Editing with the newer workspace pages. */
@@ -2042,9 +1991,6 @@ button:focus {
   gap: 0.5rem;
   flex: 0 0 auto;
 }
-.notifications-shell {
-  position: relative;
-}
 .header-icon-button {
   position: relative;
   display: inline-flex;
@@ -2070,13 +2016,6 @@ button:focus {
 }
 .header-icon-button .material-icons {
   color: inherit;
-}
-.notification-button {
-  padding: 0;
-}
-.badge {
-  top: 6px;
-  right: 6px;
 }
 
 .pod-chooseContainer {
@@ -2441,17 +2380,6 @@ button:focus {
   margin: 1rem 0 0 0;
 }
 
-.notifications-dropdown {
-  top: calc(100% + 0.55rem);
-  right: 0;
-  width: min(42rem, 88vw);
-  max-width: min(42rem, 88vw);
-  padding: 0.75rem;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
-  box-shadow: var(--shadow-2);
-}
-
 /* Final normalization layer: keeps typography and hover behavior aligned with shared app tokens. */
 .content-container {
   --privacy-hover-surface: color-mix(in srgb, var(--primary) 10%, var(--panel));
@@ -2466,18 +2394,11 @@ button:focus {
 .loading-text {
   font-size: var(--font-size-page-summary);
 }
-.notification-title {
-  font-size: var(--font-size-section-title) !important;
-}
-.notification-hint {
-  font-size: var(--font-size-section-kicker) !important;
-}
 
 .header-icon-button:hover,
 .privacy-side-nav li button:hover,
 .privacy-items-list .folder:hover,
 .privacy-items-list .full-width:hover,
-.notification-button:hover,
 .new-acl:hover,
 #resetButton .secondary-action-button:hover,
 .add-access-toggle:hover {
@@ -2499,12 +2420,6 @@ button:focus {
   }
   .privacy-nav-card {
     position: static;
-  }
-  .notifications-dropdown {
-    left: 0;
-    right: auto;
-    width: min(42rem, calc(100vw - 2rem));
-    max-width: min(42rem, calc(100vw - 2rem));
   }
   .path-card-header,
   .items-header,
@@ -2538,9 +2453,11 @@ button:focus {
   .privacy-main-panel {
     padding: 0.85rem 0.9rem;
   }
-  .notifications-dropdown {
-    width: min(42rem, calc(100vw - 1.2rem));
-    max-width: min(42rem, calc(100vw - 1.2rem));
+  .revoke-row {
+    grid-template-columns: 1fr;
+  }
+  .revoke-select.compact {
+    min-width: 0;
   }
 }
 </style>

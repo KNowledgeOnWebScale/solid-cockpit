@@ -3,7 +3,7 @@ import {
   isLoggedin,
   currentWebId,
   handleRedirectAfterPageLoad,
-} from "../components/login";
+} from "../services/solid/login";
 
 let authInitPromise: Promise<void> | null = null;
 

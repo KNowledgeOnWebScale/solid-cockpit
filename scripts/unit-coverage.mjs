@@ -10,15 +10,15 @@ const branchThreshold = Number(process.env.UNIT_COVERAGE_BRANCHES ?? "90");
 const funcThreshold = Number(process.env.UNIT_COVERAGE_FUNCS ?? "100");
 
 const trackedFiles = [
-  "src/components/fileUploadUtils.ts",
-  "src/components/mime_types.js",
-  "src/components/queryPodUtils.ts",
-  "src/components/z3-headers.ts",
+  "src/services/solid/fileUploadUtils.ts",
+  "src/services/solid/mime_types.js",
+  "src/services/query/queryPodUtils.ts",
+  "src/services/query/z3-headers.ts",
 ];
 const advisoryFiles = [
-  "src/components/login.ts",
-  "src/components/getData.ts",
-  "src/components/privacyEdit.ts",
+  "src/services/solid/login.ts",
+  "src/services/solid/getData.ts",
+  "src/services/solid/privacyEdit.ts",
 ];
 
 const testFiles = readdirSync("tests/unit")

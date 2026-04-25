@@ -369,8 +369,13 @@
 </template>
 
 <script lang="ts">
-import { fetchData, WorkingData } from "./getData";
-import { deleteFromPod, deleteContainer, movePodItem, renamePodItem } from "./fileUpload";
+import { fetchData, WorkingData } from "../services/solid/getData";
+import {
+  deleteFromPod,
+  deleteContainer,
+  movePodItem,
+  renamePodItem,
+} from "../services/solid/fileUpload";
 import {
   getFile,
   getSolidDataset,
@@ -381,7 +386,7 @@ import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 import { useAuthStore } from "../stores/auth";
-import { checkUrl } from "./privacyEdit";
+import { checkUrl } from "../services/solid/privacyEdit";
 
 interface BrowserItemDetail {
   itemName: string;

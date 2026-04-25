@@ -168,7 +168,7 @@
                   class="example-queries"
                   :item-props="itemPropsExampleQueries"
                   :items="exampleQueries"
-                  v-model="selectedExample"
+                  v-model="selectedExampleId"
                   @update:modelValue="onSelectExample"
                   density="compact"
                   variant="outlined"
@@ -176,7 +176,6 @@
                   menu-icon="mdi-chevron-down"
                   rounded
                   label="Sample Queries"
-                  return-object
                 ></v-select>
                 <div v-if="selectedExampleInfo" class="sample-query-meta">
                   <span class="sample-query-category">{{
@@ -315,7 +314,7 @@
                 Cancel Query
               </button>
 
-              <div class="save-query" v-show="selectedPodUrl !== ''">
+              <div class="save-query" v-show="canUseCacheTarget">
                 <v-checkbox
                   class="save-checkbox"
                   v-model="saveQuery"
@@ -329,23 +328,16 @@
                     class="tool-tip"
                     activator="parent"
                     location="bottom"
-                    >Check this box if you would like to save the query and any
-                    results to your pod</v-tooltip
+                    >{{ saveQueryTooltip }}</v-tooltip
                   >
                 </div>
               </div>
 
               <div class="sparql-guide">
                 <button
-                  v-show="currentQuery.query !== ''"
                   class="share-url-button"
                   @click="copyCurrentQueryUrl"
-                  :disabled="loading || !canShareCurrentQueryUrl"
-                  :title="
-                    canShareCurrentQueryUrl
-                      ? 'Copy URL for this executed query'
-                      : 'Execute this query before sharing its URL'
-                  "
+                  title="Copy URL for the current query state"
                 >
                   Copy Query URL
                 </button>
@@ -610,6 +602,15 @@
                       <span class="metadata-chip" v-if="query.modified">
                         Updated: {{ query.modified }}
                       </span>
+                    </div>
+
+                    <!-- Persisted execution diagnostics are surfaced for failed/stale entries. -->
+                    <div
+                      class="cached-error-note"
+                      v-if="query.description && query.description.trim() !== ''"
+                    >
+                      <span class="user-tag">Run notes:</span>
+                      <pre class="cached-error-note-text">{{ query.description }}</pre>
                     </div>
 
                     <div class="query-file-container">
@@ -995,15 +996,41 @@
           <span>This query produced no results 🙃</span>
         </div>
 
-        <div class="null-results" v-show="!loading && queryError != null">
-          <span
-            >There was a(n)
-            <b
-              ><i>{{ queryError }}</i></b
-            >
-            error when executing this query <br />(open the browser console to
-            see more details.)</span
+        <div class="query-error-panel" v-show="!loading && queryError != null">
+          <div class="query-error-panel-header">
+            <i class="material-icons">error_outline</i>
+            <div class="query-error-copy">
+              <span class="query-error-title">{{ queryError?.title }}</span>
+              <span class="query-error-summary">{{ queryError?.summary }}</span>
+            </div>
+          </div>
+
+          <div
+            class="query-error-endpoints"
+            v-if="queryError?.endpoints && queryError.endpoints.length > 0"
           >
+            <span class="query-error-section-label">Endpoint(s)</span>
+            <ul>
+              <li v-for="endpoint in queryError.endpoints" :key="endpoint">
+                <code>{{ endpoint }}</code>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            class="query-error-hints"
+            v-if="queryError?.hints && queryError.hints.length > 0"
+          >
+            <span class="query-error-section-label">Suggested checks</span>
+            <ul>
+              <li v-for="hint in queryError.hints" :key="hint">{{ hint }}</li>
+            </ul>
+          </div>
+
+          <details class="query-error-raw" v-if="queryError?.message">
+            <summary>Technical message</summary>
+            <pre>{{ queryError.message }}</pre>
+          </details>
         </div>
       </div>
     </div>
@@ -1015,10 +1042,6 @@
 </template>
 
 <script lang="ts">
-import Yasqe from "@triply/yasqe";
-import "@triply/yasqe/build/yasqe.min.css";
-import Yasr from "@triply/yasr";
-import "@triply/yasr/build/yasr.min.css";
 import {
   ensureCacheContainer,
   buildCacheEntryHash,
@@ -1038,13 +1061,13 @@ import {
   ComunicaSources,
   executeQueryInMainThread,
   renameCachedQueryEntry,
-} from "./queryPod";
+} from "../services/query/queryPod";
 import {
   fetchPermissionsData,
   fetchAclAgents,
   fetchPublicAccess,
-} from "./getData";
-import { deleteFromPod, deleteThing } from "./fileUpload";
+} from "../services/solid/getData";
+import { deleteFromPod, deleteThing } from "../services/solid/fileUpload";
 import {
   changeAclAgent,
   generateAcl,
@@ -1052,11 +1075,11 @@ import {
   updateSharedWithOthers,
   Permissions,
   checkUrl,
-} from "./privacyEdit";
+} from "../services/solid/privacyEdit";
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataQueryGuide from "./Guides/DataQueryGuide.vue";
-import { toRaw, shallowRef, nextTick } from "vue";
+import { toRaw, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth";
 
 type ExampleQueryCategory =
@@ -1066,11 +1089,21 @@ type ExampleQueryCategory =
   | "Mixed source federated query";
 
 type ExampleQueryRecord = {
+  id: string;
   name: string;
   sources: string[];
   query: string;
   category: ExampleQueryCategory;
   description: string;
+};
+
+type QueryExecutionError = {
+  title: string;
+  summary: string;
+  message: string;
+  endpoints: string[];
+  hints: string[];
+  occurredAt: string;
 };
 
 const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
@@ -1087,6 +1120,38 @@ const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
     "Combines Solid/local RDF sources with endpoint federation in one execution flow.",
 };
 
+type YasqeConstructor = new (
+  parent: HTMLElement,
+  config: Record<string, unknown>,
+) => any;
+type YasrConstructor = new (
+  parent: HTMLElement,
+  config: Record<string, unknown>,
+) => any;
+
+let yasqeConstructor: YasqeConstructor | null = null;
+let yasrConstructor: YasrConstructor | null = null;
+let queryEditorsLoadPromise: Promise<void> | null = null;
+
+async function loadQueryEditors(): Promise<void> {
+  if (yasqeConstructor && yasrConstructor) {
+    return;
+  }
+  if (!queryEditorsLoadPromise) {
+    queryEditorsLoadPromise = (async () => {
+      const [{ default: YasqeCtor }, { default: YasrCtor }] = await Promise.all([
+        import("@triply/yasqe"),
+        import("@triply/yasr"),
+        import("@triply/yasqe/build/yasqe.min.css"),
+        import("@triply/yasr/build/yasr.min.css"),
+      ]);
+      yasqeConstructor = YasqeCtor as YasqeConstructor;
+      yasrConstructor = YasrCtor as YasrConstructor;
+    })();
+  }
+  await queryEditorsLoadPromise;
+}
+
 export default {
   components: {
     PodLogin,
@@ -1096,16 +1161,17 @@ export default {
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
-      yasqe: shallowRef<Yasqe | null>(null),
-      yasr: shallowRef<Yasr | null>(null),
-      cachedYasr: shallowRef<Yasr | null>(null),
+      yasqe: null as any,
+      yasr: null as any,
+      cachedYasr: null as any,
       resultsForYasr: null as QueryResultJson | null,
-      queryError: null as Error | null,
+      queryError: null as QueryExecutionError | null,
       successfulLogin: false as boolean,
       currentView: "newQuery" as "newQuery" | "previousQueries",
-      selectedExample: null as ExampleQueryRecord | null,
+      selectedExampleId: null as string | null,
       loadExampleQuery: false as boolean,
       exampleQueries: [] as ExampleQueryRecord[],
+      syncingFromYasqeEditor: false as boolean,
       possibleSources: [
         "<https://www.bgee.org/sparql/>",
         "<https://glyconnect.expasy.org/sparql>",
@@ -1230,27 +1296,49 @@ export default {
       return this.queryNavCollapsed;
     },
     /**
-     * Only enables URL sharing after the current query state has been executed.
-     * Any edit to query text/sources/options invalidates this until re-execution.
+     * Cache writes are possible when either:
+     * - a pod is selected, or
+     * - custom cache mode is enabled with a non-empty URL.
      */
-    canShareCurrentQueryUrl() {
+    canUseCacheTarget() {
       return (
-        this.currentQuery.query.trim().length > 0 &&
-        this.lastExecutedQuerySignature.length > 0 &&
-        this.lastExecutedQuerySignature === this.getCurrentQuerySignature()
+        this.selectedPodUrl.trim() !== "" ||
+        (this.useCustomCachePath && this.customCachePath.trim() !== "")
       );
     },
     /**
-     * Exposes category/description metadata for the currently selected sample
-     * query so users can quickly understand what the example demonstrates.
+     * Keeps the save-to-cache tooltip descriptive for both selected-pod and
+     * custom-cache flows.
      */
-    selectedExampleInfo() {
-      if (!this.selectedExample) {
+    saveQueryTooltip() {
+      if (this.useCustomCachePath && this.customCachePath.trim() !== "") {
+        return "Check this box to save the query and results to the custom cache URL.";
+      }
+      return "Check this box to save the query and results to the selected pod cache container.";
+    },
+    /**
+     * Resolves the selected sample query from a stable ID so editor updates do
+     * not depend on object identity from the dropdown internals.
+     */
+    selectedExampleRecord() {
+      if (!this.selectedExampleId) {
         return null;
       }
 
+      return (
+        this.exampleQueries.find(
+          (example) => example.id === this.selectedExampleId,
+        ) || null
+      );
+    },
+    /**
+     * Exposes category metadata for the currently selected sample query so
+     * users can quickly understand what the example demonstrates.
+     */
+    selectedExampleInfo() {
+      if (!this.selectedExampleRecord) return null;
       return {
-        category: this.selectedExample.category,
+        category: this.selectedExampleRecord.category,
       };
     },
     /**
@@ -1342,6 +1430,7 @@ export default {
           // Search across the fields already surfaced in the cache entry UI.
           const searchableValues = [
             query.title || "",
+            query.description || "",
             query.hash,
             query.created,
             query.queryFile,
@@ -1549,6 +1638,27 @@ export default {
       this.applyQueryStateFromUrlHash();
     },
     /**
+     * Prevents stale "Save Query?" state when no valid cache destination is
+     * currently available in the UI.
+     */
+    syncSaveQueryAvailability() {
+      if (!this.canUseCacheTarget && this.saveQuery) {
+        this.saveQuery = false;
+      }
+    },
+    /**
+     * Centralized mutation handling for query state fields that should invalidate
+     * share state and schedule URL/local draft synchronization.
+     */
+    handleEditableQueryStateChanged() {
+      if (this.syncingQueryStateFromUrl) return;
+      if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
+        this.queryUrlShareFeedback = null;
+        this.queryUrlShareSuccess = false;
+      }
+      this.scheduleQueryStateSync();
+    },
+    /**
      * Debounces draft persistence + URL hash updates to avoid excessive writes
      * while users type into the query editor.
      */
@@ -1562,17 +1672,11 @@ export default {
         this.saveQueryDraftToStorage();
         this.replaceUrlHashWithQueryState();
         this.queryStateSyncTimerId = null;
-      }, 250);
+      }, 700);
     },
     async copyCurrentQueryUrl() {
       this.queryUrlShareFeedback = null;
       this.queryUrlShareSuccess = false;
-
-      if (!this.canShareCurrentQueryUrl) {
-        this.queryUrlShareFeedback =
-          "Execute this query before copying a shareable URL.";
-        return;
-      }
 
       try {
         this.replaceUrlHashWithQueryState();
@@ -1955,11 +2059,169 @@ export default {
 
       return "Single SPARQL endpoint query";
     },
+    /**
+     * Extract endpoint URLs from the surfaced error message so users can
+     * immediately see which remote source likely failed.
+     */
+    collectErrorEndpoints(message: string): string[] {
+      const matches = message.match(/https?:\/\/[^\s<>"')\]]+/g) || [];
+      return [...new Set(matches)];
+    },
+    /**
+     * Creates concise remediation hints based on common endpoint failure
+     * signatures (CORS/auth/timeout/rate-limit/syntax).
+     */
+    buildQueryErrorHints(message: string, endpoints: string[]): string[] {
+      const normalized = message.toLowerCase();
+      const hints: string[] = [];
+
+      if (normalized.includes("cors") || normalized.includes("cross-origin")) {
+        hints.push(
+          "Check that each endpoint allows cross-origin requests from your app."
+        );
+      }
+      if (
+        normalized.includes("401") ||
+        normalized.includes("403") ||
+        normalized.includes("unauthorized") ||
+        normalized.includes("forbidden")
+      ) {
+        hints.push(
+          "Verify authentication/authorization for the endpoint or protected pod resource."
+        );
+      }
+      if (
+        normalized.includes("timeout") ||
+        normalized.includes("timed out") ||
+        normalized.includes("etimedout")
+      ) {
+        hints.push(
+          "Endpoint timeout detected. Retry with a smaller query scope or fewer remote joins."
+        );
+      }
+      if (normalized.includes("429") || normalized.includes("rate limit")) {
+        hints.push(
+          "Rate limiting detected. Wait briefly and retry, or reduce request frequency."
+        );
+      }
+      if (
+        normalized.includes("parse") ||
+        normalized.includes("syntax") ||
+        normalized.includes("token")
+      ) {
+        hints.push(
+          "Review SPARQL syntax and PREFIX declarations, especially around SERVICE blocks."
+        );
+      }
+      if (endpoints.length === 0) {
+        hints.push(
+          "No endpoint URL was detected in the error; check browser console details for the failing request."
+        );
+      }
+
+      return hints.slice(0, 4);
+    },
+    /**
+     * Converts runtime query failures into a stable display object used by
+     * both the in-page error panel and cache-entry diagnostics.
+     */
+    buildQueryExecutionError(errorLike: unknown): QueryExecutionError {
+      const fallbackMessage = "Unknown query execution error.";
+      const message =
+        errorLike instanceof Error
+          ? errorLike.message || fallbackMessage
+          : typeof errorLike === "string"
+            ? errorLike
+            : JSON.stringify(errorLike ?? fallbackMessage);
+      const endpoints = this.collectErrorEndpoints(message);
+      const hints = this.buildQueryErrorHints(message, endpoints);
+
+      const firstSentence = message.split("\n")[0]?.trim() || fallbackMessage;
+      const summary =
+        firstSentence.length > 180
+          ? `${firstSentence.slice(0, 177)}...`
+          : firstSentence;
+
+      return {
+        title: "Query execution failed",
+        summary,
+        message,
+        endpoints,
+        hints,
+        occurredAt: new Date().toISOString(),
+      };
+    },
+    /**
+     * Formats execution diagnostics into a readable text block stored in the
+     * cache entry description field when a saved query run fails.
+     */
+    formatErrorDescriptionForCache(errorInfo: QueryExecutionError): string {
+      const endpointSection =
+        errorInfo.endpoints.length > 0
+          ? `Endpoint(s): ${errorInfo.endpoints.join(", ")}`
+          : "Endpoint(s): not identified";
+      const hintSection =
+        errorInfo.hints.length > 0
+          ? `Hints: ${errorInfo.hints.join(" | ")}`
+          : "Hints: review browser console/network trace";
+
+      return [
+        "Execution status: failed",
+        `Occurred at: ${errorInfo.occurredAt}`,
+        endpointSection,
+        hintSection,
+        `Message: ${errorInfo.message}`,
+      ].join("\n");
+    },
+    /**
+     * Ensures failed saved-query executions also produce a cache index record,
+     * so users can audit what failed and why.
+     */
+    async persistFailedQueryRecord(
+      errorInfo: QueryExecutionError,
+      cleanedSources: ComunicaSources[]
+    ) {
+      if (!this.saveQuery || !this.cachePath) {
+        return;
+      }
+
+      const sourceUrlsForCache = cleanedSources.map((source) => source.value);
+      const failedEntryHash = buildCacheEntryHash(
+        `${this.currentQuery.query}\n# failed at ${errorInfo.occurredAt}`,
+        sourceUrlsForCache,
+      );
+      const fallbackEmptyResults: QueryResultJson = {
+        head: { vars: [] },
+        results: { bindings: [] },
+      };
+
+      const failedQueryFile = await uploadQueryFile(
+        this.cachePath,
+        this.currentQuery.query,
+        failedEntryHash,
+      );
+      const failedResultsFile = await uploadResults(
+        this.cachePath,
+        JSON.stringify(fallbackEmptyResults, null, 2),
+        failedEntryHash,
+      );
+
+      await upsertQueryCacheEntry(this.cachePath, {
+        hash: failedEntryHash,
+        query: this.currentQuery.query,
+        queryFileUrl: failedQueryFile,
+        resultsFileUrl: failedResultsFile,
+        sources: sourceUrlsForCache,
+        status: "failed",
+        description: this.formatErrorDescriptionForCache(errorInfo),
+      });
+    },
     // For selecting an example query
     itemPropsExampleQueries(item: ExampleQueryRecord) {
       return {
         title: item.name,
         subtitle: item.category,
+        value: item.id,
       };
     },
     // loads example queries from the demonstrator folder
@@ -1973,7 +2235,10 @@ export default {
       for (const path in demonstratorFiles) {
         const content = await demonstratorFiles[path]();
         const lines = (content as string).split("\n");
-        const name = path.split("/").pop()?.replace(".rq", "") || "";
+        const rawName = path.split("/").pop()?.replace(".rq", "") || "";
+        const name = rawName
+          .replace(/[-_]+/g, " ")
+          .replace(/\b\w/g, (character) => character.toUpperCase());
 
         let sources: string[] = [];
         const sourceLine = lines.find((line) =>
@@ -1994,6 +2259,7 @@ export default {
 
         const category = this.categorizeExampleQuery(query, sources);
         queries.push({
+          id: rawName,
           name,
           sources,
           query,
@@ -2001,21 +2267,27 @@ export default {
           description: EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS[category],
         });
       }
-      this.exampleQueries = queries;
+      this.exampleQueries = queries.sort((left, right) => {
+        const categorySort = left.category.localeCompare(right.category);
+        if (categorySort !== 0) return categorySort;
+        return left.name.localeCompare(right.name);
+      });
     },
     // displays example query in YASQUE
-    onSelectExample(ex: ExampleQueryRecord | null) {
-      if (!ex || !this.yasqe) return;
+    onSelectExample(exampleId: string | null) {
+      if (!exampleId || !this.yasqe) return;
 
-      if (ex && Array.isArray(ex.sources)) {
-        this.currentQuery.sources = ex.sources;
-      }
+      const example = this.exampleQueries.find((item) => item.id === exampleId);
+      if (!example) return;
 
-      const y = this.yasqe;
-      y.setValue(ex.query || "");
-      this.currentQuery.query = y.getValue();
-      y.setCursor({ line: 0, ch: 0 });
-      y.focus();
+      // Clone example sources so user edits never mutate the static sample list.
+      this.currentQuery.sources = [...example.sources];
+      this.currentQuery.query = example.query || "";
+
+      const editor = this.yasqe;
+      editor.setValue(this.currentQuery.query);
+      editor.setCursor({ line: 0, ch: 0 });
+      editor.focus();
     },
 
     /* Determines whether sources contain a Solid source and reflects this in boolean */
@@ -2024,10 +2296,139 @@ export default {
         (source) => source.context != null,
       );
     },
+    /**
+     * Narrow unknown output values to the expected cache/query result object.
+     */
+    isCacheOutputLike(output: unknown): output is CacheOutput {
+      return Boolean(
+        output &&
+          typeof output === "object" &&
+          "resultsOutput" in (output as Record<string, unknown>),
+      );
+    },
+    /**
+     * Validates candidate cache container URLs. Cache paths must be absolute
+     * HTTP(S) URLs to avoid ambiguous fetch/create behavior.
+     */
+    isValidCacheUrl(url: string) {
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    /**
+     * Converts low-level cache resolution errors into messages users can act on.
+     */
+    describeCacheAccessIssue(errorLike: unknown, attemptedUrl: string) {
+      const message = String(errorLike ?? "");
+      const normalizedMessage = message.toLowerCase();
+
+      if (
+        normalizedMessage.includes("401") ||
+        normalizedMessage.includes("403") ||
+        normalizedMessage.includes("unauthorized") ||
+        normalizedMessage.includes("forbidden")
+      ) {
+        return `Access denied for cache URL ${attemptedUrl}. Please verify your pod access control permissions for this container.`;
+      }
+
+      if (
+        normalizedMessage.includes("invalid url") ||
+        normalizedMessage.includes("failed to parse url")
+      ) {
+        return `Invalid cache URL: ${attemptedUrl}. Enter a full HTTP(S) container URL ending with '/'.`;
+      }
+
+      if (
+        normalizedMessage.includes("404") ||
+        normalizedMessage.includes("not found")
+      ) {
+        return `Cache URL ${attemptedUrl} was not found and could not be used. Ensure the container exists and that you can access it.`;
+      }
+
+      return `Could not access cache URL ${attemptedUrl}. Check the URL and verify read/write access to this container.`;
+    },
+    /**
+     * Resolves the effective cache destination for both selected-pod and custom
+     * cache workflows, while surfacing descriptive validation/access errors.
+     */
+    async resolveCachePathForExecution() {
+      this.cacheError = null;
+
+      if (this.useCustomCachePath) {
+        const normalizedCustomPath = this.customCachePath.trim();
+        if (!normalizedCustomPath) {
+          this.cacheError =
+            "Custom cache URL is enabled, but no URL was provided.";
+          return null;
+        }
+        if (!this.isValidCacheUrl(normalizedCustomPath)) {
+          this.cacheError =
+            "Invalid custom cache URL. Use a full HTTP(S) container URL, for example: https://example.pod/querycache/.";
+          return null;
+        }
+
+        try {
+          const resolvedPath = await ensureCacheContainer(
+            this.selectedPodUrl,
+            this.webId,
+            normalizedCustomPath,
+          );
+          if (resolvedPath.includes("Error")) {
+            this.cacheError = this.describeCacheAccessIssue(
+              resolvedPath,
+              normalizedCustomPath,
+            );
+            return null;
+          }
+          return resolvedPath;
+        } catch (error) {
+          this.cacheError = this.describeCacheAccessIssue(
+            error,
+            normalizedCustomPath,
+          );
+          return null;
+        }
+      }
+
+      if (this.selectedPodUrl.trim() === "") {
+        this.cacheError =
+          "To use query cache, either select a pod or enable a custom cache URL.";
+        return null;
+      }
+
+      try {
+        const resolvedPath = await ensureCacheContainer(
+          this.selectedPodUrl,
+          this.webId,
+          this.selectedPodUrl,
+        );
+        if (resolvedPath.includes("Error")) {
+          this.cacheError = this.describeCacheAccessIssue(
+            resolvedPath,
+            this.selectedPodUrl,
+          );
+          return null;
+        }
+        return resolvedPath;
+      } catch (error) {
+        this.cacheError = this.describeCacheAccessIssue(
+          error,
+          this.selectedPodUrl,
+        );
+        return null;
+      }
+    },
     // Executes user provided query and saves it to querycache if specified
     async runExecuteQuery() {
       this.loading = true;
       this.cancelRequested = false;
+      this.queryError = null;
+      this.cacheError = null;
+      this.resultsForYasr = null;
+      this.currentQuery.output = null;
       if (this.currentQuery.query.trim() === "") {
         alert("Please enter a valid SPARQL query before executing.");
         this.loading = false;
@@ -2039,9 +2440,6 @@ export default {
       this.checkSolidSources(cleanedSources);
 
       try {
-        // reset query error
-        this.queryError = null;
-
         // if Save Query box is selected (pod must be connected)
         if (this.saveQuery) {
           // Spec-aligned cache entries require at least one concrete source URI.
@@ -2052,29 +2450,12 @@ export default {
             return;
           }
 
-          // if the user provided a custom cache path, use that
-          if (this.useCustomCachePath && this.customCachePath) {
-            this.cachePath = await ensureCacheContainer(
-              this.selectedPodUrl,
-              this.webId,
-              this.customCachePath,
-            );
-          } else {
-            // otherwise use default (connected pod)
-            this.cachePath = await ensureCacheContainer(
-              this.selectedPodUrl,
-              this.webId,
-              this.selectedPodUrl,
-            );
-          }
-
-          // Catch error with accessing custom query cache location
-          if (this.cachePath.includes("Error")) {
-            this.cacheError =
-              "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+          const resolvedCachePath = await this.resolveCachePathForExecution();
+          if (!resolvedCachePath) {
             this.loading = false;
             return;
           }
+          this.cachePath = resolvedCachePath;
 
           this.currentQuery.output = await executeQueryWithPodConnected(
             this.currentQuery.query,
@@ -2101,7 +2482,7 @@ export default {
 
           // obtaining query cache hash if the cache contains a similar query
           if (
-            this.currentQuery.output &&
+            this.isCacheOutputLike(this.currentQuery.output) &&
             this.currentQuery.output.provenanceOutput != null
           ) {
             this.cacheType =
@@ -2110,69 +2491,15 @@ export default {
               this.currentQuery.output.provenanceOutput.id.value,
             );
           }
-
-          // pass found results to YASR (with save query selected)
-          this.resultsForYasr = this.currentQuery.output.resultsOutput;
-
-          this.currentQuery.output = toRaw(this.currentQuery.output);
-          // If there is NOT an equivalent query in cache, then add it to cache
-          if (
-            this.currentQuery.output.provenanceOutput === null ||
-            this.currentQuery.output.provenanceOutput.algorithm != "equivalence"
-          ) {
-            // Use a stable cache identifier so the index remains predictable.
-            this.currHash = buildCacheEntryHash(
-              this.currentQuery.query,
-              this.currentQuery.sources,
-            );
-
-            // Persist the concrete cache members first, then register the entry in queries.ttl.
-            this.queryFile = await uploadQueryFile(
-              this.cachePath,
-              this.currentQuery.query,
-              this.currHash,
-            );
-            this.resultsFile = await uploadResults(
-              this.cachePath,
-              JSON.stringify(this.currentQuery.output.resultsOutput, null, 2),
-              this.currHash,
-            );
-
-            await upsertQueryCacheEntry(this.cachePath, {
-              hash: this.currHash,
-              query: this.currentQuery.query,
-              queryFileUrl: this.queryFile,
-              resultsFileUrl: this.resultsFile,
-              sources: this.currentQuery.sources,
-              status: "current",
-            });
-          }
         } else {
           // If the Save Query button was not selected (pod is connected)
-          if (this.selectedPodUrl !== "" || this.customCachePath !== "") {
-            // if the user provided a custom cache path, use that
-            if (this.useCustomCachePath && this.customCachePath) {
-              this.cachePath = await ensureCacheContainer(
-                this.selectedPodUrl,
-                this.webId,
-                this.customCachePath,
-              );
-            } else {
-              // otherwise use default (connected pod)
-              this.cachePath = await ensureCacheContainer(
-                this.selectedPodUrl,
-                this.webId,
-                this.selectedPodUrl,
-              );
-            }
-
-            // Catch error with accessing custom query cache location
-            if (this.cachePath.includes("Error")) {
-              this.cacheError =
-                "Could not access or create query cache container. Please check the cache path and your pod permissions.";
+          if (this.canUseCacheTarget) {
+            const resolvedCachePath = await this.resolveCachePathForExecution();
+            if (!resolvedCachePath) {
               this.loading = false;
               return;
             }
+            this.cachePath = resolvedCachePath;
 
             // Execute Query
             this.currentQuery.output = await executeQueryWithPodConnected(
@@ -2198,9 +2525,6 @@ export default {
               }
             }
           } else {
-            // if there is NO pod connected, use the default query execution
-            this.cacheError = this.currentQuery.output;
-
             // if there are NOT solid sources --> use the Worker
             if (!this.containsSolidSources) {
               this.currentQuery.output = await this.executeQuery(
@@ -2218,7 +2542,7 @@ export default {
 
           // try to obtain cache hash if the cache contains a similar query
           if (
-            this.currentQuery.output &&
+            this.isCacheOutputLike(this.currentQuery.output) &&
             this.currentQuery.output.provenanceOutput != null
           ) {
             this.cacheType =
@@ -2230,19 +2554,84 @@ export default {
         }
         // if there was an error report it here
         if (this.currentQuery.output instanceof Error) {
-          this.queryError = this.currentQuery.output.message;
-        } else {
-          // if the query was empty assign it empty bindings
-          if (
-            !this.currentQuery.output.resultsOutput ||
-            !this.currentQuery.output.resultsOutput.results
-          ) {
-            this.currentQuery.output.resultsOutput = {
-              head: { vars: [] },
-              results: { bindings: [] },
-            };
+          const errorInfo = this.buildQueryExecutionError(this.currentQuery.output);
+          this.queryError = errorInfo;
+
+          // Keep failed query runs discoverable in cache when saving is enabled.
+          if (this.saveQuery) {
+            try {
+              await this.persistFailedQueryRecord(errorInfo, cleanedSources);
+              await this.loadCache();
+            } catch (error) {
+              console.error("Could not persist failed query cache record:", error);
+            }
           }
+
+          this.loading = false;
+          return;
         }
+
+        if (this.currentQuery.output === null && this.cancelRequested) {
+          this.loading = false;
+          return;
+        }
+
+        if (!this.isCacheOutputLike(this.currentQuery.output)) {
+          const errorInfo = this.buildQueryExecutionError(
+            "Query execution returned an invalid response shape.",
+          );
+          this.queryError = errorInfo;
+          this.loading = false;
+          return;
+        }
+
+        this.currentQuery.output = toRaw(this.currentQuery.output);
+
+        // if the query was empty assign it empty bindings
+        if (
+          !this.currentQuery.output.resultsOutput ||
+          !this.currentQuery.output.resultsOutput.results
+        ) {
+          this.currentQuery.output.resultsOutput = {
+            head: { vars: [] },
+            results: { bindings: [] },
+          };
+        }
+
+        // If there is NOT an equivalent query in cache, then add it to cache
+        if (
+          this.saveQuery &&
+          (this.currentQuery.output.provenanceOutput === null ||
+            this.currentQuery.output.provenanceOutput.algorithm != "equivalence")
+        ) {
+          // Use a stable cache identifier so the index remains predictable.
+          this.currHash = buildCacheEntryHash(
+            this.currentQuery.query,
+            this.currentQuery.sources,
+          );
+
+          // Persist the concrete cache members first, then register the entry in queries.ttl.
+          this.queryFile = await uploadQueryFile(
+            this.cachePath,
+            this.currentQuery.query,
+            this.currHash,
+          );
+          this.resultsFile = await uploadResults(
+            this.cachePath,
+            JSON.stringify(this.currentQuery.output.resultsOutput, null, 2),
+            this.currHash,
+          );
+
+          await upsertQueryCacheEntry(this.cachePath, {
+            hash: this.currHash,
+            query: this.currentQuery.query,
+            queryFileUrl: this.queryFile,
+            resultsFileUrl: this.resultsFile,
+            sources: this.currentQuery.sources,
+            status: "current",
+          });
+        }
+
         // pass found results to YASR (if save query was not selected)
         this.resultsForYasr = this.currentQuery.output.resultsOutput;
         // Mark this exact state as shareable only after successful execution.
@@ -2258,6 +2647,7 @@ export default {
           console.log("Query canceled by user.");
         } else {
           console.log("Error executing query:", err);
+          this.queryError = this.buildQueryExecutionError(err);
         }
       }
       this.loading = false;
@@ -2276,9 +2666,13 @@ export default {
     ): Promise<CacheOutput | null | Error> {
       this.cancelRequested = false;
 
-      this.worker = new Worker(new URL("./queryWorker.js", import.meta.url), {
-        type: "module",
-      });
+      // Keep the query worker under services/query to separate UI and execution concerns.
+      this.worker = new Worker(
+        new URL("../services/query/queryWorker.js", import.meta.url),
+        {
+          type: "module",
+        }
+      );
 
       return new Promise<CacheOutput | null | Error>((resolve, reject) => {
         this.worker!.onmessage = (e: MessageEvent) => {
@@ -2307,7 +2701,9 @@ export default {
         // for an error or cancellation
         this.worker!.onerror = (err) => {
           this.cancelQuery();
-          resolve(err as any);
+          const fallbackMessage =
+            err?.message || "Query worker failed before returning a result.";
+          resolve(new Error(fallbackMessage));
         };
         // starts a run
         this.worker.postMessage({
@@ -2382,16 +2778,23 @@ export default {
       if (this.yasqe) {
         this.yasqe.setValue("");
       }
-      this.selectedExample = null;
+      this.selectedExampleId = null;
       this.resultsForYasr = null;
+      this.queryError = null;
       this.scheduleQueryStateSync();
     },
 
+    async ensureQueryEditorsLoaded() {
+      await loadQueryEditors();
+    },
     // initializes the YASR instance
-    initYasr() {
+    async initYasr() {
       const parent = document.getElementById("yasr-container");
+      if (!parent) return;
+      await this.ensureQueryEditorsLoaded();
+      if (!yasrConstructor) return;
       if (this.yasr) parent.replaceChildren();
-      this.yasr = new Yasr(parent, {
+      this.yasr = new yasrConstructor(parent, {
         pluginOrder: ["table", "response"],
         defaultPlugin: "table",
       });
@@ -2400,8 +2803,8 @@ export default {
      * Render any SPARQL JSON result (SELECT/ASK) into YASR
      * `json` must follow the SPARQL Results JSON spec (head/results/boolean).
      */
-    renderYasrFromJson(json: QueryResultJson) {
-      this.initYasr();
+    async renderYasrFromJson(json: QueryResultJson) {
+      await this.initYasr();
       if (!this.yasr) return;
 
       const prefixes = this.extractPrefixesFromQuery(this.currentQuery.query);
@@ -2418,13 +2821,15 @@ export default {
      * the expanded cache entry shows a scannable sample instead of the full
      * exhaustive result table.
      */
-    initCachedYasr() {
+    async initCachedYasr() {
       const parent = document.getElementById("cached-yasr-container");
       if (!parent) return;
+      await this.ensureQueryEditorsLoaded();
+      if (!yasrConstructor) return;
       if (this.cachedYasr) {
         parent.replaceChildren();
       }
-      this.cachedYasr = new Yasr(parent, {
+      this.cachedYasr = new yasrConstructor(parent, {
         pluginOrder: ["table"],
         defaultPlugin: "table",
       });
@@ -2462,7 +2867,7 @@ export default {
       this.cachedResultsPreviewMeta = meta;
       await nextTick();
       if (requestId !== this.cachedResultsRequestId) return;
-      this.initCachedYasr();
+      await this.initCachedYasr();
       if (!this.cachedYasr) return;
       this.cachedYasr.setResponse({
         data: preview,
@@ -2694,11 +3099,11 @@ export default {
     },
     validateCustomCachePath() {
       if (this.useCustomCachePath && this.customCachePath) {
-        try {
-          new URL(this.customCachePath);
+        if (this.isValidCacheUrl(this.customCachePath.trim())) {
           this.cacheError = null; // Clear error if valid
-        } catch {
-          this.cacheError = "Invalid URL. Please enter a valid URL.";
+        } else {
+          this.cacheError =
+            "Invalid custom cache URL. Enter a full HTTP(S) container URL.";
         }
       } else {
         this.cacheError = null; // Clear error if not using custom path
@@ -2710,31 +3115,19 @@ export default {
       if (newValue) {
         this.showCustomCache = true;
       }
-      if (!this.syncingQueryStateFromUrl) {
-        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
-          this.queryUrlShareFeedback = null;
-          this.queryUrlShareSuccess = false;
-        }
-        this.scheduleQueryStateSync();
-      }
+      this.syncSaveQueryAvailability();
+      this.handleEditableQueryStateChanged();
     },
     customCachePath() {
-      if (!this.syncingQueryStateFromUrl) {
-        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
-          this.queryUrlShareFeedback = null;
-          this.queryUrlShareSuccess = false;
-        }
-        this.scheduleQueryStateSync();
-      }
+      this.syncSaveQueryAvailability();
+      this.handleEditableQueryStateChanged();
+    },
+    selectedPodUrl() {
+      this.syncSaveQueryAvailability();
+      this.handleEditableQueryStateChanged();
     },
     saveQuery() {
-      if (!this.syncingQueryStateFromUrl) {
-        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
-          this.queryUrlShareFeedback = null;
-          this.queryUrlShareSuccess = false;
-        }
-        this.scheduleQueryStateSync();
-      }
+      this.handleEditableQueryStateChanged();
     },
     cacheError(newValue) {
       if (newValue) {
@@ -2748,42 +3141,27 @@ export default {
       ) {
         this.cancelSourceEdit();
       }
-      if (!this.syncingQueryStateFromUrl) {
-        if (this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()) {
-          this.queryUrlShareFeedback = null;
-          this.queryUrlShareSuccess = false;
-        }
-        this.scheduleQueryStateSync();
-      }
+      this.handleEditableQueryStateChanged();
     },
-    currentQuery: {
-      handler(newQuery) {
+    "currentQuery.query"(newQuery: string) {
+      // Avoid write-back loops when CodeMirror itself is the source of change.
+      if (!this.syncingFromYasqeEditor) {
         this.$nextTick(() => {
-          if (this.yasqe && this.yasqe.getValue() !== newQuery.query) {
-            this.yasqe.setValue(newQuery.query);
+          if (this.yasqe && this.yasqe.getValue() !== newQuery) {
+            this.yasqe.setValue(newQuery);
           }
         });
-        if (!this.syncingQueryStateFromUrl) {
-          if (
-            this.lastExecutedQuerySignature !== this.getCurrentQuerySignature()
-          ) {
-            this.queryUrlShareFeedback = null;
-            this.queryUrlShareSuccess = false;
-          }
-          this.scheduleQueryStateSync();
-        }
-      },
-      deep: true,
+      }
+      this.handleEditableQueryStateChanged();
     },
     resultsForYasr: {
       handler(newResults) {
         if (newResults && newResults.results && !this.loading) {
           this.$nextTick(() => {
-            this.renderYasrFromJson(newResults);
+            void this.renderYasrFromJson(newResults);
           });
         }
       },
-      deep: true,
     },
   },
   beforeUnmount() {
@@ -2803,17 +3181,26 @@ export default {
   },
   async mounted() {
     await this.authStore.initializeAuth();
+    await this.ensureQueryEditorsLoaded();
     this.loadExampleQueries();
     // Restore draft first, then let an explicit URL hash override it.
     this.restoreQueryDraftFromStorage();
     this.applyQueryStateFromUrlHash();
-    this.yasqe = new Yasqe(document.getElementById("yasqe-container")!, {
-      showQueryButton: false,
-    });
-    this.yasqe.setValue(this.currentQuery.query);
-    this.yasqe.on("change", (instance) => {
-      this.currentQuery.query = instance.getValue();
-    });
+    const yasqeContainer = document.getElementById("yasqe-container");
+    if (yasqeContainer && yasqeConstructor) {
+      this.yasqe = new yasqeConstructor(yasqeContainer, {
+        showQueryButton: false,
+      });
+      this.yasqe.setValue(this.currentQuery.query);
+      this.yasqe.on("change", (instance: any) => {
+        this.syncingFromYasqeEditor = true;
+        try {
+          this.currentQuery.query = instance.getValue();
+        } finally {
+          this.syncingFromYasqeEditor = false;
+        }
+      });
+    }
     this.updateQueryLayoutMode();
     window.addEventListener("resize", this.updateQueryLayoutMode);
     window.addEventListener("hashchange", this.handleQueryHashChange);
@@ -3199,6 +3586,8 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0.45rem;
+  /* Keep room for Vuetify's floating outlined label so it is never clipped. */
+  padding-top: 0.2rem;
   min-width: min(22rem, 100%);
 }
 .query-container ul {
@@ -3229,6 +3618,11 @@ body {
     var(--panel)
   );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: visible;
+}
+.example-queries :deep(.v-input__control),
+.example-queries :deep(.v-field__field) {
+  overflow: visible;
 }
 .example-queries :deep(.v-label),
 .example-queries :deep(.v-field__input),
@@ -3979,6 +4373,23 @@ ul {
   gap: 0.55rem;
   align-items: center;
 }
+.cached-error-note {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+.cached-error-note-text {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "Oxanium", monospace;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-secondary) 92%, var(--danger) 8%);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel-elev));
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--border));
+  border-radius: 10px;
+  padding: 0.58rem 0.66rem;
+}
 .metadata-chip {
   display: inline-flex;
   align-items: center;
@@ -4458,6 +4869,80 @@ ul {
 }
 .null-results b {
   color: var(--error);
+}
+.query-error-panel {
+  margin-top: 0.4rem;
+  display: grid;
+  gap: 0.72rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel-elev));
+}
+.query-error-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.query-error-panel-header .material-icons {
+  font-size: 1.25rem;
+  color: var(--error);
+}
+.query-error-copy {
+  display: grid;
+  gap: 0.14rem;
+}
+.query-error-title {
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-error-summary {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.query-error-section-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: var(--font-size-section-kicker);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.query-error-endpoints ul,
+.query-error-hints ul {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: 0.2rem;
+}
+.query-error-endpoints code {
+  font-family: "Oxanium", monospace;
+  font-size: 0.84rem;
+  color: var(--yasqe-keyword);
+}
+.query-error-hints li {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.query-error-raw {
+  border-top: 1px dashed color-mix(in srgb, var(--danger) 22%, var(--border));
+  padding-top: 0.52rem;
+}
+.query-error-raw summary {
+  cursor: pointer;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+.query-error-raw pre {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 /* Results */

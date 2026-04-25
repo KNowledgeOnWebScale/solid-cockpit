@@ -181,6 +181,23 @@
           </li>
         </ul>
       </section>
+
+      <section class="guide-section">
+        <h3>Specification references</h3>
+        <ul>
+          <li>
+            Query cache implementation spec:
+            <a
+              class="guide-link"
+              href="https://github.com/ecrum19/sparql-view-materialization-containers"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              sparql-view-materialization-containers
+            </a>
+          </li>
+        </ul>
+      </section>
     </div>
   </section>
 </template>
@@ -285,6 +302,16 @@ export default {
   font-size: 1rem;
   vertical-align: middle;
   color: var(--text-muted);
+}
+.guide-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  text-underline-offset: 2px;
+}
+.guide-link:hover {
+  color: var(--text-primary);
 }
 .guide-tag {
   display: inline-flex;
