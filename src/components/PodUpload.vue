@@ -557,6 +557,19 @@ export default {
 .input-path {
   width: 100%;
 }
+/* Force Vuetify floating label + hint to inherit themed text colors in dark mode. */
+.input-path :deep(.v-field-label),
+.input-path :deep(.v-label),
+.input-path :deep(.v-field__label) {
+  color: var(--text-secondary) !important;
+  opacity: 1;
+}
+.input-path :deep(.v-messages__message) {
+  color: var(--text-muted) !important;
+}
+.input-path :deep(input) {
+  color: var(--text-secondary) !important;
+}
 .check-path-row {
   display: flex;
   flex-wrap: wrap;

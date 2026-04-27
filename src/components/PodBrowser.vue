@@ -146,11 +146,52 @@
                 </button>
 
                 <div v-if="showInfoIndex === index" class="item-info-container">
+                  <button
+                    v-if="itemDetails?.itemType === 'Resource'"
+                    class="download-icon-button"
+                    type="button"
+                    :disabled="downloadingItem"
+                    @click="downloadResource(itemDetails.sourceIri)"
+                    :aria-label="`Download ${itemDetails.itemName}`"
+                    title="Download file"
+                  >
+                    <i class="material-icons">download</i>
+                  </button>
                   <div v-if="itemDetails === null" class="info-row">
                     <strong class="info-label">No info to display</strong>
                   </div>
                   <template v-else>
                     <div class="detail-grid">
+                      <div v-if="itemDetails.parseWarning" class="info-warning">
+                        <div class="info-warning-header">
+                          <i class="material-icons">warning_amber</i>
+                          <strong>{{ itemDetails.parseWarning.title }}</strong>
+                        </div>
+                        <p class="info-warning-summary">{{ itemDetails.parseWarning.summary }}</p>
+                        <ul class="info-warning-list">
+                          <li>
+                            <strong>Fix hint:</strong>
+                            {{ itemDetails.parseWarning.fixHint }}
+                          </li>
+                          <li v-if="itemDetails.parseWarning.lineNumber !== null">
+                            <strong>Line:</strong>
+                            {{ itemDetails.parseWarning.lineNumber }}
+                          </li>
+                          <li v-if="itemDetails.parseWarning.tokenPreview">
+                            <strong>Problematic token:</strong>
+                            <span class="info-warning-token">{{ itemDetails.parseWarning.tokenPreview }}</span>
+                          </li>
+                          <li v-if="itemDetails.parseWarning.contentType">
+                            <strong>Content type:</strong>
+                            {{ itemDetails.parseWarning.contentType }}
+                          </li>
+                        </ul>
+                        <details class="info-warning-raw">
+                          <summary>Technical parser details</summary>
+                          <pre>{{ itemDetails.parseWarning.rawMessage }}</pre>
+                        </details>
+                      </div>
+
                       <div class="info-row">
                         <strong class="info-label">Name:</strong>
                         <span class="info-value">{{ itemDetails.itemName }}</span>
@@ -223,6 +264,10 @@
                         </div>
                       </div>
                     </div>
+
+                    <p class="download-feedback" v-if="downloadFeedback">
+                      {{ downloadFeedback }}
+                    </p>
 
                     <div class="action-panel move-panel">
                       <button
@@ -373,6 +418,7 @@ import { fetchData, WorkingData } from "../services/solid/getData";
 import {
   deleteFromPod,
   deleteContainer,
+  getPodResourceDownload,
   movePodItem,
   renamePodItem,
 } from "../services/solid/fileUpload";
@@ -398,6 +444,17 @@ interface BrowserItemDetail {
   sizeLabel: string | null;
   lastModified: string | null;
   directChildren: number | null;
+  parseWarning: ItemParseWarning | null;
+}
+
+interface ItemParseWarning {
+  title: string;
+  summary: string;
+  fixHint: string;
+  lineNumber: number | null;
+  tokenPreview: string | null;
+  contentType: string | null;
+  rawMessage: string;
 }
 
 export default {
@@ -438,6 +495,8 @@ export default {
       renameName: "" as string,
       renameFeedback: "" as string,
       renamingItem: false,
+      downloadingItem: false,
+      downloadFeedback: "" as string,
     };
   },
   computed: {
@@ -674,13 +733,64 @@ export default {
       }
       return path.slice(0, path.lastIndexOf("/") + 1);
     },
+    // Converts parser/runtime errors into actionable user-facing diagnostics.
+    buildItemParseWarning(error: unknown, resourceUrl: string): ItemParseWarning {
+      const rawMessage =
+        error instanceof Error ? error.message : "Unknown error while reading resource.";
+      const parserSignature = "Encountered an error parsing the Resource";
+      const isParserError = rawMessage.includes(parserSignature);
+      const lineMatch = rawMessage.match(/on line (\d+)/i);
+      const tokenMatch = rawMessage.match(/Expected punctuation to follow \"([^\"]+)\"/i);
+      const contentTypeMatch = rawMessage.match(/content type \[([^\]]+)\]/i);
+      const parsedLine = lineMatch ? Number(lineMatch[1]) : null;
+
+      if (isParserError) {
+        return {
+          title: "Invalid Turtle syntax detected",
+          summary: parsedLine
+            ? `This resource could not be parsed as Turtle (line ${parsedLine}).`
+            : "This resource could not be parsed as Turtle.",
+          fixHint: tokenMatch
+            ? `Check punctuation or quoting near: ${tokenMatch[1]}`
+            : "Check punctuation, quoting, and terminating characters in this Turtle file.",
+          lineNumber: parsedLine,
+          tokenPreview: tokenMatch ? tokenMatch[1] : null,
+          contentType: contentTypeMatch ? contentTypeMatch[1] : "text/turtle",
+          rawMessage,
+        };
+      }
+
+      return {
+        title: "Resource metadata could not be parsed",
+        summary: "This resource loaded with limited metadata because parsing failed.",
+        fixHint: "Verify file syntax and content type, then refresh this item.",
+        lineNumber: parsedLine,
+        tokenPreview: null,
+        contentType: contentTypeMatch ? contentTypeMatch[1] : null,
+        rawMessage: `${rawMessage}${rawMessage.includes(resourceUrl) ? "" : ` (${resourceUrl})`}`,
+      };
+    },
     async getItemInfo(path: string): Promise<BrowserItemDetail> {
       const itemType = this.containerCheck(path) ? "Container" : "Resource";
-      const dataset = await fetchData(path);
-      const metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+      let parseWarning: ItemParseWarning | null = null;
+      let metadataUrl: string | string[] | null = null;
+
+      try {
+        const dataset = await fetchData(path);
+        metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+      } catch (error) {
+        parseWarning = this.buildItemParseWarning(error, path);
+      }
 
       if (itemType === "Container") {
-        const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
+        let directChildren: number | null = null;
+        try {
+          const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
+          directChildren = getContainedResourceUrlAll(containerDataset).length;
+        } catch (error) {
+          parseWarning = parseWarning || this.buildItemParseWarning(error, path);
+        }
+
         return {
           itemName: this.getItemName(path),
           itemType,
@@ -690,7 +800,8 @@ export default {
           contentType: "Container",
           sizeLabel: null,
           lastModified: null,
-          directChildren: getContainedResourceUrlAll(containerDataset).length,
+          directChildren,
+          parseWarning,
         };
       }
 
@@ -705,6 +816,7 @@ export default {
         sizeLabel: this.formatFileSize(file.size),
         lastModified: this.formatDate(file.lastModified),
         directChildren: null,
+        parseWarning,
       };
     },
 
@@ -761,6 +873,7 @@ export default {
         this.renamePanelOpen = false;
         this.moveFeedback = "";
         this.renameFeedback = "";
+        this.downloadFeedback = "";
       } else {
         try {
           this.showInfoIndex = index;
@@ -772,6 +885,7 @@ export default {
           this.renameName = this.getItemName(url);
           this.moveFeedback = "";
           this.renameFeedback = "";
+          this.downloadFeedback = "";
         } catch (error) {
           this.dirContents = null;
           this.itemDetails = {
@@ -784,12 +898,39 @@ export default {
             sizeLabel: null,
             lastModified: null,
             directChildren: null,
+            parseWarning: this.buildItemParseWarning(error, url),
           };
           console.error("Error fetching item info:", error);
         } finally {
           this.loadingIndex = null;
         }
         this.showInfoIndex = index; // Show the form for the clicked item
+      }
+    },
+    /**
+     * Downloads a single pod resource through the authenticated Solid session.
+     * Containers are intentionally excluded by the service helper and UI guard.
+     */
+    async downloadResource(fileUrl: string) {
+      this.downloadingItem = true;
+      this.downloadFeedback = "";
+      try {
+        const { file, fileName } = await getPodResourceDownload(fileUrl);
+        const objectUrl = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = fileName;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        this.downloadFeedback = `Download started for ${fileName}.`;
+      } catch (error) {
+        console.error("Error downloading resource:", error);
+        this.downloadFeedback = "Could not download this file. Check your read access and try again.";
+      } finally {
+        this.downloadingItem = false;
       }
     },
     /* Takes in the emitted value from ContainerNav.vue */
@@ -1318,9 +1459,10 @@ button:focus {
 }
 
 .item-info-container {
+  position: relative;
   background-color: color-mix(in srgb, var(--bg) 70%, var(--panel) 30%);
   border-radius: 12px;
-  padding: 1rem;
+  padding: 1rem 3.25rem 1rem 1rem;
   margin-top: 0.5rem;
   border: 1px solid var(--border);
 }
@@ -1328,9 +1470,67 @@ button:focus {
   display: grid;
   gap: 0.3rem;
 }
+.info-warning {
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border) 55%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--panel) 90%);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.4rem;
+}
+.info-warning-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  font-family: "Oxanium", monospace;
+}
+.info-warning-header .material-icons {
+  font-size: 1.05rem;
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-primary) 28%);
+}
+.info-warning-summary {
+  margin: 0.38rem 0 0.4rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  font-size: 0.9rem;
+}
+.info-warning-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+.info-warning-token {
+  font-family: "Oxanium", monospace;
+  color: var(--text-primary);
+}
+.info-warning-raw {
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+.info-warning-raw summary {
+  cursor: pointer;
+}
+.info-warning-raw pre {
+  margin: 0.35rem 0 0;
+  padding: 0.55rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-elev) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "Oxanium", monospace;
+}
 .info-row {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 11.5rem minmax(0, 1fr);
+  column-gap: 1rem;
+  align-items: start;
   margin-bottom: 0.5rem;
   font-size: 12pt;
 }
@@ -1338,8 +1538,8 @@ button:focus {
 .info-label {
   font-weight: 600;
   color: var(--text-primary);
-  margin-right: 1rem;
-  min-width: 100px;
+  margin-right: 0;
+  min-width: 0;
 }
 
 .info-value-container {
@@ -1347,6 +1547,7 @@ button:focus {
   align-items: center;
   gap: 0.5rem;
   overflow: hidden;
+  min-width: 0;
 }
 .metadata-list {
   display: grid;
@@ -1364,6 +1565,13 @@ button:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.info-row > .info-value {
+  min-width: 0;
+}
+.info-row > .metadata-list,
+.info-row > .info-value-container {
+  min-width: 0;
+}
 
 .info-value.link {
   color: var(--primary);
@@ -1378,9 +1586,10 @@ button:focus {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 0 0 1rem;
+  padding: 0 0 0 0.35rem;
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 .copy-button .material-icons {
@@ -1461,6 +1670,40 @@ button:focus {
 .delete-copy {
   display: grid;
   gap: 0.12rem;
+}
+.download-icon-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  color: var(--main-white);
+  box-shadow: var(--shadow-1);
+  z-index: 1;
+}
+.download-icon-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.download-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+.download-icon-button .material-icons {
+  font-size: 1.1rem;
+}
+.download-feedback {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 
 .move-card {
@@ -1758,6 +2001,7 @@ button:focus {
     word-break: break-word;
   }
   .info-row {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;

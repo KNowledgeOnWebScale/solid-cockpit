@@ -11,6 +11,7 @@ const {
   fetchDataMock,
   getSolidDatasetMock,
   getFileMock,
+  getPodResourceDownloadMock,
   movePodItemMock,
   renamePodItemMock,
 } = vi.hoisted(() => {
@@ -39,6 +40,12 @@ const {
       size: 2048,
       lastModified: Date.UTC(2026, 2, 25),
     })),
+    getPodResourceDownloadMock: vi.fn(async (url: string) => ({
+      file: new File(["downloaded"], url.split("/").pop() || "file.ttl", {
+        type: "text/turtle",
+      }),
+      fileName: url.split("/").pop() || "file.ttl",
+    })),
     movePodItemMock: vi.fn(async () => "https://pod.example/archive/report.ttl"),
     renamePodItemMock: vi.fn(async () => "https://pod.example/docs/renamed.ttl"),
   };
@@ -56,6 +63,7 @@ vi.mock("../../src/services/solid/login.ts", () => ({
 vi.mock("../../src/services/solid/fileUpload.ts", () => ({
   deleteFromPod: vi.fn(async () => true),
   deleteContainer: vi.fn(async () => true),
+  getPodResourceDownload: getPodResourceDownloadMock,
   movePodItem: movePodItemMock,
   renamePodItem: renamePodItemMock,
 }));
@@ -110,6 +118,11 @@ describe("PodBrowser features", () => {
     vi.clearAllMocks();
     vi.stubGlobal("confirm", vi.fn(() => false));
     vi.stubGlobal("alert", vi.fn());
+    vi.stubGlobal("URL", Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:pod-resource"),
+      revokeObjectURL: vi.fn(),
+    }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });
 
   it("keeps filters hidden by default and filters items by type and search", async () => {
@@ -196,5 +209,55 @@ describe("PodBrowser features", () => {
       "renamed.ttl",
       "https://pod.example/"
     );
+  });
+
+  it("shows resource-only compact download action and triggers the download helper", async () => {
+    const wrapper = mountBrowser();
+    await flushPromises();
+
+    await wrapper.findAll(".item-toggle")[0].trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".download-icon-button").exists()).toBe(false);
+
+    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".download-icon-button").exists()).toBe(true);
+
+    await wrapper.get(".download-icon-button").trigger("click");
+    await flushPromises();
+
+    expect(getPodResourceDownloadMock).toHaveBeenCalledWith("https://pod.example/image.png");
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:pod-resource");
+  });
+
+  it("renders specific parser diagnostics when a Turtle resource is malformed", async () => {
+    fetchDataMock.mockImplementation(async (url: string) => {
+      if (url === "https://pod.example/image.png") {
+        throw new Error(
+          'Encountered an error parsing the Resource at [https://pod.example/image.png] with content type [text/turtle]: Error: Expected punctuation to follow ""Azinphos-methyl ((#))"" on line 82.'
+        );
+      }
+      return {
+        internal_resourceInfo: {
+          sourceIri: url,
+          linkedResources: {
+            describedby: `${url}.meta`,
+          },
+        },
+      };
+    });
+
+    const wrapper = mountBrowser();
+    await flushPromises();
+
+    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find(".info-warning").exists()).toBe(true);
+    expect(wrapper.text()).toContain("Invalid Turtle syntax detected");
+    expect(wrapper.text()).toContain("line 82");
+    expect(wrapper.text()).toContain("Azinphos-methyl ((#))");
+    expect(wrapper.text()).toContain("text/turtle");
   });
 });

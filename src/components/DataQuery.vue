@@ -175,7 +175,9 @@
                   prepend-inner-icon="mdi-lightbulb-on-outline"
                   menu-icon="mdi-chevron-down"
                   rounded
-                  label="Sample Queries"
+                  placeholder="Sample Queries"
+                  hide-details
+                  persistent-placeholder
                 ></v-select>
                 <div v-if="selectedExampleInfo" class="sample-query-meta">
                   <span class="sample-query-category">{{
@@ -3586,8 +3588,6 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0.45rem;
-  /* Keep room for Vuetify's floating outlined label so it is never clipped. */
-  padding-top: 0.2rem;
   min-width: min(22rem, 100%);
 }
 .query-container ul {
@@ -3618,10 +3618,6 @@ body {
     var(--panel)
   );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  overflow: visible;
-}
-.example-queries :deep(.v-input__control),
-.example-queries :deep(.v-field__field) {
   overflow: visible;
 }
 .example-queries :deep(.v-label),

@@ -58,6 +58,10 @@ vi.mock("../../src/services/solid/fileUpload.ts", () => ({
   alreadyExistsCheck: vi.fn(() => false),
   deleteFromPod: vi.fn(async () => true),
   deleteContainer: vi.fn(async () => true),
+  getPodResourceDownload: vi.fn(async () => ({
+    file: new File(["mock"], "mock-file.ttl", { type: "text/turtle" }),
+    fileName: "mock-file.ttl",
+  })),
   deleteThing: vi.fn(async () => true),
 }));
 

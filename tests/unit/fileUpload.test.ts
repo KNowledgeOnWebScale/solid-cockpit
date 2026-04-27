@@ -3,7 +3,10 @@ import test from "node:test";
 import {
   alreadyExistsCheck,
   derefrenceFile,
+  getDownloadFileName,
   getMimeType,
+  isDownloadableResourceUrl,
+  preparePodResourceDownload,
   uploadSuccess,
 } from "../../src/services/solid/fileUploadUtils.ts";
 import { mimeTypes } from "../../src/services/solid/mime_types.js";
@@ -51,4 +54,46 @@ test("derefrenceFile returns an error sentinel when file metadata is malformed",
   } finally {
     console.error = oldError;
   }
+});
+
+test("getDownloadFileName resolves readable names from resource URLs", () => {
+  assert.equal(
+    getDownloadFileName("https://pod.example/docs/report%20final.ttl"),
+    "report final.ttl"
+  );
+  assert.equal(getDownloadFileName("not a url", "fallback.ttl"), "fallback.ttl");
+});
+
+test("isDownloadableResourceUrl rejects containers and malformed URLs", () => {
+  assert.equal(isDownloadableResourceUrl("https://pod.example/docs/report.ttl"), true);
+  assert.equal(isDownloadableResourceUrl("https://pod.example/docs/"), false);
+  assert.equal(isDownloadableResourceUrl("not a url"), false);
+});
+
+test("preparePodResourceDownload fetches a single file and derives the download name", async () => {
+  const inputFile = new File(["hello"], "server-name.ttl", {
+    type: "text/turtle",
+  });
+  const requestedUrls: string[] = [];
+
+  const prepared = await preparePodResourceDownload(
+    "https://pod.example/docs/local-name.ttl",
+    async (url) => {
+      requestedUrls.push(url);
+      return inputFile;
+    }
+  );
+
+  assert.equal(prepared.file, inputFile);
+  assert.equal(prepared.fileName, "local-name.ttl");
+  assert.deepEqual(requestedUrls, ["https://pod.example/docs/local-name.ttl"]);
+});
+
+test("preparePodResourceDownload rejects container URLs before fetching", async () => {
+  await assert.rejects(
+    () => preparePodResourceDownload("https://pod.example/docs/", async () => {
+      throw new Error("fetch should not be called");
+    }),
+    /Only single pod resources/
+  );
 });
