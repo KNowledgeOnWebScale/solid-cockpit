@@ -2285,9 +2285,9 @@ button:focus {
   font-size: 0.95rem;
   color: var(--text-primary);
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .privacy-items-list .folder {
   display: flex;

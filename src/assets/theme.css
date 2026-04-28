@@ -167,6 +167,37 @@
   --v-font-family: "Oxanium", monospace;
 }
 
+/* Mobile-safe Vuetify selector defaults:
+   keep dropdown overlays inside the viewport and preserve readable option text. */
+@media (max-width: 760px) {
+  .v-overlay-container .v-overlay__content {
+    max-width: min(calc(100vw - 1rem), 34rem) !important;
+    margin-inline: 0.5rem;
+  }
+
+  .v-overlay-container .v-list {
+    max-height: min(52vh, 24rem);
+    overflow-y: auto;
+  }
+
+  .v-overlay-container .v-list-item {
+    min-height: 44px;
+    align-items: flex-start;
+    padding-block: 0.4rem;
+  }
+
+  .v-overlay-container .v-list-item-title,
+  .v-overlay-container .v-list-item-subtitle {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .v-input :where(.v-field__input, .v-field__append-inner, .v-field__clearable) {
+    min-height: 44px;
+  }
+}
+
 /* Shared guide dropdown chrome used across page-level guide panels. */
 .use-guide .query-guide-shell {
   font-family: "Oxanium", monospace;

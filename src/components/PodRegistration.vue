@@ -496,6 +496,12 @@ export default {
     white-space: normal;
     word-break: break-word;
   }
+  /* Prevent dropdown field min-width from forcing awkward wrapping on phones. */
+  .sel-pod .v-select,
+  .sel-pod :deep(.v-input) {
+    min-width: 0;
+    width: 100%;
+  }
   .pod-actions {
     justify-content: stretch;
   }

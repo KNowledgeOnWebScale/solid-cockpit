@@ -119,20 +119,14 @@
                 <div class="spinner"></div>
                 <span class="loading-text">Loading item details...</span>
               </div>
-              <div v-else class="item-card">
+              <div v-else class="item-card shared-style-card" :class="{ expanded: showInfoIndex === index }">
                 <button @click="toggleInfo(index, url)" class="item-toggle">
                   <div class="item-main">
-                    <div class="item-icon-wrap">
-                      <i class="material-icons not-colored item-icon">{{
-                        containerCheck(url) ? "folder" : "description"
-                      }}</i>
-                    </div>
-                    <div class="item-copy">
-                      <span class="item-type">{{
-                        containerCheck(url) ? "Container" : "Resource"
-                      }}</span>
-                      <span class="item-name">{{ getItemName(url) }}</span>
-                      <span class="highlightable-text item-url">{{ url }}</span>
+                    <i class="material-icons not-colored item-icon">{{
+                      containerCheck(url) ? "folder" : "description"
+                    }}</i>
+                    <div class="item-copy item-copy-equalized">
+                      <span class="item-name" :title="url">{{ url }}</span>
                     </div>
                   </div>
                   <div class="info-icon">
@@ -145,18 +139,7 @@
                   </div>
                 </button>
 
-                <div v-if="showInfoIndex === index" class="item-info-container">
-                  <button
-                    v-if="itemDetails?.itemType === 'Resource'"
-                    class="download-icon-button"
-                    type="button"
-                    :disabled="downloadingItem"
-                    @click="downloadResource(itemDetails.sourceIri)"
-                    :aria-label="`Download ${itemDetails.itemName}`"
-                    title="Download file"
-                  >
-                    <i class="material-icons">download</i>
-                  </button>
+                <div v-if="showInfoIndex === index" class="item-info-container shared-style-details">
                   <div v-if="itemDetails === null" class="info-row">
                     <strong class="info-label">No info to display</strong>
                   </div>
@@ -192,74 +175,125 @@
                         </details>
                       </div>
 
-                      <div class="info-row">
-                        <strong class="info-label">Name:</strong>
-                        <span class="info-value">{{ itemDetails.itemName }}</span>
-                      </div>
-                      <div class="info-row">
-                        <strong class="info-label">Type:</strong>
-                        <span class="info-value">{{ itemDetails.itemType }}</span>
-                      </div>
-                      <div class="info-row">
-                        <strong class="info-label">Parent container:</strong>
-                        <span class="info-value" :title="itemDetails.parentContainer">
-                          {{ itemDetails.parentContainer }}
-                        </span>
-                      </div>
-                      <div class="info-row">
-                        <strong class="info-label">Full URL:</strong>
-                        <div class="info-value-container">
-                          <span class="info-value iri" :title="itemDetails.sourceIri">{{
-                            itemDetails.sourceIri
-                          }}</span>
-                          <button
-                            @click="copyToClipboard(itemDetails.sourceIri)"
-                            class="copy-button"
-                          >
-                            <i class="material-icons">content_copy</i>
-                            <v-tooltip activator="parent" location="end">Copy URL</v-tooltip>
-                          </button>
+                      <!-- Summary row mirrors SharedWithMe's compact, scan-friendly metadata chips. -->
+                      <div class="browser-summary-grid">
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">label</i>
+                          <div>
+                            <span class="field-label">Name</span>
+                            <span class="field-value" :title="itemDetails.itemName">{{
+                              itemDetails.itemName
+                            }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">category</i>
+                          <div>
+                            <span class="field-label">Type</span>
+                            <span class="field-value">{{ itemDetails.itemType }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">schedule</i>
+                          <div>
+                            <span class="field-label">Date modified</span>
+                            <span class="field-value">{{
+                              itemDetails.lastModified || "Not available"
+                            }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">{{
+                            itemDetails.itemType === "Container" ? "folder_copy" : "save"
+                          }}</i>
+                          <div>
+                            <span class="field-label">{{
+                              itemDetails.itemType === "Container" ? "Direct items" : "File size"
+                            }}</span>
+                            <span class="field-value">{{
+                              itemDetails.itemType === "Container"
+                                ? (itemDetails.directChildren ?? "Not available")
+                                : (itemDetails.sizeLabel || "Not available")
+                            }}</span>
+                          </div>
                         </div>
                       </div>
-                      <div class="info-row" v-if="itemDetails.contentType">
-                        <strong class="info-label">Content type:</strong>
-                        <span class="info-value">{{ itemDetails.contentType }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.sizeLabel">
-                        <strong class="info-label">File size:</strong>
-                        <span class="info-value">{{ itemDetails.sizeLabel }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.lastModified">
-                        <strong class="info-label">Last modified:</strong>
-                        <span class="info-value">{{ itemDetails.lastModified }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.directChildren !== null">
-                        <strong class="info-label">Direct items:</strong>
-                        <span class="info-value">{{ itemDetails.directChildren }}</span>
-                      </div>
-                      <div
-                        class="info-row"
-                        v-if="itemDetails.metadataUrl"
-                      >
-                        <strong class="info-label">Metadata:</strong>
-                        <div class="metadata-list">
-                          <div
-                            v-for="metadataEntry in normalizeMetadataEntries(itemDetails.metadataUrl)"
-                            :key="metadataEntry"
-                            class="info-value-container"
-                          >
-                            <a
-                              v-if="metadataEntryHref(metadataEntry)"
-                              :href="metadataEntryHref(metadataEntry) || undefined"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="info-value link"
-                              :title="metadataEntry"
-                              >{{ metadataEntry }}</a
+
+                      <div class="shared-me-resource-card browser-resource-card">
+                        <div class="resource-main">
+                          <i class="material-icons tiny not-colored">link</i>
+                          <div class="resource-copy">
+                            <span class="field-label">Resource URL</span>
+                            <span class="field-value mono resource-url-value" :title="itemDetails.sourceIri">{{
+                              itemDetails.sourceIri
+                            }}</span>
+                          </div>
+                          <div class="resource-actions">
+                            <button
+                              class="field-copy-button"
+                              type="button"
+                              :aria-label="`Copy resource URL ${itemDetails.sourceIri}`"
+                              @click="copyToClipboard(itemDetails.sourceIri)"
+                              title="Copy resource URL"
                             >
-                            <span v-else class="info-value" :title="metadataEntry">
-                              {{ metadataEntry }}
+                              <i class="material-icons tiny not-colored">content_copy</i>
+                            </button>
+                            <button
+                              v-if="itemDetails.itemType === 'Resource'"
+                              class="download-icon-button"
+                              type="button"
+                              :disabled="downloadingItem"
+                              @click="downloadResource(itemDetails.sourceIri)"
+                              :aria-label="`Download ${itemDetails.itemName}`"
+                              title="Download file"
+                            >
+                              <i class="material-icons tiny not-colored">download</i>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="resource-secondary-grid browser-resource-grid">
+                          <div class="entry-field parent-container-field">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">subdirectory_arrow_right</i>
+                              Parent container
                             </span>
+                            <span class="field-value mono" :title="itemDetails.parentContainer">
+                              {{ itemDetails.parentContainer }}
+                            </span>
+                          </div>
+                          <div class="entry-field content-type-field">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">description</i>
+                              Content type
+                            </span>
+                            <span class="field-value">{{ itemDetails.contentType || "Unknown" }}</span>
+                          </div>
+                          <div class="entry-field browser-metadata-field" v-if="itemDetails.metadataUrl">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">link</i>
+                              Metadata
+                            </span>
+                            <div class="metadata-list">
+                              <div
+                                v-for="metadataEntry in normalizeMetadataEntries(itemDetails.metadataUrl)"
+                                :key="metadataEntry"
+                                class="info-value-container"
+                              >
+                                <a
+                                  v-if="metadataEntryHref(metadataEntry)"
+                                  :href="metadataEntryHref(metadataEntry) || undefined"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  class="field-value link mono"
+                                  :title="metadataEntry"
+                                  >{{ metadataEntry }}</a
+                                >
+                                <span v-else class="field-value mono" :title="metadataEntry">
+                                  {{ metadataEntry }}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -426,6 +460,11 @@ import {
   getFile,
   getSolidDataset,
   getContainedResourceUrlAll,
+  getDatetime,
+  getDecimal,
+  getInteger,
+  getStringNoLocale,
+  getThingAll,
 } from "@inrupt/solid-client";
 import { fetch as solidFetch } from "@inrupt/solid-client-authn-browser";
 import ContainerNav from "./ContainerNav.vue";
@@ -456,6 +495,9 @@ interface ItemParseWarning {
   contentType: string | null;
   rawMessage: string;
 }
+
+const DCT_MODIFIED = "http://purl.org/dc/terms/modified";
+const POSIX_MTIME = "http://www.w3.org/ns/posix/stat#mtime";
 
 export default {
   components: {
@@ -630,11 +672,24 @@ export default {
       }
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     },
-    formatDate(dateValue: number): string | null {
+    formatDate(dateValue: number | Date | string | null): string | null {
       if (!dateValue) {
         return null;
       }
-      return new Date(dateValue).toLocaleString();
+      const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      if (Number.isNaN(date.getTime())) {
+        return null;
+      }
+      return date.toLocaleString();
+    },
+    formatMetadataTimestamp(timestamp: number): string | null {
+      if (!Number.isFinite(timestamp)) {
+        return null;
+      }
+
+      // POSIX stat mtime is usually seconds, while some APIs expose milliseconds.
+      const milliseconds = timestamp > 1_000_000_000_000 ? timestamp : timestamp * 1000;
+      return this.formatDate(milliseconds);
     },
     validUrlCheck(u: string): boolean {
       try {
@@ -711,6 +766,50 @@ export default {
 
       return this.validUrlCheck(normalizedEntry) ? normalizedEntry : null;
     },
+    async getMetadataModifiedDate(
+      metadataValue: string | string[] | null,
+    ): Promise<string | null> {
+      const metadataUrls = this.normalizeMetadataEntries(metadataValue)
+        .map((entry) => this.metadataEntryHref(entry))
+        .filter((entry): entry is string => Boolean(entry));
+
+      for (const metadataUrl of metadataUrls) {
+        try {
+          const metadataDataset = await fetchData(metadataUrl);
+          if ("blob" in metadataDataset) {
+            continue;
+          }
+
+          // Solid metadata commonly stores modified timestamps in dcterms or POSIX stat predicates.
+          for (const thing of getThingAll(metadataDataset)) {
+            const modifiedDate = getDatetime(thing, DCT_MODIFIED);
+            if (modifiedDate) {
+              return this.formatDate(modifiedDate);
+            }
+
+            const posixModified =
+              getInteger(thing, POSIX_MTIME) ?? getDecimal(thing, POSIX_MTIME);
+            const formattedTimestamp =
+              posixModified !== null ? this.formatMetadataTimestamp(posixModified) : null;
+            if (formattedTimestamp) {
+              return formattedTimestamp;
+            }
+
+            const modifiedString = getStringNoLocale(thing, DCT_MODIFIED);
+            const formattedStringDate = modifiedString
+              ? this.formatDate(modifiedString)
+              : null;
+            if (formattedStringDate) {
+              return formattedStringDate;
+            }
+          }
+        } catch (error) {
+          console.warn(`Could not read metadata date from ${metadataUrl}`, error);
+        }
+      }
+
+      return null;
+    },
     // Resetting filters returns the browser to the full selected-container contents view.
     resetFilters() {
       this.itemTypeFilter = "all";
@@ -774,10 +873,12 @@ export default {
       const itemType = this.containerCheck(path) ? "Container" : "Resource";
       let parseWarning: ItemParseWarning | null = null;
       let metadataUrl: string | string[] | null = null;
+      let metadataModifiedDate: string | null = null;
 
       try {
         const dataset = await fetchData(path);
         metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+        metadataModifiedDate = await this.getMetadataModifiedDate(metadataUrl);
       } catch (error) {
         parseWarning = this.buildItemParseWarning(error, path);
       }
@@ -799,7 +900,7 @@ export default {
           metadataUrl,
           contentType: "Container",
           sizeLabel: null,
-          lastModified: null,
+          lastModified: metadataModifiedDate,
           directChildren,
           parseWarning,
         };
@@ -814,7 +915,7 @@ export default {
         metadataUrl,
         contentType: file.type || "Unknown",
         sizeLabel: this.formatFileSize(file.size),
-        lastModified: this.formatDate(file.lastModified),
+        lastModified: metadataModifiedDate || this.formatDate(file.lastModified),
         directChildren: null,
         parseWarning,
       };
@@ -1341,15 +1442,22 @@ button:focus {
   display: grid;
   gap: 0.6rem;
 }
+/* Item cards intentionally mirror SharedWithMe entry cards for visual consistency. */
 .item-card {
-  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
-  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
-  border-radius: 16px;
-  box-shadow: var(--shadow-1);
-  padding: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 94%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 .item-card:hover {
-  border-color: color-mix(in srgb, var(--border) 55%, var(--primary) 45%);
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--hover) 86%, var(--panel-elev) 14%);
+}
+.item-card.expanded {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 .delete-button {
   padding: 0.5rem 0.75rem !important;
@@ -1362,65 +1470,53 @@ button:focus {
   color: var(--text-muted);
 }
 .item-toggle {
+  border: none;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
+  gap: 0.7rem;
   width: 100%;
-  padding: 0.65rem 0.7rem;
-  border-radius: 12px;
-  transition: background 0.3s;
+  padding: 0.62rem 0.78rem;
+  cursor: pointer;
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
 }
 .item-toggle:hover {
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  background: transparent;
 }
 .item-main {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   min-width: 0;
-  font-family: "Oxanium", monospace;
-}
-.item-icon-wrap {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  flex: 1;
 }
 .item-icon {
-  display: block;
-  margin: 0;
-  line-height: 1;
+  flex: 0 0 auto;
 }
 .item-copy {
   display: grid;
   gap: 0.15rem;
   min-width: 0;
 }
-.item-type {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.item-copy-equalized {
+  min-height: 2.8rem;
+  align-content: center;
 }
 .item-name {
+  display: block;
   color: var(--text-primary);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--font-size-section-title);
   line-height: 1.3;
-}
-.item-url {
-  color: var(--text-muted);
-  font-size: 0.88rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .info-icon {
-  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
 }
 .highlightable-text {
   user-select: text;
@@ -1460,15 +1556,83 @@ button:focus {
 
 .item-info-container {
   position: relative;
-  background-color: color-mix(in srgb, var(--bg) 70%, var(--panel) 30%);
-  border-radius: 12px;
-  padding: 1rem 3.25rem 1rem 1rem;
-  margin-top: 0.5rem;
-  border: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+  padding: 0.68rem 0.78rem 0.76rem;
+  display: grid;
+  gap: 0.64rem;
 }
 .detail-grid {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.58rem;
+}
+.browser-summary-grid,
+.resource-secondary-grid {
+  display: grid;
+  gap: 0.58rem;
+}
+.browser-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.resource-secondary-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+.summary-cell,
+.browser-resource-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+}
+.summary-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 4.5rem;
+  padding: 0.62rem 0.72rem;
+}
+.summary-cell .field-value {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.browser-resource-card {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.72rem 0.82rem;
+}
+.resource-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.58rem;
+  min-width: 0;
+  padding-bottom: 0.62rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+}
+.resource-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+.browser-resource-grid {
+  align-items: start;
+}
+.entry-field {
+  display: grid;
+  align-content: start;
+  gap: 0.28rem;
+  min-width: 0;
+}
+.parent-container-field {
+  grid-column: span 7;
+}
+.content-type-field {
+  grid-column: span 5;
+}
+.browser-metadata-field {
+  grid-column: 1 / -1;
 }
 .info-warning {
   border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border) 55%);
@@ -1527,78 +1691,123 @@ button:focus {
   font-family: "Oxanium", monospace;
 }
 .info-row {
-  display: grid;
-  grid-template-columns: 11.5rem minmax(0, 1fr);
-  column-gap: 1rem;
-  align-items: start;
-  margin-bottom: 0.5rem;
-  font-size: 12pt;
+  display: block;
+  color: var(--text-muted);
+  margin: 0;
+  font-size: var(--font-size-page-summary);
 }
 
 .info-label {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
-  margin-right: 0;
-  min-width: 0;
+  margin: 0;
 }
 
 .info-value-container {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  overflow: hidden;
+  gap: 0.48rem;
   min-width: 0;
 }
 .metadata-list {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.34rem;
   min-width: 0;
 }
-.info-value-container span {
-  color: var(--text-secondary);
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: var(--font-size-section-kicker);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
 }
-
-
-.info-value {
+.field-value {
+  font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.resource-url-value {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.info-row > .info-value {
-  min-width: 0;
+.resource-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  align-self: center;
 }
-.info-row > .metadata-list,
-.info-row > .info-value-container {
-  min-width: 0;
-}
-
-.info-value.link {
+.field-value.link {
   color: var(--primary);
   text-decoration: none;
 }
 
-.info-value.link:hover {
+.field-value.link:hover {
   text-decoration: underline;
 }
 
-.copy-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0 0 0 0.35rem;
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.copy-button .material-icons {
+.field-copy-button {
+  width: 1.72rem;
+  height: 1.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
   color: var(--text-muted);
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
-.copy-button:hover .material-icons {
-  color: var(--primary);
+.field-copy-button:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  color: var(--text-primary);
+}
+
+.download-icon-button {
+  width: 1.72rem;
+  height: 1.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  color: var(--main-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: 0 0 auto;
+  box-shadow: var(--shadow-1);
+}
+.download-icon-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.download-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+.download-icon-button .material-icons {
+  color: var(--main-white);
+}
+
+.material-icons.not-colored {
+  color: var(--text-secondary);
+}
+.material-icons.tiny {
+  font-size: 1rem;
 }
 
 .action-panel {
@@ -1670,34 +1879,6 @@ button:focus {
 .delete-copy {
   display: grid;
   gap: 0.12rem;
-}
-.download-icon-button {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 2.25rem;
-  height: 2.25rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-600));
-  color: var(--main-white);
-  box-shadow: var(--shadow-1);
-  z-index: 1;
-}
-.download-icon-button:hover:not(:disabled) {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-}
-.download-icon-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-.download-icon-button .material-icons {
-  font-size: 1.1rem;
 }
 .download-feedback {
   margin: 0.2rem 0 0;
@@ -1933,6 +2114,13 @@ button:focus {
     white-space: normal;
     word-break: break-word;
   }
+  .browser-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .parent-container-field,
+  .content-type-field {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 760px) {
   .title-container,
@@ -1996,15 +2184,24 @@ button:focus {
     white-space: normal;
     word-break: break-word;
   }
-  .item-url {
+  .item-name {
     white-space: normal;
     word-break: break-word;
   }
-  .info-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
+  .browser-summary-grid,
+  .browser-resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .resource-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .resource-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+  .resource-url-value {
+    white-space: normal;
   }
 }
 </style>

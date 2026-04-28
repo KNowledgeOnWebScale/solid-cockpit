@@ -11,6 +11,11 @@ const {
   fetchDataMock,
   getSolidDatasetMock,
   getFileMock,
+  getThingAllMock,
+  getDatetimeMock,
+  getIntegerMock,
+  getDecimalMock,
+  getStringNoLocaleMock,
   getPodResourceDownloadMock,
   movePodItemMock,
   renamePodItemMock,
@@ -21,18 +26,35 @@ const {
     "https://pod.example/docs/report.ttl",
     "https://pod.example/image.png",
   ];
+  const dctModified = "http://purl.org/dc/terms/modified";
 
   return {
     mockUrls,
     getContainedResourceUrlAllMock: vi.fn(() => mockUrls),
-    fetchDataMock: vi.fn(async (url: string) => ({
-      internal_resourceInfo: {
-        sourceIri: url,
-        linkedResources: {
-          describedby: `${url}.meta`,
+    fetchDataMock: vi.fn(async (url: string) => {
+      if (url.endsWith(".meta")) {
+        return {
+          __things: [
+            {
+              [dctModified]: new Date("2026-03-26T09:15:00Z"),
+            },
+          ],
+          internal_resourceInfo: {
+            sourceIri: url,
+            linkedResources: {},
+          },
+        };
+      }
+
+      return {
+        internal_resourceInfo: {
+          sourceIri: url,
+          linkedResources: {
+            describedby: `${url}.meta`,
+          },
         },
-      },
-    })),
+      };
+    }),
     getSolidDatasetMock: vi.fn(async () => ({})),
     getFileMock: vi.fn(async (url: string) => ({
       name: url.split("/").pop() || "file.ttl",
@@ -40,6 +62,14 @@ const {
       size: 2048,
       lastModified: Date.UTC(2026, 2, 25),
     })),
+    getThingAllMock: vi.fn((dataset: { __things?: unknown[] }) => dataset.__things || []),
+    getDatetimeMock: vi.fn((thing: Record<string, unknown>, predicate: string) => {
+      const value = thing[predicate];
+      return value instanceof Date ? value : null;
+    }),
+    getIntegerMock: vi.fn(() => null),
+    getDecimalMock: vi.fn(() => null),
+    getStringNoLocaleMock: vi.fn(() => null),
     getPodResourceDownloadMock: vi.fn(async (url: string) => ({
       file: new File(["downloaded"], url.split("/").pop() || "file.ttl", {
         type: "text/turtle",
@@ -76,6 +106,11 @@ vi.mock("@inrupt/solid-client", () => ({
   getContainedResourceUrlAll: getContainedResourceUrlAllMock,
   getSolidDataset: getSolidDatasetMock,
   getFile: getFileMock,
+  getThingAll: getThingAllMock,
+  getDatetime: getDatetimeMock,
+  getInteger: getIntegerMock,
+  getDecimal: getDecimalMock,
+  getStringNoLocale: getStringNoLocaleMock,
 }));
 
 vi.mock("@inrupt/solid-client-authn-browser", () => ({

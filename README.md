@@ -8,7 +8,7 @@
 ![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Solid Cockpit is a web application for interacting with Solid Pods: authentication, data upload, query execution, and privacy management.
+Solid Cockpit is a Vue web application for interacting with Solid Pods: authentication, data upload, pod browsing, SPARQL query execution, query caching, and privacy/ACL management.
 
 This application was developed in the context of the CHIST-ERA TRIPLE project.
 
@@ -23,11 +23,12 @@ This application was developed in the context of the CHIST-ERA TRIPLE project.
 
 Main capabilities:
 
-- Solid Pod login and registration flow
-- File upload and pod resource operations
-- SPARQL querying over Solid Pods and endpoints
-- Query caching support
-- Privacy/ACL access management
+- Solid Pod login, session display, and pod registration/selection
+- File upload to typed or browsed pod container destinations
+- Pod browsing with filtering, metadata inspection, download, move, rename, and delete operations
+- SPARQL querying over Solid Pods, SPARQL endpoints, and mixed/federated sources
+- Query cache records with result previews, filtering, sorting, rename, sharing, and deletion
+- Privacy/ACL management with shared-with-me/shared-with-others records, notifications, and scheduled revocation
 
 ### Accessing the App
 
@@ -45,9 +46,13 @@ If you want to run locally, see [Developers](#developers).
 
 ### Usage Guides
 
-TRIPLE onboarding guide:
+In-app guides are available from the relevant page:
 
-- [TRIPLE-guide.md](./TRIPLE-guide.md)
+- `Home`: app overview and embedded video demonstration
+- `Data Upload`: upload destination and file upload workflow
+- `Pod Browser`: container browsing and resource operations
+- `Data Query`: query execution, examples, query URLs, and cache workflow
+- `Privacy Editing`: ACL editing, notifications, sharing records, and revocation scheduling
 
 Solid Pod VoID file generation:
 
@@ -106,6 +111,8 @@ You can also use:
 - Pinia
 - Inrupt Solid client/auth libraries
 - Comunica SPARQL engine
+- YASQE/YASR query editor and result viewers
+- npm-managed dependency workflow
 
 ### Source Layout
 
@@ -118,6 +125,7 @@ You can also use:
 
 - Node.js 22.x (LTS recommended)
 - npm 10+ (repo now uses `package-lock.json`)
+- Do not use Yarn for this repo; npm is the supported package manager.
 
 Node 24 note:
 - `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`, so this repo pins to Node 22 for strict engine compatibility.
@@ -312,6 +320,7 @@ Runtime dependencies:
 | `@inrupt/solid-client` | `^3.0.0` |
 | `@inrupt/solid-client-authn-browser` | `^4.0.0` |
 | `@inrupt/solid-client-authn-node` | `^4.0.0` |
+| `@mdi/font` | `^7.4.47` |
 | `@triply/yasqe` | `^4.2.28` |
 | `@triply/yasr` | `^4.2.28` |
 | `@vitejs/plugin-vue` | `^5.2.3` |
@@ -319,6 +328,7 @@ Runtime dependencies:
 | `actor-query-process-remote-cache` | `^0.1.0` |
 | `core-js` | `^3.8.3` |
 | `fs` | `^0.0.1-security` |
+| `material-icons` | `^1.13.14` |
 | `pinia` | `^2.3.1` |
 | `query-sparql-remote-cache` | `^0.0.9` |
 | `sparqljs` | `^3.7.3` |
