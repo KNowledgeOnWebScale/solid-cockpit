@@ -52,22 +52,70 @@ if (nodeResult.status !== 0) {
 }
 
 const coverageRegex =
-  /^#\s(.+?)\s\|\s([\d.]+)\s\|\s([\d.]+)\s\|\s([\d.]+)\s\|\s?(.*)$/;
+  /^(.+?)\s+\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*(.*)$/;
+
+/**
+ * Normalize file paths coming from coverage output so comparisons remain stable
+ * across Node versions, CI runners, and OS path separators.
+ */
+function normalizeCoveragePath(filePath) {
+  return filePath
+    .replaceAll("\\", "/")
+    .replace(/^\.\/+/, "")
+    .trim();
+}
+
+/**
+ * Resolve a tracked/advisory file to a parsed coverage metric.
+ * Some Node versions emit absolute paths while others emit project-relative paths.
+ */
+function resolveMetricForFile(metricsByFile, filePath) {
+  const normalizedTarget = normalizeCoveragePath(filePath);
+  const directMetric = metricsByFile.get(normalizedTarget);
+  if (directMetric) return directMetric;
+
+  for (const [metricPath, metric] of metricsByFile.entries()) {
+    const normalizedMetricPath = normalizeCoveragePath(metricPath);
+    if (
+      normalizedMetricPath === normalizedTarget ||
+      normalizedMetricPath.endsWith(`/${normalizedTarget}`)
+    ) {
+      return metric;
+    }
+  }
+
+  return null;
+}
 
 const metricsByFile = new Map();
 for (const line of nodeResult.stdout.split("\n")) {
-  if (!line.startsWith("# ")) continue;
-  if (line.includes("start of coverage report")) continue;
-  if (line.includes("end of coverage report")) continue;
-  if (line.includes("file | line % | branch % | funcs %")) continue;
-  if (line.startsWith("# all files")) continue;
+  const normalizedLine = line.replace(/^[#ℹ]\s*/, "").trim();
+  if (!normalizedLine) continue;
+  if (normalizedLine.includes("start of coverage report")) continue;
+  if (normalizedLine.includes("end of coverage report")) continue;
+  if (
+    normalizedLine.includes("file | line % | branch % | funcs %") ||
+    normalizedLine.includes("File | % Stmts | % Branch | % Funcs | % Lines")
+  ) {
+    continue;
+  }
+  if (
+    normalizedLine.startsWith("all files") ||
+    normalizedLine.startsWith("All files") ||
+    normalizedLine.startsWith("...files") ||
+    normalizedLine.startsWith("…files")
+  ) {
+    continue;
+  }
+  if (/^-{3,}/.test(normalizedLine)) continue;
 
-  const match = line.match(coverageRegex);
+  const match = normalizedLine.match(coverageRegex);
   if (!match) continue;
 
   const [, file, linePct, branchPct, funcPct, uncovered] = match;
-  metricsByFile.set(file.trim(), {
-    file: file.trim(),
+  const normalizedFile = normalizeCoveragePath(file);
+  metricsByFile.set(normalizedFile, {
+    file: normalizedFile,
     linePct: Number(linePct),
     branchPct: Number(branchPct),
     funcPct: Number(funcPct),
@@ -75,12 +123,18 @@ for (const line of nodeResult.stdout.split("\n")) {
   });
 }
 
-const trackedMetrics = trackedFiles.map((file) => metricsByFile.get(file)).filter(Boolean);
-const missingFiles = trackedFiles.filter((file) => !metricsByFile.has(file));
-const advisoryMetrics = advisoryFiles
-  .map((file) => metricsByFile.get(file))
+const trackedMetrics = trackedFiles
+  .map((file) => resolveMetricForFile(metricsByFile, file))
   .filter(Boolean);
-const missingAdvisoryFiles = advisoryFiles.filter((file) => !metricsByFile.has(file));
+const missingFiles = trackedFiles.filter(
+  (file) => !resolveMetricForFile(metricsByFile, file)
+);
+const advisoryMetrics = advisoryFiles
+  .map((file) => resolveMetricForFile(metricsByFile, file))
+  .filter(Boolean);
+const missingAdvisoryFiles = advisoryFiles.filter(
+  (file) => !resolveMetricForFile(metricsByFile, file)
+);
 
 const summary = {
   generatedAt: new Date().toISOString(),
