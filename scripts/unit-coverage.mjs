@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const args = new Set(process.argv.slice(2));
@@ -159,6 +166,56 @@ function parseMetricsFromCoverageOutput(rawCoverageOutput) {
   return metricsByFile;
 }
 
+/**
+ * Parse LCOV records into the same metric shape used by the text-coverage parser.
+ * This is used as a resilient fallback when Node's text coverage table is empty in CI.
+ */
+function parseMetricsFromLcovFile(lcovPath) {
+  const metricsByFile = new Map();
+  if (!existsSync(lcovPath)) return metricsByFile;
+
+  const content = readFileSync(lcovPath, "utf8");
+  const records = content.split("end_of_record");
+  for (const record of records) {
+    const lines = record
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length === 0) continue;
+
+    const sourceLine = lines.find((line) => line.startsWith("SF:"));
+    if (!sourceLine) continue;
+    const sourceFile = normalizeCoveragePath(sourceLine.slice(3));
+
+    let lf = 0;
+    let lh = 0;
+    let brf = 0;
+    let brh = 0;
+    let fnf = 0;
+    let fnh = 0;
+
+    for (const line of lines) {
+      if (line.startsWith("LF:")) lf = Number(line.slice(3)) || 0;
+      else if (line.startsWith("LH:")) lh = Number(line.slice(3)) || 0;
+      else if (line.startsWith("BRF:")) brf = Number(line.slice(4)) || 0;
+      else if (line.startsWith("BRH:")) brh = Number(line.slice(4)) || 0;
+      else if (line.startsWith("FNF:")) fnf = Number(line.slice(4)) || 0;
+      else if (line.startsWith("FNH:")) fnh = Number(line.slice(4)) || 0;
+    }
+
+    const pct = (hit, total) => (total > 0 ? (hit / total) * 100 : 100);
+    metricsByFile.set(sourceFile, {
+      file: sourceFile,
+      linePct: pct(lh, lf),
+      branchPct: pct(brh, brf),
+      funcPct: pct(fnh, fnf),
+      uncovered: "",
+    });
+  }
+
+  return metricsByFile;
+}
+
 let metricsByFile = parseMetricsFromCoverageOutput(activeAttempt.combinedOutput);
 const primaryMissing = trackedFiles.filter(
   (file) => !resolveMetricForFile(metricsByFile, file)
@@ -189,6 +246,13 @@ if (primaryMissing.length === trackedFiles.length) {
   if (retryAttempt.result.status === 0) {
     activeAttempt = retryAttempt;
     metricsByFile = parseMetricsFromCoverageOutput(activeAttempt.combinedOutput);
+    const retryMissing = trackedFiles.filter(
+      (file) => !resolveMetricForFile(metricsByFile, file)
+    );
+    // If table output is still empty, fall back to LCOV metrics produced by retry reporter.
+    if (retryMissing.length === trackedFiles.length) {
+      metricsByFile = parseMetricsFromLcovFile(lcovPath);
+    }
   } else if (quiet) {
     if (retryAttempt.result.stdout) process.stdout.write(retryAttempt.result.stdout);
     if (retryAttempt.result.stderr) process.stderr.write(retryAttempt.result.stderr);
@@ -303,6 +367,8 @@ if (failures.length > 0) {
       trackedFiles,
       advisoryFiles,
       coverageIncludeArgs,
+      retryLcovPath: `${process.cwd()}/coverage/unit-retry.lcov`,
+      retryLcovExists: existsSync(`${process.cwd()}/coverage/unit-retry.lcov`),
       attempts: [
         {
           label: primaryAttempt.label,
