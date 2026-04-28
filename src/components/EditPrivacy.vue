@@ -1,147 +1,66 @@
 <template>
-  <!-- Materialize CSS -->
-  <link
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    rel="stylesheet"
-  />
 
   <!-- Title bar -->
   <div class="content-container" :key="renderKey">
     <div class="title-container">
-      <nav class="title-nav">
-        <!-- Title bar and icons -->
-        <div class="nav-wrapper">
-          <ul>
-            <span>Privacy Editing</span>
-            <div class="right">
-              <li>
-                <!-- Make clicking this icon hide/show the Guide below -->
-                <a href="#!"><i class="material-icons">info</i></a>
-              </li>
-              <li>
-                <button
-                  class="notification-button"
-                  @click="toggleNotifications"
-                >
-                  <i class="material-icons">
-                    {{
-                      hasNotifications ? "notifications" : "notifications_none"
-                    }}
-                    <i v-if="hasNotifications" class="badge"></i>
-                  </i>
-                </button>
-                <!-- Notifications dropdown data display -->
-                <div v-if="showNotifications" class="notifications-dropdown">
-                  <div class="notifications-content">
-                    <div class="notifications-header-container">
-                      <ul class="notifications-header">
-                        <div class="notifications-header-text">
-                          <li>
-                            <span class="notification-title"
-                              >Notifications:</span
-                            >
-                          </li>
-                          <li>
-                            <span class="notification-hint"
-                              >(See "Shared with me" for more details)</span
-                            >
-                          </li>
-                        </div>
-                        <li v-if="notifications.length != 0">
-                          <button
-                            class="mark-read"
-                            @click="markNotificationsRead"
-                          >
-                            Mark Read
-                          </button>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div
-                      class="no-notifications"
-                      v-if="notifications.length === 0"
-                    >
-                      <span
-                        >No new notifications</span
-                      >
-                    </div>
-                    <ul class="share-list">
-                      <li
-                        v-for="(item, index) in notifications"
-                        :key="index"
-                        class="card-panel folder compact"
-                      >
-                        <!-- Resource header -->
-                        <div class="row header">
-                          <i class="material-icons left not-colored">
-                            {{
-                              containerCheck(
-                                item.usersSharedWith[0].resourceUrl
-                              )
-                                ? "folder"
-                                : "description"
-                            }}
-                          </i>
-                          <span class="resource-hash mono">{{
-                            item.usersSharedWith[0].resourceUrl
-                          }}</span>
-                        </div>
-
-                        <!-- Users (always visible, condensed) -->
-                        <ul class="user-rows">
-                          <li
-                            v-for="(mode, i) in item.usersSharedWith"
-                            :key="i"
-                            class="user-row"
-                          >
-                            <span class="cell user">
-                              <i class="material-icons tiny not-colored"
-                                >person</i
-                              >
-                              <span class="truncate">
-                                {{
-                                  item.owner ===
-                                  "http://xmlns.com/foaf/0.1/Agent"
-                                    ? "Public"
-                                    : item.owner
-                                }}
-                              </span>
-                            </span>
-
-                            <span class="cell modes">
-                              <i class="material-icons tiny not-colored"
-                                >lock</i
-                              >
-                              <span class="chips">
-                                <span
-                                  v-for="(ac, ind) in mode.accessModes"
-                                  :key="ind"
-                                  class="chip"
-                                  >{{ ac.split("#")[1] }}</span
-                                >
-                              </span>
-                            </span>
-
-                            <span class="cell date">
-                              <i class="material-icons tiny not-colored"
-                                >schedule</i
-                              >
-                              <time :datetime="mode.created">{{
-                                formatDate(mode.created)
-                              }}</time>
-                            </span>
-                          </li>
-                        </ul>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </li>
-            </div>
-          </ul>
+      <!-- Page header now matches the modern card styling used elsewhere in the app. -->
+      <div class="privacy-header-shell">
+        <div class="privacy-header-copy">
+          <span class="privacy-page-title">Privacy Editing</span>
+          <p class="page-summary">
+            Review access controls in your pod, inspect shared items, and manage
+            sharing permissions from one workspace.
+          </p>
         </div>
-      </nav>
+
+        <div class="privacy-header-actions">
+          <!-- ACL info is available inline here now that notifications live in TheHeader. -->
+          <v-menu
+            v-model="aclInfoMenuOpen"
+            :close-on-content-click="false"
+            location="bottom end"
+          >
+            <template #activator="{ props }">
+              <button
+                class="header-icon-button"
+                type="button"
+                aria-label="ACL information"
+                v-bind="props"
+              >
+                <i class="material-icons">info</i>
+              </button>
+            </template>
+
+            <v-card class="acl-info-menu-card">
+              <div class="acl-info-header">
+                <p class="acl-info-kicker">Access Control Guide</p>
+                <h3>How ACL files work</h3>
+              </div>
+              <ul class="acl-info-list">
+                <li>
+                  <span class="acl-info-emphasis">`.acl` files</span> are Web Access Control rules that define who can
+                  read, append, write, or control a container/resource.
+                </li>
+                <li>
+                  If a resource does not have its own `.acl`, Solid servers usually fall back to the nearest parent container ACL.
+                </li>
+                <li>
+                  File-level ACL behavior depends on pod server capabilities. In this app, ACL automation is most reliable for
+                  RDF containers/resources.
+                </li>
+                <li>
+                  You need <span class="acl-info-emphasis">Control</span> permission to edit ACL entries.
+                </li>
+              </ul>
+              <div class="acl-info-actions">
+                <button class="secondary-action-button compact" @click="aclInfoMenuOpen = false">
+                  Close
+                </button>
+              </div>
+            </v-card>
+          </v-menu>
+        </div>
+      </div>
     </div>
 
     <!-- Choose Pod -->
@@ -151,66 +70,87 @@
 
     <!-- the side nav -->
     <div class="body-container" v-if="selectedPodUrl !== ''">
-      <div>
-        <ul class="side-nav fixed floating #28353e z-depth-0">
+      <aside class="privacy-nav-card">
+        <ul class="privacy-side-nav" role="list">
           <li>
             <button
               :class="{ highlight: navValue === 0 }"
               @click="toggleNavValue(0)"
             >
-              <a class="nav-text"
-                ><i class="material-icons">dashboard</i>My Pod</a
+              <span class="nav-text"
+                ><i class="material-icons">dashboard</i>My Pod</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
           <li>
             <button
               :class="{ highlight: navValue === 1 }"
               @click="toggleNavValue(1)"
             >
-              <a class="nav-text"
-                ><i class="material-icons">people</i>Shared with me</a
+              <span class="nav-text"
+                ><i class="material-icons">people</i>Shared with me</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
           <li>
             <button
               :class="{ highlight: navValue === 2 }"
               @click="toggleNavValue(2)"
               class="nav-button"
             >
-              <a class="nav-text"
-                ><i class="material-icons">star</i>Shared with others</a
+              <span class="nav-text"
+                ><i class="material-icons">star</i>Shared with others</span
               >
             </button>
           </li>
-          <li><div class="divider"></div></li>
         </ul>
-      </div>
+      </aside>
 
       <!-- "My Pod" display -->
       <!-- TODO: change the Resource to make the whole item a button -->
-      <div class="pod-directories" v-if="navValue === 0">
+      <section class="privacy-main-panel pod-directories" v-if="navValue === 0">
         <div class="container-fluid">
-          <div class="nav-container">
-            <div class="path-selection">
-              <ul>
-                <li>
-                  <span><b>Current location:</b> </span>
-                </li>
-                <!-- Browse existing path -->
-                <li class="container-choose">
-                  <container-nav
-                    :currentPod="selectedPodUrl"
-                    @path-selected="handleSelectedContainer"
-                  />
-                </li>
-              </ul>
+          <div class="browser-shell">
+            <div class="container-location">
+              <div class="path-card">
+              <div class="path-card-header">
+                <div>
+                  <p class="section-kicker">Browse containers</p>
+                  <h3>Choose container to inspect</h3>
+                </div>
+                <div class="path-origin">
+                  <span class="path-origin-label">Selected Container</span>
+                  <span class="path-origin-value" :title="currentLocation">
+                    {{ currentLocation }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="browser-layout">
+                <container-nav
+                  :currentPod="selectedPodUrl"
+                  @path-selected="handleSelectedContainer"
+                />
+              </div>
             </div>
-          </div>
-          <ul>
+            </div>
+
+            <div class="items-card">
+              <div class="items-header">
+                <div>
+                  <p class="section-kicker">Selected container contents</p>
+                  <p class="items-summary">
+                    Choose a container or resource inside
+                    <span class="items-location">{{ currentLocation }}</span>
+                    to review and update its access rules.
+                  </p>
+                </div>
+                <div class="items-header-actions">
+                  <span class="items-count">{{ urls.length }} items</span>
+                </div>
+              </div>
+
+              <ul class="privacy-items-list">
             <!-- Iterates over list of containers in a pod -->
             <li v-for="(url, index) in urls" :key="index">
               <div
@@ -220,23 +160,31 @@
                 <div class="spinner"></div>
                 <span class="loading-text">Loading access rights...</span>
               </div>
-              <div v-else class="card-panel folder">
-                <button
-                  @click="toggleShared(index), getSpecificAclData(url, index)"
-                  class="icon-button full-width"
-                >
-                  <i class="material-icons not-colored left">{{
-                    containerCheck(url) ? "folder" : "description"
-                  }}</i>
-                  <span class="resource-name">{{ url }}</span>
-                  <i class="material-icons not-colored info-icon">
-                    {{
-                      showSharedIndex === index
-                        ? "keyboard_arrow_down lock"
-                        : "chevron_right lock"
-                    }}</i
+              <div
+                v-else
+                class="card-panel folder"
+                :class="{ 'is-expanded': showSharedIndex === index }"
+              >
+                <div class="folder-header">
+                  <button
+                    @click="toggleShared(index), getSpecificAclData(url, index)"
+                    class="icon-button full-width"
                   >
-                </button>
+                    <div class="icon-hash">
+                      <i class="material-icons not-colored">{{
+                        containerCheck(url) ? "folder" : "description"
+                      }}</i>
+                      <span class="resource-hash">{{ url }}</span>
+                    </div>
+                    <i class="material-icons not-colored info-icon">
+                      {{
+                        showSharedIndex === index
+                          ? "keyboard_arrow_down lock"
+                          : "chevron_right lock"
+                      }}</i
+                    >
+                  </button>
+                </div>
 
                 <!-- Current access rights -->
                 <div
@@ -273,9 +221,11 @@
                       >
                         <div class="user-id">
                           <div class="left-content">
-                            <span class="user-tag">Agent:<br /></span>
-                            <span class="the-user"
-                              ><i>{{ inde }}</i>
+                            <span class="user-tag">Agent:</span>
+                            <!-- WebID chip keeps identity values visually distinct from permission fields. -->
+                            <span class="the-user" :title="inde.toString()">
+                              <i class="material-icons webid-icon">person</i>
+                              <span class="webid-value">{{ inde }}</span>
                             </span>
                           </div>
                           <button
@@ -321,7 +271,10 @@
 
                     <!-- Show add access form -->
                     <div id="addAccess">
-                      <button @click="toggleForm(index)" class="icon-button">
+                      <button
+                        @click="toggleForm(index)"
+                        class="icon-button add-access-toggle"
+                      >
                         <span>Add access rights </span>
                         <i
                           v-if="showFormIndex === null"
@@ -350,13 +303,13 @@
                       v-if="showFormIndex === index"
                       class="form-container"
                     >
-                      <form @submit.prevent="submitForm(url)">
-                        <div class="check-boxes" id="checkBoxes">
+                      <form @submit.prevent="submitForm(url)" class="access-form-shell">
+                        <div class="check-boxes access-mode-grid" id="checkBoxes">
                           <!-- Designate access to give -->
                           <span id="permissionsInstructions"
                             >Select access rights:</span
                           >
-                          <label>
+                          <label class="access-mode-option">
                             <input type="checkbox" v-model="permissions.read" />
                             <span>Read</span>
                             <v-tooltip
@@ -366,7 +319,7 @@
                               >Observe existing content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.append"
@@ -379,7 +332,7 @@
                               >Add to to existing content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.write"
@@ -392,7 +345,7 @@
                               >Change existing content + create new content
                             </v-tooltip>
                           </label>
-                          <label>
+                          <label class="access-mode-option">
                             <input
                               type="checkbox"
                               v-model="permissions.control"
@@ -447,13 +400,64 @@
                               type="text"
                               v-model="userUrl"
                               placeholder="Enter user's WebID:"
-                              class="border p-2 w-full"
+                              class="webid-input border p-2 w-full"
                             />
+                          </div>
+
+                          <!-- Optional scheduled revoke controls (duration or exact date/time). -->
+                          <div class="revoke-scheduler">
+                            <label class="revoke-label" for="revokeMode">
+                              Automatic revoke (optional)
+                            </label>
+                            <select
+                              id="revokeMode"
+                              v-model="revokeMode"
+                              class="revoke-select"
+                              @change="clearRevokeValidationError"
+                            >
+                              <option value="none">No automatic revoke</option>
+                              <option value="duration">After a duration</option>
+                              <option value="datetime">At a date/time</option>
+                            </select>
+
+                            <div v-if="revokeMode === 'duration'" class="revoke-row">
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                v-model.number="revokeDurationValue"
+                                placeholder="Duration"
+                                class="revoke-input"
+                                @input="clearRevokeValidationError"
+                              />
+                              <select
+                                v-model="revokeDurationUnit"
+                                class="revoke-select compact"
+                                @change="clearRevokeValidationError"
+                              >
+                                <option value="minutes">Minutes</option>
+                                <option value="hours">Hours</option>
+                                <option value="days">Days</option>
+                              </select>
+                            </div>
+
+                            <div v-if="revokeMode === 'datetime'" class="revoke-row">
+                              <input
+                                type="datetime-local"
+                                v-model="revokeDateTimeLocal"
+                                class="revoke-input"
+                                @input="clearRevokeValidationError"
+                              />
+                            </div>
                           </div>
                         </div>
                         <!-- Provide added user's WebID -->
                         <div id="submitButton">
-                          <button @click="clearPermissionString" type="submit">
+                          <button
+                            @click="clearPermissionString"
+                            type="submit"
+                            class="primary-action-button"
+                          >
                             Submit
                           </button>
                         </div>
@@ -499,6 +503,19 @@
                           >
                         </div>
 
+                        <!-- If revoke scheduling input is not valid -->
+                        <div id="errorIndicator" v-if="revokeValidationError !== ''">
+                          <v-alert
+                            closable
+                            title="Invalid revoke schedule"
+                            type="error"
+                            icon="$error"
+                            @click:close="clearRevokeValidationError"
+                          >
+                            {{ revokeValidationError }}
+                          </v-alert>
+                        </div>
+
                         <!-- If added permissions are successful -->
                         <div id="successIndicator" v-if="submissionDone">
                           <v-alert
@@ -519,6 +536,11 @@
                             <br />
                             These changes were added to their sharedWithMe.ttl:
                             <i>{{ postedMe }}</i>
+                            <br v-if="scheduledRevokeLabel" />
+                            <span v-if="scheduledRevokeLabel"
+                              >Automatic revoke scheduled for:
+                              <i>{{ scheduledRevokeLabel }}</i></span
+                            >
                           </v-alert>
 
                           <v-alert
@@ -532,12 +554,19 @@
                             ><br />
                             Was given:
                             <i>{{ permissionsString }}</i> rights<br />
-                            To resources in the container: <i>{{ url }}</i>
+                            To resources in the container: <i>{{ url }}</i
+                            ><br v-if="scheduledRevokeLabel" />
+                            <span v-if="scheduledRevokeLabel"
+                              >Automatic revoke scheduled for:
+                              <i>{{ scheduledRevokeLabel }}</i></span
+                            >
                           </v-alert>
 
                           <!-- Button to reset form -->
                           <div id="resetButton">
-                            <button @click="clearForm">Reset Form</button>
+                            <button @click="clearForm" class="secondary-action-button">
+                              Reset Form
+                            </button>
                           </div>
                         </div>
                       </form>
@@ -573,27 +602,29 @@
                 </div>
               </div>
             </li>
-          </ul>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       <!-- "Shared with me" display -->
-      <div class="shared-with" v-if="navValue === 1">
+      <section class="privacy-main-panel shared-with" v-if="navValue === 1">
         <SharedWith
           :currentOperation="currentDisplay"
           :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
-      </div>
+      </section>
 
       <!-- "Shared with others" display -->
-      <div class="shared-with" v-if="navValue === 2">
+      <section class="privacy-main-panel shared-with" v-if="navValue === 2">
         <SharedWith
           :currentOperation="currentDisplay"
           :currentPod="selectedPodUrl"
           :currentWebId="webId"
         />
-      </div>
+      </section>
     </div>
   </div>
 
@@ -614,22 +645,20 @@ import {
   createInboxWithACL,
   updateSharedWithMe,
   updateSharedWithOthers,
-  getSharedWithMe,
-  sharedSomething,
-  SharedWithMeData,
-  saveNewAccessTime,
-} from "./privacyEdit";
+  applyDueScheduledRevocations,
+  getEnabledAccessModeIris,
+  getRevokedAccessModeIris,
+} from "../services/solid/privacyEdit";
 import {
   fetchPermissionsData,
   fetchData,
   fetchAclAgents,
   fetchPublicAccess,
   WorkingData,
-} from "./getData";
+} from "../services/solid/getData";
 import PodRegistration from "./PodRegistration.vue";
 import ContainerNav from "./ContainerNav.vue";
 import SharedWith from "./Styling/SharedWith.vue";
-import { ref } from "vue";
 import { useAuthStore } from "../stores/auth";
 
 interface Permissions {
@@ -660,14 +689,20 @@ export default {
       showFormIndex: null as number | null,
       userUrl: "" as string,
       userUrlInvalid: false as boolean,
+      revokeValidationError: "" as string,
       submissionDone: false as boolean,
       recordedOthers: false as boolean,
+      scheduledRevokeLabel: "" as string,
       permissions: {
         read: false,
         append: false,
         write: false,
         control: false,
       } as Permissions,
+      revokeMode: "none" as "none" | "duration" | "datetime",
+      revokeDurationValue: null as number | null,
+      revokeDurationUnit: "hours" as "minutes" | "hours" | "days",
+      revokeDateTimeLocal: "" as string,
       navValue: 0 as number,
       permissionsString: "" as string,
       dirContents: null as WorkingData | null,
@@ -693,9 +728,7 @@ export default {
       loading: false as boolean,
       loadingIndex: null as number | null,
       renderKey: 0 as number,
-      notifications: [] as sharedSomething[],
-      showNotifications: false as boolean,
-      hasNotifications: false as boolean,
+      aclInfoMenuOpen: false as boolean,
     };
   },
   computed: {
@@ -842,29 +875,146 @@ export default {
     },
 
     /**
-     * method that submits the alterations to the specified .acl permissions file
+     * Normalizes permission toggles before ACL + notification writes.
+     * WAC semantics require Append when Write is enabled.
+     */
+    normalizePermissionsInput(): Permissions {
+      return {
+        ...this.permissions,
+        append: this.permissions.append || this.permissions.write,
+      };
+    },
+
+    /**
+     * Resolves the previous ACL state for the currently selected target (Agent/Public).
+     * This is used to detect revocations and emit LDPN `as:Undo` entries.
+     */
+    getPreviousPermissionsForTarget(targetWebId: string): Permissions {
+      const previousAccessForTarget =
+        this.accessType === "Public"
+          ? this.hasAccess.Public
+          : this.hasAccess[targetWebId];
+      return {
+        read: Boolean(previousAccessForTarget?.read),
+        append: Boolean(previousAccessForTarget?.append),
+        write: Boolean(previousAccessForTarget?.write),
+        control: Boolean(previousAccessForTarget?.control),
+      };
+    },
+
+    /**
+     * Creates a compact user-facing summary of the selected permissions.
+     */
+    formatPermissionsSummary(permissions: Permissions): string {
+      if (permissions.control) {
+        return "Control";
+      }
+
+      const entries: string[] = [];
+      if (permissions.read) {
+        entries.push("Read");
+      }
+      if (permissions.write) {
+        entries.push("Write");
+      } else if (permissions.append) {
+        entries.push("Append");
+      }
+      if (entries.length === 0) {
+        entries.push("No");
+      }
+      return entries.join(" / ");
+    },
+
+    /**
+     * Clears any revoke-schedule validation error as soon as user edits inputs.
+     */
+    clearRevokeValidationError() {
+      this.revokeValidationError = "";
+    },
+
+    /**
+     * Converts optional revoke-scheduler fields to an ISO timestamp.
+     * Returns null when no scheduling is requested, and throws on invalid values.
+     */
+    resolveRevokeAtIsoOrThrow(): string | null {
+      if (this.revokeMode === "none") {
+        this.scheduledRevokeLabel = "";
+        return null;
+      }
+
+      if (this.revokeMode === "duration") {
+        const durationValue = Number(this.revokeDurationValue);
+        if (!Number.isFinite(durationValue) || durationValue <= 0) {
+          throw new Error("Provide a duration greater than 0.");
+        }
+
+        const unitToMs: Record<"minutes" | "hours" | "days", number> = {
+          minutes: 60 * 1000,
+          hours: 60 * 60 * 1000,
+          days: 24 * 60 * 60 * 1000,
+        };
+        const revokeAt = new Date(Date.now() + durationValue * unitToMs[this.revokeDurationUnit]);
+        const revokeAtIso = revokeAt.toISOString();
+        this.scheduledRevokeLabel = revokeAt.toLocaleString();
+        return revokeAtIso;
+      }
+
+      const revokeDate = new Date(this.revokeDateTimeLocal);
+      if (!this.revokeDateTimeLocal || Number.isNaN(revokeDate.getTime())) {
+        throw new Error("Provide a valid future date/time.");
+      }
+      if (revokeDate.getTime() <= Date.now()) {
+        throw new Error("Revoke date/time must be in the future.");
+      }
+
+      const revokeAtIso = revokeDate.toISOString();
+      this.scheduledRevokeLabel = revokeDate.toLocaleString();
+      return revokeAtIso;
+    },
+
+    /**
+     * Persists ACL changes and mirrors those changes into LDPN notification logs.
      *
-     * @param url the URL of the container that .acl changes are being made to
+     * @param url The container/resource URL whose ACL is being updated.
      */
     async submitForm(url: string) {
-      // Handle permissions specified
-      if (this.permissions.read) {
-        this.permissionsString += "Read / ";
+      // Reset status flags for this submission cycle.
+      this.postedMe = false;
+      this.recordedOthers = false;
+      this.revokeValidationError = "";
+
+      // Normalize permissions before persisting + logging (Write implies Append in WAC semantics).
+      const normalizedPermissions = this.normalizePermissionsInput();
+      this.permissions = normalizedPermissions;
+
+      // Resolve optional scheduled revoke timestamp before writing ACL + logs.
+      let scheduledRevokeAt: string | null = null;
+      try {
+        scheduledRevokeAt = this.resolveRevokeAtIsoOrThrow();
+      } catch (error) {
+        this.revokeValidationError =
+          error instanceof Error ? error.message : "Invalid revoke schedule.";
+        return;
       }
-      if (this.permissions.write) {
-        this.permissions.append = true;
-        this.permissionsString += "Write / ";
+
+      // Capture current access state to derive revocations for LDPN as:Undo entries.
+      const previousPermissions = this.getPreviousPermissionsForTarget(
+        this.userUrl
+      );
+      const revokedModeIris = getRevokedAccessModeIris(
+        previousPermissions,
+        normalizedPermissions
+      );
+      const hasGrantedModes =
+        getEnabledAccessModeIris(normalizedPermissions).length > 0;
+      if (!hasGrantedModes) {
+        this.scheduledRevokeLabel = "";
       }
-      if (this.permissions.append && !this.permissions.write) {
-        this.permissionsString += "Append / ";
-      }
-      if (this.permissions.control) {
-        this.permissions.control = true;
-        this.permissionsString = "Control / ";
-      }
-      if (this.permissionsString === "") {
-        this.permissionsString = "No / ";
-      }
+
+      // Derive status label shown after successful submission.
+      this.permissionsString = this.formatPermissionsSummary(
+        normalizedPermissions
+      );
 
       this.loading = true; // Start loading
 
@@ -872,50 +1022,76 @@ export default {
       if (this.accessType === "Agent") {
         this.userUrlInvalid = checkUrl(this.userUrl, this.webId);
         if (!this.userUrlInvalid) {
-          // add condition for different agents here ...
-          // actual .acl changing
-          await changeAclAgent(url, this.userUrl, this.permissions);
-          // write changes to specified user's sharedWithMe.ttl file
-          this.postedMe = await updateSharedWithMe(
-            this.userUrl,
-            this.webId,
-            url,
-            this.permissions
-          );
+          // Apply ACL changes for the selected agent target.
+          await changeAclAgent(url, this.userUrl, normalizedPermissions);
 
-          // write changes to current user's sharedWithOthers.ttl file
-          this.recordedOthers = await updateSharedWithOthers(
-            this.selectedPodUrl,
-            url,
-            this.userUrl,
-            this.permissions
-          );
+          // If permissions were removed, append explicit revocation notifications first.
+          if (revokedModeIris.length > 0) {
+            this.postedMe = await updateSharedWithMe(
+              this.userUrl,
+              this.webId,
+              url,
+              normalizedPermissions,
+              { forceUndo: true, modeIris: revokedModeIris }
+            );
+            this.recordedOthers = await updateSharedWithOthers(
+              this.selectedPodUrl,
+              url,
+              this.userUrl,
+              normalizedPermissions,
+              { forceUndo: true, modeIris: revokedModeIris }
+            );
+          }
+
+          // Append grant/update notifications with resulting access modes.
+          if (hasGrantedModes) {
+            const postMeOffer = await updateSharedWithMe(
+              this.userUrl,
+              this.webId,
+              url,
+              normalizedPermissions
+            );
+            const postOthersOffer = await updateSharedWithOthers(
+              this.selectedPodUrl,
+              url,
+              this.userUrl,
+              normalizedPermissions,
+              scheduledRevokeAt ? { revokeAt: scheduledRevokeAt } : undefined
+            );
+            this.postedMe = this.postedMe || postMeOffer;
+            this.recordedOthers = this.recordedOthers || postOthersOffer;
+          }
         }
       }
 
       // for Public ACL changes
       if (this.accessType === "Public") {
-        await changeAclPublic(url, this.permissions);
+        await changeAclPublic(url, normalizedPermissions);
+        const publicAgent = "http://xmlns.com/foaf/0.1/Agent";
 
-        // write changes to current user's sharedWithOthers.ttl file
-        this.recordedOthers = await updateSharedWithOthers(
-          this.selectedPodUrl,
-          url,
-          "http://xmlns.com/foaf/0.1/Agent",
-          this.permissions
-        );
+        if (revokedModeIris.length > 0) {
+          this.recordedOthers = await updateSharedWithOthers(
+            this.selectedPodUrl,
+            url,
+            publicAgent,
+            normalizedPermissions,
+            { forceUndo: true, modeIris: revokedModeIris }
+          );
+        }
+
+        if (hasGrantedModes) {
+          const publicOffer = await updateSharedWithOthers(
+            this.selectedPodUrl,
+            url,
+            publicAgent,
+            normalizedPermissions,
+            scheduledRevokeAt ? { revokeAt: scheduledRevokeAt } : undefined
+          );
+          this.recordedOthers = this.recordedOthers || publicOffer;
+        }
       }
 
       // Message that tells the changes that have been made
-      const ex = [
-        this.permissionsString.length - 3,
-        this.permissionsString.length - 2,
-        this.permissionsString.length - 1,
-      ];
-      this.permissionsString = this.permissionsString
-        .split("")
-        .filter((char, index) => !ex.includes(index))
-        .join("");
       this.submissionDone = true;
 
       await this.getSpecificAclData(url);
@@ -930,6 +1106,12 @@ export default {
     clearForm() {
       this.userUrl = "";
       this.permissionsString = "";
+      this.scheduledRevokeLabel = "";
+      this.revokeValidationError = "";
+      this.revokeMode = "none";
+      this.revokeDurationValue = null;
+      this.revokeDurationUnit = "hours";
+      this.revokeDateTimeLocal = "";
       this.permissions = {
         read: false,
         write: false,
@@ -941,6 +1123,7 @@ export default {
     clearPermissionString() {
       this.permissionsString = "";
       this.submissionDone = false;
+      this.scheduledRevokeLabel = "";
     },
 
     /**
@@ -1035,55 +1218,43 @@ export default {
       }
     },
 
-    /* Compares each of the dates created on items in sharedWithMe */
-    async obtainSharedWithMeData(): Promise<SharedWithMeData | null> {
-      try {
-        const sharedItemsThings = await getSharedWithMe(this.selectedPodUrl);
-        return sharedItemsThings;
-      } catch (err) {
-        console.error("Error fetching shared items:", err);
-        return null;
-      }
-    },
-
-    /* Compares each of the dates created on items in sharedWithMe */
-    async compareDates() {
-      const sharedData = await this.obtainSharedWithMeData();
-      // When there is an error obtaining sharedWithMe data
-      if (sharedData === null) {
-        this.notifications = [];
-        return;
-      }
-
-      // Filter items created after the last accessed date
-      const lastAccessedDate = new Date(sharedData.lastAccessed);
-      this.notifications = sharedData.sharedItems.filter((item) => {
-        const createdDate = new Date(item.usersSharedWith[0].created);
-        return createdDate > lastAccessedDate;
-      });
-
-      if (this.notifications.length > 0) {
-        this.hasNotifications = true;
-      } else {
-        this.hasNotifications = false;
-      }
-    },
-
-    // Records the current date and time as the last access time
-    async markNotificationsRead() {
-      const newAccessSuccess = await saveNewAccessTime(this.selectedPodUrl);
-      if (newAccessSuccess) {
-        await this.compareDates();
-      } else {
-        console.log("Failed to update last access time.");
+    /**
+     * Evaluates pending scheduled revocations and applies any expired entries.
+     * This runs whenever a pod is loaded in Privacy Editing.
+     */
+    async runDueRevocationSweep() {
+      const summary = await applyDueScheduledRevocations(
+        this.selectedPodUrl,
+        this.webId
+      );
+      if (summary.considered > 0) {
+        console.log(
+          `Scheduled revocation sweep: ${summary.revoked}/${summary.considered} applied, ${summary.failed} failed.`
+        );
       }
     },
 
     /* creates files and directories if not already present */
     async createStuff() {
       await createInboxWithACL(this.selectedPodUrl, this.webId);
+      await this.runDueRevocationSweep();
       await this.getGeneralData();
-      this.$forceUpdate(); // Forces a re-render of the component
+    },
+    /**
+     * Centralized refresh to avoid duplicated fetch/create cycles across
+     * lifecycle hooks and pod-selection watchers.
+     */
+    async refreshPrivacyViewForSelectedPod(shouldRefreshRenderKey = false) {
+      if (!this.selectedPodUrl) {
+        return;
+      }
+
+      this.currentLocation = this.selectedPodUrl;
+      await this.createStuff();
+
+      if (shouldRefreshRenderKey) {
+        this.updateRenderKey();
+      }
     },
     /* Takes in the emitted value from ContainerNav.vue */
     handleSelectedContainer(selectedContainer: string) {
@@ -1093,39 +1264,42 @@ export default {
     updateRenderKey() {
       this.renderKey += 1;
     },
-    toggleNotifications() {
-      this.showNotifications = !this.showNotifications;
-    },
-    formatDate(d: string) {
-      const date = new Date(d);
-      if (isNaN(date.getTime())) return d; // fallback if not a valid date
-      return date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
+    /**
+     * Maps optional route query hints into the privacy page UI state.
+     *
+     * Supported query keys:
+     * - view=sharedWithMe|sharedWithOthers|myPod
+     */
+    applyRouteDisplayState() {
+      const routeQuery = this.$route?.query ?? {};
+      const queryView = routeQuery.view;
+      if (queryView === "sharedWithMe") {
+        this.toggleNavValue(1);
+      } else if (queryView === "sharedWithOthers") {
+        this.toggleNavValue(2);
+      } else if (queryView === "myPod") {
+        this.toggleNavValue(0);
+      }
     },
   },
-  mounted() {
+  async mounted() {
     try {
-      if (this.selectedPodUrl != "") {
-        this.currentLocation = this.selectedPodUrl;
-        this.getGeneralData();
-        this.createStuff();
-        this.compareDates();
-      }
+      this.applyRouteDisplayState();
+      await this.refreshPrivacyViewForSelectedPod();
     } catch (error) {
       console.error("Error during component mount:", error);
     }
   },
   watch: {
-    selectedPodUrl(newValue, oldValue) {
+    async selectedPodUrl(newValue, oldValue) {
       if (newValue !== oldValue) {
-        this.getGeneralData();
-        this.createStuff();
-        this.compareDates();
-        this.updateRenderKey();
+        await this.refreshPrivacyViewForSelectedPod(true);
       }
+    },
+    "$route.query": {
+      handler() {
+        this.applyRouteDisplayState();
+      },
     },
   },
 };
@@ -1153,9 +1327,6 @@ button:focus {
   resize: vertical;
   overflow: auto;
 }
-.side-nav {
-  flex: 1 1 auto;
-}
 .pod-directories {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -1181,7 +1352,7 @@ button:focus {
   background-color: transparent;
   margin: 0;
 }
-.title-container span {
+.privacy-page-title {
   font-size: 30pt;
   font-family: "Oxanium", monospace;
   font-weight: 500;
@@ -1194,7 +1365,15 @@ button:focus {
   border-radius: 6px;
   padding: 0 1rem;
   margin: 0 0.5rem 0 0.5rem;
-  background-color: var(--panel);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
+      var(--panel)
+    );
+  box-shadow: var(--shadow-1);
 }
 .nav-wrapper .material-icons {
   color: var(--text-secondary);
@@ -1308,56 +1487,6 @@ button:focus {
   font-family: "Oxanium", monospace;
 }
 
-/* sidenav */
-.side-nav.floating {
-  margin-top: 0;
-  padding-top: 2px;
-  border-radius: 2px;
-  box-shadow: 0 1px 8px VAR(--v-shadow-2);
-}
-.side-nav .divider {
-  margin: 2px 0;
-}
-.side-nav li a i.material-icons {
-  height: 1.5rem;
-  line-height: 2rem;
-  margin: 0 1.5rem 0.5rem 0;
-}
-.side-nav .nav-button {
-  display: flex;
-  align-items: center;
-}
-.side-nav .nav-text {
-  display: flex;
-  align-items: center;
-  font-size: 14pt;
-  font-weight: 700;
-  align-items: center;
-  padding: 10px 20px 10px 5px;
-}
-.side-nav li button {
-  display: flex;
-  font-family: "Oxanium", monospace;
-  align-content: center;
-  padding: 5px;
-  width: 100%;
-  text-decoration: none;
-  color: var(--text-secondary);
-}
-.side-nav li button.highlight {
-  background-color: VAR(--primary) !important;
-  color: var(--main-white);
-  border-radius: 6px;
-}
-.side-nav li button:hover {
-  background-color: var(--text-muted);
-  color: var(--main-white);
-  width: 100%;
-}
-.side-nav li a {
-  all: unset;
-}
-
 /* folders */
 .folder {
   margin: 0;
@@ -1434,10 +1563,18 @@ button:focus {
 .left-content {
   display: flex;
   align-items: center;
-  gap: 5rem;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
 }
-.user-tag {
+.user-tag,
+.permissions-tag {
   color: var(--text-secondary);
+  font-size: var(--font-size-section-kicker);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .user-id button {
   padding: 3px;
@@ -1447,16 +1584,32 @@ button:focus {
   opacity: 0.5;
 }
 .the-user {
-  margin-left: 10px;
-  font-size: large;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: min(100%, 52rem);
+  padding: 0.35rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border) 68%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev) 90%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  line-height: 1.25;
 }
 .the-user i {
-  font-size: large;
-  color: var(--text-secondary);
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--primary) 72%, var(--text-secondary) 28%);
 }
-.permissions-tag {
-  font-size: large;
+.webid-value {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .permission-item {
   display: grid;
   grid-template-columns: auto 1fr; /* Two columns: auto width for label, remaining space for value */
@@ -1480,38 +1633,62 @@ button:focus {
   color: var(--yasqe-string-2);
 }
 
-#sharebox {
-  display: flex;
-}
-label {
-  margin-left: 20px;
-  font-family: "Oxanium", monospace;
-}
 #checkBoxes {
-  margin-bottom: 10px;
+  margin-bottom: 0.3rem;
 }
-#checkBoxes span {
+.access-form-shell {
+  display: grid;
+  gap: 0.78rem;
+}
+.access-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+.access-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  font-family: "Oxanium", monospace;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.access-mode-option:hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+}
+.access-mode-option span {
   color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
 }
-input[type="checkbox"] {
+.access-mode-option input[type="checkbox"] {
   appearance: none; /* Hide default checkbox */
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--border); /* Default border */
   border-radius: 3px;
   background-color: transparent;
   position: relative;
   cursor: pointer;
   outline: none;
+  flex: 0 0 auto;
 }
-input[type="checkbox"]:checked {
+.access-mode-option input[type="checkbox"]:checked {
   background-color: var(--success); /* Green color when checked */
   border-color: var(--success); /* Match the border */
 }
-input[type="checkbox"]:checked::before {
+.access-mode-option input[type="checkbox"]:checked::before {
   content: "✔";
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: bold;
   position: absolute;
   left: 50%;
@@ -1521,67 +1698,127 @@ input[type="checkbox"]:checked::before {
 .icon-button span {
   color: var(--text-secondary);
 }
+.add-access-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin-top: 0.15rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  background: color-mix(in srgb, var(--panel) 94%, var(--panel-elev) 6%);
+  font-weight: 600;
+  font-size: var(--font-size-page-summary);
+}
 /* Access rights Agent + Public buttons */
 .access-choose {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 0.5rem;
   width: 100%;
-  margin: 1rem 0;
+  margin: 0.2rem 0;
 }
 .access-choose button {
-  width: 100%;
-  border-radius: 5px;
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  background: color-mix(in srgb, var(--panel-elev) 95%, var(--panel) 5%);
+  min-height: 2.15rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 .access-choose button.highlight {
-  background-color: VAR(--primary) !important;
+  background-color: var(--primary) !important;
   color: var(--main-white);
-  border-radius: 6px;
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
 }
 
-form input[type="text"] {
-  padding: 3px;
-  margin-bottom: 5px;
-  border: 1px solid var(--text-secondary) !important;
-  border-radius: 4px;
-  font-family: "Courier New", Courier, monospace;
-  font-size: large;
+.mt-2 input {
+  width: 100%;
+}
+.webid-input {
+  margin-top: 0.35rem;
+  min-height: 2.3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--primary) 24%) !important;
+  border-radius: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
   max-width: 100%;
   color: var(--text-secondary);
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
   box-shadow: none !important;
 }
-form input::placeholder {
-  padding-left: 0.5rem;
-  color: var(--text-muted); /* Slight transparency */
+.webid-input::placeholder {
+  color: var(--text-muted);
+}
+.revoke-scheduler {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.42rem;
+}
+.revoke-label {
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-section-kicker);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.revoke-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+.revoke-select,
+.revoke-input {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--primary) 24%) !important;
+  border-radius: 10px;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  box-shadow: none !important;
+}
+.revoke-select.compact {
+  min-width: 8rem;
 }
 .agent-button,
 .public-button {
-  padding: 10px;
-  margin-top: 5px;
-  background-color: var(--border);
-  color: var(--text-secondary);
-  border: none;
+  padding: 0.55rem 0.65rem;
+  margin-top: 0;
   cursor: pointer;
-  font-size: large;
 }
-#submitButton button {
+.primary-action-button {
   font-family: "Oxanium", monospace;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 10px;
   margin-top: 0.25rem;
-  padding: 0.75rem;
+  padding: 0.62rem 0.78rem;
+  border: 1px solid transparent;
   background-color: var(--primary);
   color: var(--main-white);
 }
-form button:hover {
-  background-color: var(--hover);
+.primary-action-button:hover {
+  background: color-mix(in srgb, var(--primary) 84%, var(--primary-700) 16%);
 }
-#submitButton button:hover {
-  background-color: var(--text-muted);
-}
-label span {
+.secondary-action-button {
   font-family: "Oxanium", monospace;
-  font-size: 14px;
+  font-size: var(--font-size-page-summary);
+  font-weight: 600;
+  background-color: color-mix(in srgb, var(--panel-elev) 92%, var(--panel) 8%);
   color: var(--text-secondary);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  padding: 0.55rem 0.72rem;
+  border-radius: 10px;
+  margin-top: 0.22rem;
+}
+.secondary-action-button:hover {
+  background: color-mix(in srgb, var(--primary) 9%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 #errorIndicator {
   margin-top: 10px;
@@ -1610,24 +1847,6 @@ label span {
   border-radius: 6px;
 }
 .new-acl:hover {
-  background-color: var(--hover);
-}
-
-/* Shared with displays */
-.shared-with {
-  width: 80%;
-}
-
-#resetButton button {
-  font-family: "Oxanium", monospace;
-  font-size: 14pt;
-  background-color: var(--muted);
-  color: var(--text-secondary);
-  padding: 0.75rem;
-  border-radius: 6px;
-  margin-top: 0.25rem;
-}
-#resetButton button:hover {
   background-color: var(--hover);
 }
 
@@ -1663,204 +1882,582 @@ label span {
   }
 }
 
-/* Notifications */
-.notification-button {
-  padding: 0 0.5rem;
-}
-.notification-button:hover {
-  background-color: var(--hover);
-  color: var(--main-white);
-  border-radius: 6px;
-}
-.badge {
-  position: absolute;
-  top: 17px;
-  right: 15px;
-  width: 12px;
-  height: 12px;
-  background: var(--error);
-  border-radius: 50%;
-}
-.notifications-dropdown {
-  position: absolute;
-  top: 4rem;
-  right: 20px;
-  border-radius: 1rem;
-  z-index: 1000;
-  background-color: var(--panel-elev);
+/* ACL helper menu (replaces the previous in-page notifications dropdown). */
+.acl-info-menu-card {
+  width: min(34rem, 90vw);
+  padding: 0.8rem;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 40%;
-  min-width: fit-content;
-  line-height: normal;
-}
-.notifications-dropdown span {
-  font-family: "Oxanium", monospace;
-  font-size: 14pt;
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--panel) 96%, var(--primary) 4%),
+    var(--panel)
+  ) !important;
   color: var(--text-secondary);
 }
-.notifications-dropdown ul {
-  list-style: none;
+.acl-info-header {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.55rem;
+}
+.acl-info-kicker {
   margin: 0;
-  padding: 0;
-}
-.notifications-dropdown li {
-  padding: 0.5rem;
-  transition: background 0.3s;
-}
-.notifications-content {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: wrap;
-  max-width: 100%;
-  margin: 0 0 0 0.5rem;
-  justify-content: flex-start;
-}
-.notifications-content li {
-  padding: 0;
-}
-.notifications-header-container {
-  width: 100%;
-}
-.notifications-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem !important;
-}
-.notifications-header-text {
-  display: flex;
-  flex-direction: column;
-}
-.mark-read {
-  font-size: 14pt;
-  font-family: "oxanium", monospace;
-  border-radius: 6px;
-  color: var(--main-white);
-  cursor: pointer;
-  background-color: var(--primary);
-  padding: 0.4rem 0.5rem;
-}
-.mark-read:hover {
-  color: var(--main-white);
-  background-color: var(--hover);
-}
-.notification-title {
-  font-size: 20pt !important;
-  font-weight: 600;
-}
-.notification-hint {
-  font-size: 10pt !important;
-  color: var(--text-secondary);
-}
-.no-notifications {
-  margin: 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: var(--font-size-section-kicker);
   font-family: "Oxanium", monospace;
-  font-size: 14pt;
+  color: var(--text-muted);
+}
+.acl-info-header h3 {
+  margin: 0;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-section-title);
+  color: var(--text-primary);
+}
+.acl-info-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.42rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  line-height: 1.45;
+}
+.acl-info-emphasis {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.acl-info-actions {
+  margin-top: 0.68rem;
+  display: flex;
+  justify-content: flex-end;
+}
+.secondary-action-button.compact {
+  padding: 0.35rem 0.68rem;
+  min-height: auto;
 }
 
-/* Ensure user rows are displayed in a vertical list */
-.user-rows {
+/* Modern page shell overrides align Privacy Editing with the newer workspace pages. */
+.content-container {
+  display: grid;
+  gap: 0.5rem;
+}
+.title-container {
+  margin: 0.5rem 0.5rem 0 0.5rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
+      var(--panel)
+    );
+  box-shadow: var(--shadow-1);
+}
+.privacy-header-shell {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem; /* Add spacing between items */
-}
-.share-list,
-.user-rows {
-  font-size: 10pt;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.folder.compact {
-  margin: 0.5rem 0 0 0;
-  border-radius: 8px;
-  width: 100%;
-}
-.row.header {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 1rem;
-  margin: 0 0 0 0.5rem;
 }
-.mono {
-  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas,
-    monospace;
+.privacy-header-copy {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
 }
-.spacer {
+.privacy-page-title {
+  display: block;
+  font-size: var(--font-size-page-title);
+  line-height: var(--line-height-page-title);
+  font-family: "Oxanium", monospace;
+  font-weight: var(--font-weight-page-title);
+  color: var(--text-primary);
+}
+.page-summary {
+  margin: 0;
+  max-width: 42rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.privacy-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+.header-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
+  background: color-mix(in srgb, var(--panel-elev) 78%, transparent);
+  color: var(--text-secondary);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+.header-icon-button:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.header-icon-button .material-icons {
+  color: inherit;
+}
+
+.pod-chooseContainer {
+  margin: 0 0.5rem;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.body-container {
+  display: grid;
+  grid-template-columns: minmax(220px, 250px) 1fr;
+  align-items: start;
+  gap: 0.85rem;
+  margin: 0 0.5rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  resize: none;
+}
+.privacy-nav-card,
+.privacy-main-panel {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+}
+.privacy-nav-card {
+  position: sticky;
+  top: 1rem;
+  padding: 0.7rem;
+}
+.privacy-side-nav {
+  display: grid;
+  gap: 0.48rem;
+  position: static;
+  width: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+.privacy-side-nav ul,
+.privacy-side-nav li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.privacy-side-nav li button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: "Oxanium", monospace;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.privacy-side-nav .nav-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+.privacy-side-nav li button.highlight {
+  background: linear-gradient(135deg, var(--primary), var(--primary-600)) !important;
+  color: var(--main-white);
+}
+.privacy-side-nav li button.highlight .material-icons {
+  color: inherit;
+}
+.privacy-side-nav li button:hover {
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+  color: var(--text-primary);
+}
+.privacy-main-panel {
+  padding: 1rem 1.05rem;
+  min-width: 0;
+}
+.pod-directories,
+.shared-with {
+  width: auto;
+}
+
+.browser-shell {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+}
+.container-location {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+}
+.path-card,
+.items-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  font-family: "Oxanium", monospace;
+  width: 100%;
+  min-width: 0;
+}
+.path-card {
+  padding: 1rem 1.05rem;
+}
+.path-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+.path-card-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-family: "Oxanium", monospace;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.path-origin {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 20rem;
+  min-width: 0;
+  max-width: none;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--panel-elev);
+  font-family: "Oxanium", monospace;
+}
+.path-origin-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.path-origin-value {
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: normal;
+  word-break: break-word;
+}
+.browser-layout {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+}
+/* Keep the embedded container browser stretched to the full card width. */
+.browser-layout :deep(.browser-card) {
+  width: 100%;
+  margin: 0;
+  background-color: none;
+}
+
+.items-card {
+  padding: 1rem 1.1rem;
+}
+.items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+.items-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.section-kicker {
+  margin: 0 0 0.3rem 0;
+  font-size: var(--font-size-section-kicker);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.items-title {
+  display: block;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.items-summary {
+  margin: 0.4rem 0 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.items-location {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.items-count {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.privacy-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.container-fluid {
+  overflow: visible;
+}
+
+.folder {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  font-size: 1rem;
+}
+.folder.compact {
+  border-radius: 14px;
+}
+.full-width {
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+}
+.folder-header {
+  width: 100%;
+}
+.icon-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
   flex: 1;
 }
-.meta {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
+.resource-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.count {
+.privacy-items-list .resource-hash {
+  display: block;
   font-weight: 600;
-}
-.user-rows {
-  margin: 0 0 0 0.5rem;
-  display: flex;
-  flex-direction: column;
-}
-.user-row {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  border-radius: 6px;
-  margin: 0 0 0 1rem;
-}
-.cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 1rem;
-  min-width: 0; /* enable truncate */
-  font-size: 13px;
-}
-.user .truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chips {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  border: none;
-  margin: 0;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  border: 1px solid
-    color-mix(in srgb, var(--accent-700, #6c63ff), transparent 55%);
-  background: color-mix(in srgb, var(--accent-700, #6c63ff), transparent 88%);
-  font-weight: 600;
-  font-size: 11px;
-  margin: 0;
-  color: var(--yasqe-keyword);
-}
-.material-icons.tiny {
-  font-size: 20px;
-}
-.left {
-  vertical-align: middle;
-}
-.not-colored {
-  color: var(--text-secondary);
-}
-.resource-hash {
-  font-weight: 600;
-  font-size: 14px;
+  font-size: 0.95rem;
   color: var(--text-primary);
-  letter-spacing: 0.2px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.privacy-items-list .folder {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: var(--panel-elev);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin: 0.15rem 0;
+  transition: all 0.25s ease;
+}
+.privacy-items-list .folder:hover {
+  background: color-mix(in srgb, var(--hover) 70%, var(--panel-elev) 30%);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border));
+}
+.privacy-items-list .folder.is-expanded:hover {
+  background: color-mix(in srgb, var(--panel-elev) 96%, var(--primary) 4%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+}
+.privacy-items-list .full-width:hover {
+  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  border-radius: 8px;
+}
+.privacy-items-list .folder.is-expanded .full-width:hover {
+  background: transparent;
+}
+.privacy-items-list .full-width {
+  padding: 0.62rem 0.78rem;
+}
+.privacy-items-list .icon-hash {
+  gap: 0.62rem;
+}
+.privacy-items-list .info-icon {
+  color: var(--text-muted);
+}
+
+/* Keep embedded container selector surfaces aligned with the lighter page card tone. */
+.browser-layout :deep(.dir-nav) {
+  background: transparent !important;
+}
+.browser-layout :deep(.browser-card) {
+  background: transparent;
+}
+.browser-layout :deep(.current-folder-bar) {
+  background: color-mix(in srgb, var(--panel) 96%, var(--primary-100) 4%);
+  border-color: color-mix(in srgb, var(--border) 86%, var(--primary) 14%);
+  box-shadow: none;
+}
+.browser-layout :deep(.folder-section) {
+  background: transparent;
+}
+.browser-layout :deep(.crumb) {
+  /* Higher-contrast breadcrumb chip so labels remain readable in light + dark themes. */
+  background: color-mix(in srgb, var(--primary) 14%, var(--panel-elev) 86%) !important;
+  border: 1px solid
+    color-mix(in srgb, var(--primary) 34%, var(--border) 66%) !important;
+  color: color-mix(in srgb, var(--text-primary) 92%, var(--primary) 8%) !important;
+}
+.browser-layout :deep(.crumb:hover),
+.browser-layout :deep(.crumb.active) {
+  background: color-mix(in srgb, var(--primary) 22%, var(--panel-elev) 78%) !important;
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border) 48%) !important;
+}
+.browser-layout :deep(.folder-card) {
+  background: color-mix(in srgb, var(--panel) 95%, var(--panel-elev) 5%);
+  border-color: color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+}
+.form-container {
+  margin-top: 0.35rem;
+  padding: 0.9rem 0.95rem 0.1rem;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border));
+}
+#addAccess {
+  margin-top: 0.55rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+}
+#shareBox {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-elev) 95%, transparent);
+  padding-bottom: 0.55rem;
+}
+
+.shared-with :deep(.container) {
+  margin: 0;
+}
+.use-guide {
+  margin: 1rem 0 0 0;
+}
+
+/* Final normalization layer: keeps typography and hover behavior aligned with shared app tokens. */
+.content-container {
+  --privacy-hover-surface: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  --privacy-hover-border: color-mix(in srgb, var(--primary) 24%, var(--border));
+}
+.privacy-side-nav .nav-text {
+  font-size: var(--font-size-subsection-title);
+}
+.path-origin-value,
+.items-count,
+.privacy-items-list .resource-hash,
+.loading-text {
+  font-size: var(--font-size-page-summary);
+}
+
+.header-icon-button:hover,
+.privacy-side-nav li button:hover,
+.privacy-items-list .folder:hover,
+.privacy-items-list .full-width:hover,
+.new-acl:hover,
+#resetButton .secondary-action-button:hover,
+.add-access-toggle:hover {
+  background: var(--privacy-hover-surface) !important;
+  border-color: var(--privacy-hover-border) !important;
+}
+
+@media (max-width: 980px) {
+  .privacy-header-shell,
+  .body-container {
+    grid-template-columns: 1fr;
+  }
+  .privacy-header-shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .privacy-header-actions {
+    justify-content: flex-end;
+  }
+  .privacy-nav-card {
+    position: static;
+  }
+  .path-card-header,
+  .items-header,
+  .items-header-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .path-origin {
+    width: 100%;
+    max-width: 100%;
+  }
+  .path-origin-value {
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 760px) {
+  .title-container,
+  .pod-chooseContainer,
+  .body-container {
+    margin-left: 0.35rem;
+    margin-right: 0.35rem;
+  }
+  .title-container {
+    padding: 1rem;
+  }
+  .privacy-page-title {
+    font-size: var(--font-size-page-title-mobile);
+  }
+  .privacy-main-panel {
+    padding: 0.85rem 0.9rem;
+  }
+  .revoke-row {
+    grid-template-columns: 1fr;
+  }
+  .revoke-select.compact {
+    min-width: 0;
+  }
 }
 </style>

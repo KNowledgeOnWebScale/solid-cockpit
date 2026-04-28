@@ -1,0 +1,21 @@
+# Datasources: http://localhost:3000/test/random/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl, https://query.wikidata.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <http://schema.org/>
+
+SELECT ?localEntity ?localLabel ?wikidataEntity ?wikidataLabel
+WHERE {
+  # Local/Solid side (from your selected RDF document)
+  ?localEntity ?predicate ?localLabel .
+  FILTER(isLiteral(?localLabel))
+  FILTER(STRLEN(STR(?localLabel)) > 2)
+
+  # Endpoint side (Wikidata)
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?wikidataEntity rdfs:label ?wikidataLabel .
+    FILTER(lang(?wikidataLabel) = "en")
+  }
+
+  # Lightweight lexical join to demonstrate mixed-source federation.
+  FILTER(LCASE(STR(?localLabel)) = LCASE(STR(?wikidataLabel)))
+}
+LIMIT 20

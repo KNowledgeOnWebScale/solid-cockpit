@@ -53,3 +53,58 @@ export function derefrenceFile(inputFile: File & WithResourceInfo): string[] {
     return ["error"];
   }
 }
+
+export interface PodResourceDownload {
+  file: File;
+  fileName: string;
+}
+
+/**
+ * Returns whether a URL points to a single downloadable resource rather than an LDP container.
+ */
+export function isDownloadableResourceUrl(resourceUrl: string): boolean {
+  try {
+    const parsedUrl = new URL(resourceUrl);
+    return parsedUrl.protocol.startsWith("http") && !parsedUrl.href.endsWith("/");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Derives a readable local filename from a Solid resource URL.
+ *
+ * The browser download attribute expects a filename, not a full URL. This helper
+ * preserves encoded path names safely and falls back to the File name when needed.
+ */
+export function getDownloadFileName(resourceUrl: string, fallbackName = "pod-resource"): string {
+  try {
+    const parsedUrl = new URL(resourceUrl);
+    const lastPathSegment = parsedUrl.pathname.split("/").filter(Boolean).pop();
+    return lastPathSegment ? decodeURIComponent(lastPathSegment) : fallbackName;
+  } catch {
+    return fallbackName;
+  }
+}
+
+/**
+ * Testable backend download preparation.
+ *
+ * The authenticated Solid `getFile` call is injected so this function can be
+ * unit-tested without a browser session while production code still uses the
+ * current user's authenticated fetch.
+ */
+export async function preparePodResourceDownload(
+  resourceUrl: string,
+  fetchFile: (url: string) => Promise<File>
+): Promise<PodResourceDownload> {
+  if (!isDownloadableResourceUrl(resourceUrl)) {
+    throw new Error("Only single pod resources can be downloaded.");
+  }
+
+  const file = await fetchFile(resourceUrl);
+  return {
+    file,
+    fileName: getDownloadFileName(resourceUrl, file.name || "pod-resource"),
+  };
+}

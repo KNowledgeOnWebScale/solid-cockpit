@@ -105,9 +105,9 @@
 </template>
 
 <script lang="ts">
-import { webIdDataset } from "./getData";
-import { checkUrl } from "./privacyEdit";
-import { currentWebId, getPodURLs } from "./login";
+import { webIdDataset } from "../services/solid/getData";
+import { checkUrl } from "../services/solid/privacyEdit";
+import { currentWebId, getPodURLs } from "../services/solid/login";
 import { useAuthStore } from "../stores/auth"; // Import the auth store
 
 export default {
@@ -406,7 +406,7 @@ export default {
   display: block;
   min-width: 0;
   flex: 1;
-  color: var(--primary);
+  color: var(--pod-url-emphasis);
   line-height: 1.4;
   font-size: 0.98rem;
   font-weight: 700;
@@ -495,6 +495,12 @@ export default {
   .current-pod-value {
     white-space: normal;
     word-break: break-word;
+  }
+  /* Prevent dropdown field min-width from forcing awkward wrapping on phones. */
+  .sel-pod .v-select,
+  .sel-pod :deep(.v-input) {
+    min-width: 0;
+    width: 100%;
   }
   .pod-actions {
     justify-content: stretch;

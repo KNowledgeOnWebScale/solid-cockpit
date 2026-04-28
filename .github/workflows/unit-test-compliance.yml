@@ -17,10 +17,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          # Pin to a known-good patch for Node's experimental unit coverage output.
+          node-version: 22.12.0
+          cache: npm
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci --include=optional
+
+      - name: Ensure Rollup Linux binary is present
+        run: |
+          node -e "require.resolve('@rollup/rollup-linux-x64-gnu')" || npm i --no-save @rollup/rollup-linux-x64-gnu@$(node -p "require('./node_modules/rollup/package.json').optionalDependencies['@rollup/rollup-linux-x64-gnu'] || require('./node_modules/rollup/package.json').version")
 
       - name: Run unit + component compliance
-        run: yarn test:compliance:quiet
+        run: npm run test:compliance:quiet

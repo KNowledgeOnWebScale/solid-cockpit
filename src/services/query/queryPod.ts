@@ -88,6 +88,7 @@ export type ComunicaSources = UtilityComunicaSources;
 export interface CachedQuery {
   hash: string;
   title?: string;
+  description?: string;
   queryFile: string;
   resultsFile: string;
   sourceUrls: string[];
@@ -827,6 +828,7 @@ export async function getStoredTtl(resourceUrl: string): Promise<boolean> {
 export interface QueryEntry {
   hash: string;
   title?: string;
+  description?: string;
   queryFile: string;
   resultsFile: string;
   sourceUrls: string[];
@@ -904,12 +906,14 @@ export async function getCachedQueries(
     const modified = getDatetime(thing, DCT_MODIFIED)?.toISOString() || created;
     const status = getStringNoLocale(thing, QVMC_STATUS) || CACHE_STATUS_CURRENT;
     const title = getStringNoLocale(thing, DCT_TITLE) || hash;
+    const description = getStringNoLocale(thing, DCT_DESCRIPTION) || "";
     const sourceListUrl = getUrl(thing, SD_ENDPOINT);
     const sourceUrls = rdfListSources(sourceListUrl, dataset);
 
     queryEntries.push({
       hash,
       title,
+      description,
       queryFile,
       resultsFile,
       sourceUrls,

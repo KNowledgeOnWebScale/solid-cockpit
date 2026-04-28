@@ -7,7 +7,7 @@ import {
   generateSeededHash,
   parseSparqlQuery,
   stopQuery,
-} from "../../src/components/queryPodUtils.ts";
+} from "../../src/services/query/queryPodUtils.ts";
 
 test("stopQuery destroys a binding stream when destroy() exists", () => {
   let wasDestroyed = false;

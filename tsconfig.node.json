@@ -1,15 +1,13 @@
 {
-  // "extends": "@tsconfig/node20/tsconfig.json",
+  "extends": "@tsconfig/node22/tsconfig.json",
   "include": [
     "vite.config.*",
     "src/**/*.ts",
     "src/**/*.d.ts",
-    "src/**/*.vue"
-, "src/components/queryWorker.js"  ],
-  "exclude": [
-    "node_modules",
-    "dist"
+    "src/**/*.vue",
+    "src/services/query/queryWorker.js"
   ],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "composite": true,
     "noEmit": true,

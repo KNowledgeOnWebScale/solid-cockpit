@@ -1,8 +1,4 @@
 <template>
-  <link
-    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    rel="stylesheet"
-  />
   <section class="browser-page">
     <!-- Page header mirrors the upload page structure and visual hierarchy. -->
     <div class="title-container">
@@ -57,9 +53,8 @@
           <div class="items-header">
             <div>
               <p class="section-kicker">Selected container contents</p>
-              <span class="items-title">Items found inside this container</span>
               <p class="items-summary">
-                You are browsing the direct contents of
+                You are browsing the contents of
                 <span class="items-location">{{ currentLocation }}</span>
               </p>
             </div>
@@ -124,20 +119,14 @@
                 <div class="spinner"></div>
                 <span class="loading-text">Loading item details...</span>
               </div>
-              <div v-else class="item-card">
+              <div v-else class="item-card shared-style-card" :class="{ expanded: showInfoIndex === index }">
                 <button @click="toggleInfo(index, url)" class="item-toggle">
                   <div class="item-main">
-                    <div class="item-icon-wrap">
-                      <i class="material-icons not-colored item-icon">{{
-                        containerCheck(url) ? "folder" : "description"
-                      }}</i>
-                    </div>
-                    <div class="item-copy">
-                      <span class="item-type">{{
-                        containerCheck(url) ? "Container" : "Resource"
-                      }}</span>
-                      <span class="item-name">{{ getItemName(url) }}</span>
-                      <span class="highlightable-text item-url">{{ url }}</span>
+                    <i class="material-icons not-colored item-icon">{{
+                      containerCheck(url) ? "folder" : "description"
+                    }}</i>
+                    <div class="item-copy item-copy-equalized">
+                      <span class="item-name" :title="url">{{ url }}</span>
                     </div>
                   </div>
                   <div class="info-icon">
@@ -150,76 +139,169 @@
                   </div>
                 </button>
 
-                <div v-if="showInfoIndex === index" class="item-info-container">
+                <div v-if="showInfoIndex === index" class="item-info-container shared-style-details">
                   <div v-if="itemDetails === null" class="info-row">
                     <strong class="info-label">No info to display</strong>
                   </div>
                   <template v-else>
                     <div class="detail-grid">
-                      <div class="info-row">
-                        <strong class="info-label">Name:</strong>
-                        <span class="info-value">{{ itemDetails.itemName }}</span>
+                      <div v-if="itemDetails.parseWarning" class="info-warning">
+                        <div class="info-warning-header">
+                          <i class="material-icons">warning_amber</i>
+                          <strong>{{ itemDetails.parseWarning.title }}</strong>
+                        </div>
+                        <p class="info-warning-summary">{{ itemDetails.parseWarning.summary }}</p>
+                        <ul class="info-warning-list">
+                          <li>
+                            <strong>Fix hint:</strong>
+                            {{ itemDetails.parseWarning.fixHint }}
+                          </li>
+                          <li v-if="itemDetails.parseWarning.lineNumber !== null">
+                            <strong>Line:</strong>
+                            {{ itemDetails.parseWarning.lineNumber }}
+                          </li>
+                          <li v-if="itemDetails.parseWarning.tokenPreview">
+                            <strong>Problematic token:</strong>
+                            <span class="info-warning-token">{{ itemDetails.parseWarning.tokenPreview }}</span>
+                          </li>
+                          <li v-if="itemDetails.parseWarning.contentType">
+                            <strong>Content type:</strong>
+                            {{ itemDetails.parseWarning.contentType }}
+                          </li>
+                        </ul>
+                        <details class="info-warning-raw">
+                          <summary>Technical parser details</summary>
+                          <pre>{{ itemDetails.parseWarning.rawMessage }}</pre>
+                        </details>
                       </div>
-                      <div class="info-row">
-                        <strong class="info-label">Type:</strong>
-                        <span class="info-value">{{ itemDetails.itemType }}</span>
-                      </div>
-                      <div class="info-row">
-                        <strong class="info-label">Parent container:</strong>
-                        <span class="info-value" :title="itemDetails.parentContainer">
-                          {{ itemDetails.parentContainer }}
-                        </span>
-                      </div>
-                      <div class="info-row">
-                        <strong class="info-label">Full URL:</strong>
-                        <div class="info-value-container">
-                          <span class="info-value iri" :title="itemDetails.sourceIri">{{
-                            itemDetails.sourceIri
-                          }}</span>
-                          <button
-                            @click="copyToClipboard(itemDetails.sourceIri)"
-                            class="copy-button"
-                          >
-                            <i class="material-icons">content_copy</i>
-                            <v-tooltip activator="parent" location="end">Copy URL</v-tooltip>
-                          </button>
+
+                      <!-- Summary row mirrors SharedWithMe's compact, scan-friendly metadata chips. -->
+                      <div class="browser-summary-grid">
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">label</i>
+                          <div>
+                            <span class="field-label">Name</span>
+                            <span class="field-value" :title="itemDetails.itemName">{{
+                              itemDetails.itemName
+                            }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">category</i>
+                          <div>
+                            <span class="field-label">Type</span>
+                            <span class="field-value">{{ itemDetails.itemType }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">schedule</i>
+                          <div>
+                            <span class="field-label">Date modified</span>
+                            <span class="field-value">{{
+                              itemDetails.lastModified || "Not available"
+                            }}</span>
+                          </div>
+                        </div>
+                        <div class="summary-cell">
+                          <i class="material-icons tiny not-colored">{{
+                            itemDetails.itemType === "Container" ? "folder_copy" : "save"
+                          }}</i>
+                          <div>
+                            <span class="field-label">{{
+                              itemDetails.itemType === "Container" ? "Direct items" : "File size"
+                            }}</span>
+                            <span class="field-value">{{
+                              itemDetails.itemType === "Container"
+                                ? (itemDetails.directChildren ?? "Not available")
+                                : (itemDetails.sizeLabel || "Not available")
+                            }}</span>
+                          </div>
                         </div>
                       </div>
-                      <div class="info-row" v-if="itemDetails.contentType">
-                        <strong class="info-label">Content type:</strong>
-                        <span class="info-value">{{ itemDetails.contentType }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.sizeLabel">
-                        <strong class="info-label">File size:</strong>
-                        <span class="info-value">{{ itemDetails.sizeLabel }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.lastModified">
-                        <strong class="info-label">Last modified:</strong>
-                        <span class="info-value">{{ itemDetails.lastModified }}</span>
-                      </div>
-                      <div class="info-row" v-if="itemDetails.directChildren !== null">
-                        <strong class="info-label">Direct items:</strong>
-                        <span class="info-value">{{ itemDetails.directChildren }}</span>
-                      </div>
-                      <div
-                        class="info-row"
-                        v-if="itemDetails.metadataUrl"
-                      >
-                        <strong class="info-label">Metadata:</strong>
-                        <div v-if="checkUrl(url)" class="info-value-container">
-                          <a
-                            :href="itemDetails.metadataUrl"
-                            target="_blank"
-                            class="info-value link"
-                            :title="itemDetails.metadataUrl"
-                            >{{ itemDetails.metadataUrl }}</a
-                          >
+
+                      <div class="shared-me-resource-card browser-resource-card">
+                        <div class="resource-main">
+                          <i class="material-icons tiny not-colored">link</i>
+                          <div class="resource-copy">
+                            <span class="field-label">Resource URL</span>
+                            <span class="field-value mono resource-url-value" :title="itemDetails.sourceIri">{{
+                              itemDetails.sourceIri
+                            }}</span>
+                          </div>
+                          <div class="resource-actions">
+                            <button
+                              class="field-copy-button"
+                              type="button"
+                              :aria-label="`Copy resource URL ${itemDetails.sourceIri}`"
+                              @click="copyToClipboard(itemDetails.sourceIri)"
+                              title="Copy resource URL"
+                            >
+                              <i class="material-icons tiny not-colored">content_copy</i>
+                            </button>
+                            <button
+                              v-if="itemDetails.itemType === 'Resource'"
+                              class="download-icon-button"
+                              type="button"
+                              :disabled="downloadingItem"
+                              @click="downloadResource(itemDetails.sourceIri)"
+                              :aria-label="`Download ${itemDetails.itemName}`"
+                              title="Download file"
+                            >
+                              <i class="material-icons tiny not-colored">download</i>
+                            </button>
+                          </div>
                         </div>
-                        <div v-else class="info-value-container">
-                          <span class="info-value">{{ itemDetails.metadataUrl }}</span>
+
+                        <div class="resource-secondary-grid browser-resource-grid">
+                          <div class="entry-field parent-container-field">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">subdirectory_arrow_right</i>
+                              Parent container
+                            </span>
+                            <span class="field-value mono" :title="itemDetails.parentContainer">
+                              {{ itemDetails.parentContainer }}
+                            </span>
+                          </div>
+                          <div class="entry-field content-type-field">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">description</i>
+                              Content type
+                            </span>
+                            <span class="field-value">{{ itemDetails.contentType || "Unknown" }}</span>
+                          </div>
+                          <div class="entry-field browser-metadata-field" v-if="itemDetails.metadataUrl">
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">link</i>
+                              Metadata
+                            </span>
+                            <div class="metadata-list">
+                              <div
+                                v-for="metadataEntry in normalizeMetadataEntries(itemDetails.metadataUrl)"
+                                :key="metadataEntry"
+                                class="info-value-container"
+                              >
+                                <a
+                                  v-if="metadataEntryHref(metadataEntry)"
+                                  :href="metadataEntryHref(metadataEntry) || undefined"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  class="field-value link mono"
+                                  :title="metadataEntry"
+                                  >{{ metadataEntry }}</a
+                                >
+                                <span v-else class="field-value mono" :title="metadataEntry">
+                                  {{ metadataEntry }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    <p class="download-feedback" v-if="downloadFeedback">
+                      {{ downloadFeedback }}
+                    </p>
 
                     <div class="action-panel move-panel">
                       <button
@@ -360,37 +442,62 @@
     </div>
   </section>
 
-  <div class="browser-guide">
+  <div class="use-guide">
     <PodBrowserGuide />
   </div>
 </template>
 
 <script lang="ts">
-import { fetchData, WorkingData } from "./getData";
-import { deleteFromPod, deleteContainer, movePodItem, renamePodItem } from "./fileUpload";
+import { fetchData, WorkingData } from "../services/solid/getData";
+import {
+  deleteFromPod,
+  deleteContainer,
+  getPodResourceDownload,
+  movePodItem,
+  renamePodItem,
+} from "../services/solid/fileUpload";
 import {
   getFile,
   getSolidDataset,
   getContainedResourceUrlAll,
+  getDatetime,
+  getDecimal,
+  getInteger,
+  getStringNoLocale,
+  getThingAll,
 } from "@inrupt/solid-client";
 import { fetch as solidFetch } from "@inrupt/solid-client-authn-browser";
 import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 import { useAuthStore } from "../stores/auth";
-import { checkUrl } from "./privacyEdit";
+import { checkUrl } from "../services/solid/privacyEdit";
 
 interface BrowserItemDetail {
   itemName: string;
   itemType: "Container" | "Resource";
   sourceIri: string;
   parentContainer: string;
-  metadataUrl: string | null;
+  metadataUrl: string | string[] | null;
   contentType: string | null;
   sizeLabel: string | null;
   lastModified: string | null;
   directChildren: number | null;
+  parseWarning: ItemParseWarning | null;
 }
+
+interface ItemParseWarning {
+  title: string;
+  summary: string;
+  fixHint: string;
+  lineNumber: number | null;
+  tokenPreview: string | null;
+  contentType: string | null;
+  rawMessage: string;
+}
+
+const DCT_MODIFIED = "http://purl.org/dc/terms/modified";
+const POSIX_MTIME = "http://www.w3.org/ns/posix/stat#mtime";
 
 export default {
   components: {
@@ -430,6 +537,8 @@ export default {
       renameName: "" as string,
       renameFeedback: "" as string,
       renamingItem: false,
+      downloadingItem: false,
+      downloadFeedback: "" as string,
     };
   },
   computed: {
@@ -563,11 +672,24 @@ export default {
       }
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     },
-    formatDate(dateValue: number): string | null {
+    formatDate(dateValue: number | Date | string | null): string | null {
       if (!dateValue) {
         return null;
       }
-      return new Date(dateValue).toLocaleString();
+      const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      if (Number.isNaN(date.getTime())) {
+        return null;
+      }
+      return date.toLocaleString();
+    },
+    formatMetadataTimestamp(timestamp: number): string | null {
+      if (!Number.isFinite(timestamp)) {
+        return null;
+      }
+
+      // POSIX stat mtime is usually seconds, while some APIs expose milliseconds.
+      const milliseconds = timestamp > 1_000_000_000_000 ? timestamp : timestamp * 1000;
+      return this.formatDate(milliseconds);
     },
     validUrlCheck(u: string): boolean {
       try {
@@ -579,6 +701,114 @@ export default {
     },
     getItemName(path: string): string {
       return path.split("/").filter(Boolean).pop() || path;
+    },
+    /**
+     * Metadata links may come back as a string, array, or serialized list-like
+     * string. Normalize them into individual entries for display and link checks.
+     */
+    normalizeMetadataEntries(
+      metadataValue: string | string[] | null,
+    ): string[] {
+      if (!metadataValue) {
+        return [];
+      }
+
+      if (Array.isArray(metadataValue)) {
+        return metadataValue
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0);
+      }
+
+      const trimmedValue = metadataValue.trim();
+      if (!trimmedValue) {
+        return [];
+      }
+
+      // Handle serialized JSON arrays like ["a","b"].
+      if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+        try {
+          const parsedEntries = JSON.parse(trimmedValue);
+          if (Array.isArray(parsedEntries)) {
+            return parsedEntries
+              .map((entry) => String(entry).trim())
+              .filter((entry) => entry.length > 0);
+          }
+        } catch {
+          // Fall through to lightweight list parsing below.
+        }
+      }
+
+      // Handle simple list strings like "a, b" or "<a> <b>" without breaking
+      // normal single-URL values.
+      const splitEntries = trimmedValue
+        .split(/[\n,]+/)
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+
+      return splitEntries.length > 1 ? splitEntries : [trimmedValue];
+    },
+    /**
+     * Returns a safe href for metadata entries when they are valid URLs. This
+     * supports both plain URLs and RDF-style angle-bracket-wrapped IRIs.
+     */
+    metadataEntryHref(metadataEntry: string): string | null {
+      const trimmedEntry = metadataEntry.trim();
+      const normalizedEntry =
+        trimmedEntry.startsWith("<") &&
+        trimmedEntry.endsWith(">") &&
+        trimmedEntry.length > 2
+          ? trimmedEntry.slice(1, -1).trim()
+          : trimmedEntry;
+
+      if (!normalizedEntry) {
+        return null;
+      }
+
+      return this.validUrlCheck(normalizedEntry) ? normalizedEntry : null;
+    },
+    async getMetadataModifiedDate(
+      metadataValue: string | string[] | null,
+    ): Promise<string | null> {
+      const metadataUrls = this.normalizeMetadataEntries(metadataValue)
+        .map((entry) => this.metadataEntryHref(entry))
+        .filter((entry): entry is string => Boolean(entry));
+
+      for (const metadataUrl of metadataUrls) {
+        try {
+          const metadataDataset = await fetchData(metadataUrl);
+          if ("blob" in metadataDataset) {
+            continue;
+          }
+
+          // Solid metadata commonly stores modified timestamps in dcterms or POSIX stat predicates.
+          for (const thing of getThingAll(metadataDataset)) {
+            const modifiedDate = getDatetime(thing, DCT_MODIFIED);
+            if (modifiedDate) {
+              return this.formatDate(modifiedDate);
+            }
+
+            const posixModified =
+              getInteger(thing, POSIX_MTIME) ?? getDecimal(thing, POSIX_MTIME);
+            const formattedTimestamp =
+              posixModified !== null ? this.formatMetadataTimestamp(posixModified) : null;
+            if (formattedTimestamp) {
+              return formattedTimestamp;
+            }
+
+            const modifiedString = getStringNoLocale(thing, DCT_MODIFIED);
+            const formattedStringDate = modifiedString
+              ? this.formatDate(modifiedString)
+              : null;
+            if (formattedStringDate) {
+              return formattedStringDate;
+            }
+          }
+        } catch (error) {
+          console.warn(`Could not read metadata date from ${metadataUrl}`, error);
+        }
+      }
+
+      return null;
     },
     // Resetting filters returns the browser to the full selected-container contents view.
     resetFilters() {
@@ -602,13 +832,66 @@ export default {
       }
       return path.slice(0, path.lastIndexOf("/") + 1);
     },
+    // Converts parser/runtime errors into actionable user-facing diagnostics.
+    buildItemParseWarning(error: unknown, resourceUrl: string): ItemParseWarning {
+      const rawMessage =
+        error instanceof Error ? error.message : "Unknown error while reading resource.";
+      const parserSignature = "Encountered an error parsing the Resource";
+      const isParserError = rawMessage.includes(parserSignature);
+      const lineMatch = rawMessage.match(/on line (\d+)/i);
+      const tokenMatch = rawMessage.match(/Expected punctuation to follow \"([^\"]+)\"/i);
+      const contentTypeMatch = rawMessage.match(/content type \[([^\]]+)\]/i);
+      const parsedLine = lineMatch ? Number(lineMatch[1]) : null;
+
+      if (isParserError) {
+        return {
+          title: "Invalid Turtle syntax detected",
+          summary: parsedLine
+            ? `This resource could not be parsed as Turtle (line ${parsedLine}).`
+            : "This resource could not be parsed as Turtle.",
+          fixHint: tokenMatch
+            ? `Check punctuation or quoting near: ${tokenMatch[1]}`
+            : "Check punctuation, quoting, and terminating characters in this Turtle file.",
+          lineNumber: parsedLine,
+          tokenPreview: tokenMatch ? tokenMatch[1] : null,
+          contentType: contentTypeMatch ? contentTypeMatch[1] : "text/turtle",
+          rawMessage,
+        };
+      }
+
+      return {
+        title: "Resource metadata could not be parsed",
+        summary: "This resource loaded with limited metadata because parsing failed.",
+        fixHint: "Verify file syntax and content type, then refresh this item.",
+        lineNumber: parsedLine,
+        tokenPreview: null,
+        contentType: contentTypeMatch ? contentTypeMatch[1] : null,
+        rawMessage: `${rawMessage}${rawMessage.includes(resourceUrl) ? "" : ` (${resourceUrl})`}`,
+      };
+    },
     async getItemInfo(path: string): Promise<BrowserItemDetail> {
       const itemType = this.containerCheck(path) ? "Container" : "Resource";
-      const dataset = await fetchData(path);
-      const metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+      let parseWarning: ItemParseWarning | null = null;
+      let metadataUrl: string | string[] | null = null;
+      let metadataModifiedDate: string | null = null;
+
+      try {
+        const dataset = await fetchData(path);
+        metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
+        metadataModifiedDate = await this.getMetadataModifiedDate(metadataUrl);
+      } catch (error) {
+        parseWarning = this.buildItemParseWarning(error, path);
+      }
 
       if (itemType === "Container") {
-        const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
+        let directChildren: number | null = null;
+        try {
+          const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
+          directChildren = getContainedResourceUrlAll(containerDataset).length;
+        } catch (error) {
+          parseWarning = parseWarning || this.buildItemParseWarning(error, path);
+        }
+
         return {
           itemName: this.getItemName(path),
           itemType,
@@ -617,8 +900,9 @@ export default {
           metadataUrl,
           contentType: "Container",
           sizeLabel: null,
-          lastModified: null,
-          directChildren: getContainedResourceUrlAll(containerDataset).length,
+          lastModified: metadataModifiedDate,
+          directChildren,
+          parseWarning,
         };
       }
 
@@ -631,8 +915,9 @@ export default {
         metadataUrl,
         contentType: file.type || "Unknown",
         sizeLabel: this.formatFileSize(file.size),
-        lastModified: this.formatDate(file.lastModified),
+        lastModified: metadataModifiedDate || this.formatDate(file.lastModified),
         directChildren: null,
+        parseWarning,
       };
     },
 
@@ -689,6 +974,7 @@ export default {
         this.renamePanelOpen = false;
         this.moveFeedback = "";
         this.renameFeedback = "";
+        this.downloadFeedback = "";
       } else {
         try {
           this.showInfoIndex = index;
@@ -700,6 +986,7 @@ export default {
           this.renameName = this.getItemName(url);
           this.moveFeedback = "";
           this.renameFeedback = "";
+          this.downloadFeedback = "";
         } catch (error) {
           this.dirContents = null;
           this.itemDetails = {
@@ -712,12 +999,39 @@ export default {
             sizeLabel: null,
             lastModified: null,
             directChildren: null,
+            parseWarning: this.buildItemParseWarning(error, url),
           };
           console.error("Error fetching item info:", error);
         } finally {
           this.loadingIndex = null;
         }
         this.showInfoIndex = index; // Show the form for the clicked item
+      }
+    },
+    /**
+     * Downloads a single pod resource through the authenticated Solid session.
+     * Containers are intentionally excluded by the service helper and UI guard.
+     */
+    async downloadResource(fileUrl: string) {
+      this.downloadingItem = true;
+      this.downloadFeedback = "";
+      try {
+        const { file, fileName } = await getPodResourceDownload(fileUrl);
+        const objectUrl = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = fileName;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+        this.downloadFeedback = `Download started for ${fileName}.`;
+      } catch (error) {
+        console.error("Error downloading resource:", error);
+        this.downloadFeedback = "Could not download this file. Check your read access and try again.";
+      } finally {
+        this.downloadingItem = false;
       }
     },
     /* Takes in the emitted value from ContainerNav.vue */
@@ -851,10 +1165,10 @@ button:focus {
 /* Page header follows the same polished workspace style as the other main pages. */
 .title-container {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 12%, transparent) 0, transparent 32%),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 11%, transparent) 0, transparent 32%),
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--panel) 93%, var(--primary-100) 7%),
+      color-mix(in srgb, var(--panel) 94%, var(--primary-100) 6%),
       var(--panel)
     );
   border: 1px solid var(--border);
@@ -873,17 +1187,19 @@ button:focus {
 }
 .title-container span {
   display: block;
-  font-size: 2rem;
+  font-size: var(--font-size-page-title);
   font-family: "Oxanium", monospace;
-  font-weight: 700;
+  font-weight: var(--font-weight-page-title);
+  line-height: var(--line-height-page-title);
   color: var(--text-primary);
 }
 .page-summary {
   margin: 0.65rem 0 0 0;
   max-width: 48rem;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--text-muted);
   font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
 }
 
 .success-popup {
@@ -935,7 +1251,7 @@ button:focus {
 }
 .section-kicker {
   margin: 0 0 0.3rem 0;
-  font-size: 0.75rem;
+  font-size: var(--font-size-section-kicker);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1022,12 +1338,6 @@ button:focus {
   font-family: "Oxanium", monospace;
   font-size: 0.9rem;
   font-weight: 600;
-}
-.items-title {
-  display: block;
-  font-size: 1.12rem;
-  font-weight: 700;
-  color: var(--text-primary);
 }
 .items-summary {
   margin: 0.4rem 0 0 0;
@@ -1132,15 +1442,22 @@ button:focus {
   display: grid;
   gap: 0.6rem;
 }
+/* Item cards intentionally mirror SharedWithMe entry cards for visual consistency. */
 .item-card {
-  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
-  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
-  border-radius: 16px;
-  box-shadow: var(--shadow-1);
-  padding: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 94%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 .item-card:hover {
-  border-color: color-mix(in srgb, var(--border) 55%, var(--primary) 45%);
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--hover) 86%, var(--panel-elev) 14%);
+}
+.item-card.expanded {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
 }
 .delete-button {
   padding: 0.5rem 0.75rem !important;
@@ -1153,65 +1470,53 @@ button:focus {
   color: var(--text-muted);
 }
 .item-toggle {
+  border: none;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
+  gap: 0.7rem;
   width: 100%;
-  padding: 0.65rem 0.7rem;
-  border-radius: 12px;
-  transition: background 0.3s;
+  padding: 0.62rem 0.78rem;
+  cursor: pointer;
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
 }
 .item-toggle:hover {
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  background: transparent;
 }
 .item-main {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   min-width: 0;
-  font-family: "Oxanium", monospace;
-}
-.item-icon-wrap {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  flex: 1;
 }
 .item-icon {
-  display: block;
-  margin: 0;
-  line-height: 1;
+  flex: 0 0 auto;
 }
 .item-copy {
   display: grid;
   gap: 0.15rem;
   min-width: 0;
 }
-.item-type {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.item-copy-equalized {
+  min-height: 2.8rem;
+  align-content: center;
 }
 .item-name {
+  display: block;
   color: var(--text-primary);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--font-size-section-title);
   line-height: 1.3;
-}
-.item-url {
-  color: var(--text-muted);
-  font-size: 0.88rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .info-icon {
-  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
 }
 .highlightable-text {
   user-select: text;
@@ -1250,73 +1555,259 @@ button:focus {
 }
 
 .item-info-container {
-  background-color: color-mix(in srgb, var(--bg) 70%, var(--panel) 30%);
-  border-radius: 12px;
-  padding: 1rem;
-  margin-top: 0.5rem;
-  border: 1px solid var(--border);
+  position: relative;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+  padding: 0.68rem 0.78rem 0.76rem;
+  display: grid;
+  gap: 0.64rem;
 }
 .detail-grid {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.58rem;
 }
-.info-row {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-  font-size: 12pt;
+.browser-summary-grid,
+.resource-secondary-grid {
+  display: grid;
+  gap: 0.58rem;
 }
-
-.info-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-right: 1rem;
-  min-width: 100px;
+.browser-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-
-.info-value-container {
-  display: flex;
+.resource-secondary-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+.summary-cell,
+.browser-resource-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+}
+.summary-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
-  overflow: hidden;
+  min-width: 0;
+  min-height: 4.5rem;
+  padding: 0.62rem 0.72rem;
 }
-.info-value-container span {
-  color: var(--text-secondary);
-}
-
-
-.info-value {
-  color: var(--text-secondary);
+.summary-cell .field-value {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.browser-resource-card {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.72rem 0.82rem;
+}
+.resource-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.58rem;
+  min-width: 0;
+  padding-bottom: 0.62rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+}
+.resource-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+.browser-resource-grid {
+  align-items: start;
+}
+.entry-field {
+  display: grid;
+  align-content: start;
+  gap: 0.28rem;
+  min-width: 0;
+}
+.parent-container-field {
+  grid-column: span 7;
+}
+.content-type-field {
+  grid-column: span 5;
+}
+.browser-metadata-field {
+  grid-column: 1 / -1;
+}
+.info-warning {
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border) 55%);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--panel) 90%);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.4rem;
+}
+.info-warning-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  font-family: "Oxanium", monospace;
+}
+.info-warning-header .material-icons {
+  font-size: 1.05rem;
+  color: color-mix(in srgb, var(--warning) 72%, var(--text-primary) 28%);
+}
+.info-warning-summary {
+  margin: 0.38rem 0 0.4rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  font-size: 0.9rem;
+}
+.info-warning-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+.info-warning-token {
+  font-family: "Oxanium", monospace;
+  color: var(--text-primary);
+}
+.info-warning-raw {
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+.info-warning-raw summary {
+  cursor: pointer;
+}
+.info-warning-raw pre {
+  margin: 0.35rem 0 0;
+  padding: 0.55rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-elev) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "Oxanium", monospace;
+}
+.info-row {
+  display: block;
+  color: var(--text-muted);
+  margin: 0;
+  font-size: var(--font-size-page-summary);
+}
 
-.info-value.link {
+.info-label {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.info-value-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  min-width: 0;
+}
+.metadata-list {
+  display: grid;
+  gap: 0.34rem;
+  min-width: 0;
+}
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: var(--font-size-section-kicker);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.field-value {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.resource-url-value {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resource-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  align-self: center;
+}
+.field-value.link {
   color: var(--primary);
   text-decoration: none;
 }
 
-.info-value.link:hover {
+.field-value.link:hover {
   text-decoration: underline;
 }
 
-.copy-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0 0 0 1rem;
-  display: flex;
-  align-items: center;
-}
-
-.copy-button .material-icons {
+.field-copy-button {
+  width: 1.72rem;
+  height: 1.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
   color: var(--text-muted);
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
-.copy-button:hover .material-icons {
-  color: var(--primary);
+.field-copy-button:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  color: var(--text-primary);
+}
+
+.download-icon-button {
+  width: 1.72rem;
+  height: 1.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-600));
+  color: var(--main-white);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: 0 0 auto;
+  box-shadow: var(--shadow-1);
+}
+.download-icon-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.download-icon-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+.download-icon-button .material-icons {
+  color: var(--main-white);
+}
+
+.material-icons.not-colored {
+  color: var(--text-secondary);
+}
+.material-icons.tiny {
+  font-size: 1rem;
 }
 
 .action-panel {
@@ -1388,6 +1879,12 @@ button:focus {
 .delete-copy {
   display: grid;
   gap: 0.12rem;
+}
+.download-feedback {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 
 .move-card {
@@ -1528,7 +2025,7 @@ button:focus {
   gap: 0.4rem;
 }
 .move-browser :deep(.section-title) {
-  font-size: 0.9rem;
+  font-size: var(--font-size-subsection-title);
 }
 .move-browser :deep(.section-count) {
   font-size: 0.82rem;
@@ -1599,11 +2096,8 @@ button:focus {
   justify-content: flex-start;
 }
 
-.browser-guide {
-  margin: 0 0.5rem 0.5rem 0.5rem;
-}
-.browser-guide :deep(.container) {
-  margin: 0;
+.use-guide {
+  margin: 1rem 0 0 0;
 }
 @media (max-width: 900px) {
   .path-card-header,
@@ -1620,13 +2114,19 @@ button:focus {
     white-space: normal;
     word-break: break-word;
   }
+  .browser-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .parent-container-field,
+  .content-type-field {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 760px) {
   .title-container,
   .pod-chooseContainer,
   .container-location,
   .pod-directories,
-  .browser-guide,
   .success-popup {
     margin-left: 0.35rem;
     margin-right: 0.35rem;
@@ -1635,7 +2135,7 @@ button:focus {
     padding: 1rem;
   }
   .title-container span {
-    font-size: 1.7rem;
+    font-size: var(--font-size-page-title-mobile);
   }
   .path-card,
   .items-card,
@@ -1684,14 +2184,24 @@ button:focus {
     white-space: normal;
     word-break: break-word;
   }
-  .item-url {
+  .item-name {
     white-space: normal;
     word-break: break-word;
   }
-  .info-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
+  .browser-summary-grid,
+  .browser-resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .resource-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .resource-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+  .resource-url-value {
+    white-space: normal;
   }
 }
 </style>

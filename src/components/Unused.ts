@@ -171,8 +171,8 @@ import {
     
   } from "@inrupt/solid-client";
   import { fetch } from "@inrupt/solid-client-authn-browser";
-  import { WorkingData, fetchData } from "./getData"
-  import { getPodURLs } from "./login";
+  import { WorkingData, fetchData } from "../services/solid/getData"
+  import { getPodURLs } from "../services/solid/login";
 
 
 /**

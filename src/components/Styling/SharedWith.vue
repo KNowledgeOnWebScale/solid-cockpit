@@ -1,189 +1,385 @@
 <template>
   <div class="shared-container">
-    <div class="with-me" v-if="currentOperation === 'sharedWithMe'">
+    <div class="shared-section" v-if="currentOperation === 'sharedWithMe'">
       <span class="shared-title">Shared With Me</span>
 
-      <!-- Iterates over list of shared hashes in sharedWithMe.tll -->
       <div class="no-items" v-if="sharedMeItems.length === 0">
         <p>No resources have been shared with you.</p>
       </div>
-      <div v-else>
-        <li v-for="(item, index) in sharedMeItems" :key="index">
-          <div class="card-panel folder">
-            <div class="folder-header">
-              <button @click="toggleItem(index)" class="icon-button full-width">
-                <div class="icon-hash">
-                  <i class="material-icons not-colored">{{
-                    containerCheck(item.usersSharedWith[0].resourceUrl)
-                      ? "folder"
-                      : "description"
-                  }}</i>
-                  <span class="resource-hash">{{
-                    item.usersSharedWith[0].resourceUrl ===
-                    "http://xmlns.com/foaf/0.1/Agent"
-                      ? "Public"
-                      : item.usersSharedWith[0].resourceUrl
-                  }}</span>
-                </div>
-                <i class="material-icons not-colored info-icon">
-                  {{
-                    showItemIndex === index
-                      ? "keyboard_arrow_down info"
-                      : "chevron_right info"
-                  }}</i
-                >
-              </button>
-            </div>
 
-            <!-- The Users Resource is shared with -->
-            <div class="shared-with" v-if="showItemIndex === index">
-              <div class="specific-access">
-                <!-- The user that shared the resource -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Owner: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{
-                      "person"
-                    }}</i>
-                    <a class="the-user">{{ item.owner }}</a>
+      <!-- Compact cards mirror the My Pod card style while showing full metadata on expand. -->
+      <ul v-else class="shared-list" role="list">
+        <li v-for="(item, index) in sharedMeItems" :key="`${item.resourceHash}-${index}`">
+          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+            <button @click="toggleItem(index)" class="entry-toggle">
+              <div class="entry-main">
+                <i class="material-icons not-colored">{{
+                  containerCheck(getPrimaryResourceUrl(item)) ? "folder" : "description"
+                }}</i>
+                <div class="entry-copy entry-copy-equalized">
+                  <span class="entry-title" :title="getPrimaryResourceUrl(item)">
+                    {{ normalizeTargetLabel(getPrimaryResourceUrl(item)) }}
+                  </span>
+                </div>
+              </div>
+              <i class="material-icons not-colored info-icon">
+                {{ showItemIndex === index ? "keyboard_arrow_down" : "chevron_right" }}
+              </i>
+            </button>
+
+            <div class="entry-details shared-me-details" v-if="showItemIndex === index">
+              <div class="shared-me-summary-grid">
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">person</i>
+                  <div>
+                    <span class="field-label">Shared by</span>
+                    <span class="field-value mono" :title="item.owner">
+                      {{ normalizeTargetLabel(item.owner) }}
+                    </span>
                   </div>
                 </div>
-
-                <!-- The information about this User's access -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Access Modes: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{ "lock" }}</i>
-                    <li
-                      v-for="(ac, ind) in item.usersSharedWith[0].accessModes"
-                    >
-                      <a class="the-user">{{ ac }}</a>
-                    </li>
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">schedule</i>
+                  <div>
+                    <span class="field-label">Created</span>
+                    <span class="field-value">
+                      {{ formatDate(item.usersSharedWith[0]?.created ?? "N/A") }}
+                    </span>
                   </div>
                 </div>
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">category</i>
+                  <div>
+                    <span class="field-label">Type</span>
+                    <span class="field-value">{{ formatKind(item.whatKind) }}</span>
+                  </div>
+                </div>
+              </div>
 
-                <!-- When these access rights were given -->
-                <div class="shared-with-item">
-                  <span class="shared-with-title">Date: <br /></span>
-                  <div class="icon-hash">
-                    <i class="material-icons not-colored left">{{
-                      "schedule"
-                    }}</i>
-                    <span class="the-user"
-                      ><i>{{ item.usersSharedWith[0].created }}</i></span
-                    >
+              <div class="shared-me-resource-card">
+                <div class="resource-main">
+                  <i class="material-icons tiny not-colored">link</i>
+                  <div class="resource-copy">
+                    <span class="field-label">Resource URL</span>
+                    <span class="field-value mono resource-url-value" :title="getPrimaryResourceUrl(item)">
+                      {{ getPrimaryResourceUrl(item) }}
+                    </span>
+                  </div>
+                  <button
+                    class="field-copy-button"
+                    type="button"
+                    :aria-label="`Copy resource URL ${getPrimaryResourceUrl(item)}`"
+                    @click.stop="copyText(getPrimaryResourceUrl(item))"
+                    title="Copy resource URL"
+                  >
+                    <i class="material-icons tiny not-colored">content_copy</i>
+                  </button>
+                </div>
+
+                <div class="resource-secondary-grid">
+                  <div class="entry-field">
+                    <span class="field-label">
+                      <i class="material-icons tiny not-colored">tag</i>
+                      Resource hash
+                    </span>
+                    <span class="field-value mono" :title="item.resourceHash">{{
+                      item.resourceHash || "N/A"
+                    }}</span>
+                  </div>
+                  <div class="entry-field">
+                    <span class="field-label">
+                      <i class="material-icons tiny not-colored">lock</i>
+                      Access modes
+                    </span>
+                    <div class="mode-chips">
+                      <span
+                        v-for="(ac, acIndex) in normalizeModeList(item.usersSharedWith[0]?.accessModes)"
+                        :key="`mode-${acIndex}`"
+                        class="mode-chip"
+                        :title="ac"
+                        >{{ formatMode(ac) }}</span
+                      >
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </article>
         </li>
-      </div>
+      </ul>
     </div>
 
-    <div class="with-others" v-if="currentOperation === 'sharedWithOthers'">
+    <div class="shared-section" v-if="currentOperation === 'sharedWithOthers'">
       <span class="shared-title">Shared With Others</span>
 
       <div class="no-items" v-if="sharedItems.length === 0">
         <p>You have not shared any resources with others.</p>
       </div>
-      <div v-else>
-        <!-- Iterates over list of resources in sharedWithOthers.tll -->
-        <li v-for="(item, index) in sharedItems" :key="index">
-          <div class="card-panel folder">
-            <div class="folder-header">
-              <button @click="toggleItem(index)" class="icon-button full-width">
-                <div class="icon-hash">
-                  <i class="material-icons not-colored left">{{
-                    containerCheck(item.resourceHash) ? "folder" : "description"
-                  }}</i>
-                  <span class="resource-hash">{{ item.resourceHash }}</span>
-                </div>
-                <i class="material-icons not-colored info-icon">
-                  {{
-                    showItemIndex === index
-                      ? "keyboard_arrow_down info"
-                      : "chevron_right info"
-                  }}</i
-                >
-              </button>
-            </div>
 
-            <!-- The Users Resource is shared with -->
-            <div class="shared-with" v-if="showItemIndex === index">
-              <span class="users-title">Shared with Users: <br /></span>
-              <!-- List of all Users -->
-              <div class="user-list">
-                <li
-                  class="shared-with-item"
-                  v-for="(mode, i) in item.usersSharedWith"
-                  :key="i"
+      <!-- Each expanded card shows resource-level data and all recipient-level metadata. -->
+      <ul v-else class="shared-list" role="list">
+        <li v-for="(item, index) in sharedItems" :key="`${item.resourceHash}-${index}`">
+          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+            <button @click="toggleItem(index)" class="entry-toggle">
+              <div class="entry-main">
+                <i class="material-icons not-colored">{{
+                  containerCheck(item.resourceHash) ? "folder" : "description"
+                }}</i>
+                <div class="entry-copy entry-copy-equalized shared-others-collapsed-copy">
+                  <span class="entry-title" :title="item.resourceHash">{{ item.resourceHash }}</span>
+                  <span class="entry-inline-summary">
+                    <span>
+                      <i class="material-icons tiny not-colored">group</i>
+                      {{ getRecipientSummary(item) }}
+                    </span>
+                    <span>
+                      <i class="material-icons tiny not-colored">schedule</i>
+                      {{ formatDate(getLatestEntryDate(item)) }}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <i class="material-icons not-colored info-icon">
+                {{ showItemIndex === index ? "keyboard_arrow_down" : "chevron_right" }}
+              </i>
+            </button>
+
+            <div class="entry-details shared-others-details" v-if="showItemIndex === index">
+              <div class="shared-me-summary-grid">
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">person</i>
+                  <div>
+                    <span class="field-label">Owner</span>
+                    <span class="field-value mono" :title="item.owner">
+                      {{ normalizeTargetLabel(item.owner) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">group</i>
+                  <div>
+                    <span class="field-label">Recipients</span>
+                    <span class="field-value">{{ getRecipientSummary(item) }}</span>
+                  </div>
+                </div>
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">category</i>
+                  <div>
+                    <span class="field-label">Type</span>
+                    <span class="field-value">{{ formatKind(item.whatKind) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="recipient-list">
+                <article
+                  class="recipient-card"
+                  v-for="(mode, userIndex) in item.usersSharedWith"
+                  :key="`${mode.sharedWith}-${mode.created}-${userIndex}`"
                 >
-                  <!-- The user that shared the resource -->
-                  <div class="specific-access">
-                    <button
-                      @click="toggleUser(i)"
-                      class="user-icon-button full-width"
-                    >
-                      <div class="icon-hash">
-                        <i class="material-icons not-colored left">{{
-                          "person"
-                        }}</i>
-                        <span class="query-hash">{{
-                          mode.sharedWith === "http://xmlns.com/foaf/0.1/Agent"
-                            ? "Public"
-                            : mode.sharedWith
+                  <div class="recipient-header">
+                    <span class="recipient-target" :title="mode.sharedWith">
+                      <i class="material-icons tiny not-colored">person</i>
+                      {{ normalizeTargetLabel(mode.sharedWith) }}
+                    </span>
+                    <div class="recipient-actions">
+                      <span class="recipient-date">
+                        <i class="material-icons tiny not-colored">schedule</i>
+                        {{ formatDate(mode.created) }}
+                      </span>
+                      <button
+                        class="permission-edit-button"
+                        type="button"
+                        @click="startPermissionEdit(mode, userIndex)"
+                      >
+                        <i class="material-icons tiny not-colored">edit</i>
+                        Edit permissions
+                      </button>
+                    </div>
+                  </div>
+                  <div class="recipient-body">
+                    <div class="resource-main">
+                      <i class="material-icons tiny not-colored">link</i>
+                      <div class="resource-copy">
+                        <span class="field-label">Resource URL</span>
+                        <span class="field-value mono resource-url-value" :title="mode.resourceUrl">
+                          {{ mode.resourceUrl || "N/A" }}
+                        </span>
+                      </div>
+                      <button
+                        class="field-copy-button"
+                        type="button"
+                        :aria-label="`Copy resource URL ${mode.resourceUrl}`"
+                        @click.stop="copyText(mode.resourceUrl)"
+                        title="Copy resource URL"
+                      >
+                        <i class="material-icons tiny not-colored">content_copy</i>
+                      </button>
+                    </div>
+
+                    <div class="resource-secondary-grid shared-others-recipient-grid">
+                      <div class="entry-field">
+                        <span class="field-label">
+                          <i class="material-icons tiny not-colored">badge</i>
+                          Target URL
+                        </span>
+                        <span class="field-value mono" :title="mode.sharedWith">
+                          {{ mode.sharedWith || "N/A" }}
+                        </span>
+                      </div>
+                      <div class="entry-field">
+                        <span class="field-label">
+                          <i class="material-icons tiny not-colored">event</i>
+                          Revoke schedule
+                        </span>
+                        <span class="field-value" :title="mode.revokeAt || 'None'">
+                          {{ formatRevokeAt(mode.revokeAt) }}
+                        </span>
+                      </div>
+                      <div class="entry-field">
+                        <span class="field-label">
+                          <i class="material-icons tiny not-colored">tag</i>
+                          Resource hash
+                        </span>
+                        <span class="field-value mono" :title="item.resourceHash">{{
+                          item.resourceHash || "N/A"
                         }}</span>
                       </div>
-                      <i class="material-icons not-colored info-icon">
-                        {{
-                          showUserIndex === i
-                            ? "keyboard_arrow_down info"
-                            : "chevron_right info"
-                        }}</i
-                      >
-                    </button>
-
-                    <!-- The information about this User's access -->
-                    <div
-                      class="expandable-item"
-                      v-if="showUserIndex === i && showItemIndex === index"
-                    >
-                      <!-- Access modes for this user -->
-                      <span class="shared-with-title">Access Modes <br /></span>
-                      <div class="shared-with-item">
-                        <div class="icon-hash">
-                          <i class="material-icons not-colored left">{{
-                            "lock"
-                          }}</i>
-                          <li
-                            class="access-modes-items"
-                            v-for="(ac, ind) in mode.accessModes"
-                            :key="i"
+                      <div class="entry-field">
+                        <span class="field-label">
+                          <i class="material-icons tiny not-colored">lock</i>
+                          Access modes
+                        </span>
+                        <div class="mode-chips">
+                          <span
+                            v-for="(ac, acIndex) in normalizeModeList(mode.accessModes)"
+                            :key="`${mode.sharedWith}-mode-${acIndex}`"
+                            class="mode-chip"
+                            :title="ac"
+                            >{{ formatMode(ac) }}</span
                           >
-                            <a class="the-user">{{ ac }}</a>
-                          </li>
-                        </div>
-                      </div>
-
-                      <!-- When these access rights were given -->
-                      <span class="shared-with-title">Date: <br /></span>
-                      <div class="shared-with-item">
-                        <div class="icon-hash">
-                          <i class="material-icons not-colored left">{{
-                            "schedule"
-                          }}</i>
-                          <span class="the-user">{{ mode.created }}</span>
                         </div>
                       </div>
                     </div>
+
+                    <form
+                      v-if="editingPermissionKey === getPermissionEditKey(mode, userIndex)"
+                      class="permission-editor"
+                      @submit.prevent="savePermissionEdit(mode, userIndex)"
+                    >
+                      <div class="permission-editor-header">
+                        <div class="permission-editor-heading">
+                          <i class="material-icons tiny not-colored">admin_panel_settings</i>
+                          <div>
+                            <span class="field-label">Edit offered permissions</span>
+                            <span class="permission-editor-target" :title="mode.sharedWith">
+                              {{ normalizeTargetLabel(mode.sharedWith) }}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          class="permission-cancel-button"
+                          type="button"
+                          @click="cancelPermissionEdit"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div class="permission-editor-grid">
+                        <section class="permission-editor-panel">
+                          <span class="field-label">Access modes</span>
+                          <div class="permission-options" role="group" aria-label="Permission modes">
+                            <label
+                              v-for="option in permissionOptions"
+                              :key="option.key"
+                              class="permission-option"
+                            >
+                              <input
+                                v-model="editedPermissions[option.key]"
+                                type="checkbox"
+                                :disabled="permissionEditSavingKey !== null"
+                              />
+                              <span>{{ option.label }}</span>
+                            </label>
+                          </div>
+                        </section>
+
+                        <section class="permission-editor-panel">
+                          <label class="field-label" :for="`revoke-mode-${userIndex}`">
+                            Automatic revoke
+                          </label>
+                          <select
+                            :id="`revoke-mode-${userIndex}`"
+                            v-model="permissionRevokeMode"
+                            class="permission-revoke-input"
+                            :disabled="permissionEditSavingKey !== null"
+                            @change="permissionEditError = ''"
+                          >
+                            <option value="none">No automatic revoke</option>
+                            <option value="duration">After a duration</option>
+                            <option value="datetime">At a date/time</option>
+                          </select>
+
+                          <div v-if="permissionRevokeMode === 'duration'" class="permission-revoke-row">
+                            <input
+                              v-model.number="permissionRevokeDurationValue"
+                              class="permission-revoke-input"
+                              type="number"
+                              min="1"
+                              step="1"
+                              placeholder="Duration"
+                              :disabled="permissionEditSavingKey !== null"
+                              @input="permissionEditError = ''"
+                            />
+                            <select
+                              v-model="permissionRevokeDurationUnit"
+                              class="permission-revoke-input compact"
+                              :disabled="permissionEditSavingKey !== null"
+                              @change="permissionEditError = ''"
+                            >
+                              <option value="minutes">Minutes</option>
+                              <option value="hours">Hours</option>
+                              <option value="days">Days</option>
+                            </select>
+                          </div>
+
+                          <input
+                            v-if="permissionRevokeMode === 'datetime'"
+                            v-model="permissionRevokeDateTimeLocal"
+                            class="permission-revoke-input"
+                            type="datetime-local"
+                            :disabled="permissionEditSavingKey !== null"
+                            @input="permissionEditError = ''"
+                          />
+                        </section>
+                      </div>
+
+                      <p v-if="permissionEditError" class="permission-error">
+                        {{ permissionEditError }}
+                      </p>
+
+                      <div class="permission-editor-actions">
+                        <button
+                          class="permission-save-button"
+                          type="submit"
+                          :disabled="permissionEditSavingKey === getPermissionEditKey(mode, userIndex)"
+                        >
+                          {{
+                            permissionEditSavingKey === getPermissionEditKey(mode, userIndex)
+                              ? "Saving..."
+                              : "Save permissions"
+                          }}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                </li>
+                </article>
               </div>
             </div>
-          </div>
+          </article>
         </li>
-      </div>
+      </ul>
     </div>
   </div>
 </template>
@@ -192,11 +388,19 @@
 import { toRaw } from "vue";
 import {
   sharedSomething,
+  userHash,
+  Permissions,
   getSharedWithMe,
   getSharedWithOthers,
-  SharedWithMeData,
-} from "../privacyEdit";
-import { getStoredTtl } from "../queryPod";
+  changeAclAgent,
+  changeAclPublic,
+  getEnabledAccessModeIris,
+  updateSharedWithMe,
+  updateSharedWithOthers,
+} from "../../services/solid/privacyEdit";
+import { getStoredTtl } from "../../services/query/queryPod";
+
+const PUBLIC_AGENT_WEBID = "http://xmlns.com/foaf/0.1/Agent";
 
 export default {
   props: {
@@ -218,23 +422,38 @@ export default {
       sharedItems: [] as sharedSomething[],
       sharedMeItems: [] as sharedSomething[],
       showItemIndex: null as number | null,
-      showUserIndex: null as number | null,
       foundDoc: false as boolean,
-      showRetrievedQuery: false,
-      showRetrievedResults: false,
-      retrievedQuery: null as string | null,
-      retrievedResults: null as string | null,
+      loadTtlTimerId: null as number | null,
+      latestLoadToken: 0 as number,
+      editingPermissionKey: null as string | null,
+      permissionEditSavingKey: null as string | null,
+      permissionEditError: "" as string,
+      editedPermissions: {
+        read: false,
+        append: false,
+        write: false,
+        control: false,
+      } as Permissions,
+      permissionRevokeMode: "none" as "none" | "duration" | "datetime",
+      permissionRevokeDurationValue: null as number | null,
+      permissionRevokeDurationUnit: "hours" as "minutes" | "hours" | "days",
+      permissionRevokeDateTimeLocal: "" as string,
+      permissionOptions: [
+        { key: "read", label: "Read" },
+        { key: "append", label: "Append" },
+        { key: "write", label: "Write" },
+        { key: "control", label: "Control" },
+      ] as { key: keyof Permissions; label: string }[],
     };
   },
   methods: {
-    // details about a specific query
-    async toggleItem(index) {
+    // Expand/collapse one shared entry at a time for a compact, readable list.
+    toggleItem(index: number) {
       this.showItemIndex = this.showItemIndex === index ? null : index;
-      await this.loadFileTtl();
     },
-    // details about a specific user
-    toggleUser(indexTwo) {
-      this.showUserIndex = this.showUserIndex === indexTwo ? null : indexTwo;
+    // Keep copy interactions simple and local to the row details.
+    copyText(text: string) {
+      navigator.clipboard.writeText(text);
     },
     /*
     Checks if the input item url is a container
@@ -242,224 +461,865 @@ export default {
     containerCheck(itemUrl: string) {
       return itemUrl.endsWith("/");
     },
+    // Convert FOAF public-agent values to user-facing labels.
+    normalizeTargetLabel(target: string) {
+      return target === PUBLIC_AGENT_WEBID ? "Public" : target;
+    },
+    // Convert stored ACL mode IRIs into checkbox state for inline editing.
+    permissionsFromModeIris(modes: string[] | undefined): Permissions {
+      const normalizedModes = new Set(modes ?? []);
+      return {
+        read: normalizedModes.has("http://www.w3.org/ns/auth/acl#Read"),
+        append: normalizedModes.has("http://www.w3.org/ns/auth/acl#Append"),
+        write: normalizedModes.has("http://www.w3.org/ns/auth/acl#Write"),
+        control: normalizedModes.has("http://www.w3.org/ns/auth/acl#Control"),
+      };
+    },
+    // Preserve Solid ACL semantics used elsewhere in PrivacyEdit: Write implies Append.
+    normalizeEditedPermissions(): Permissions {
+      return {
+        ...this.editedPermissions,
+        append: this.editedPermissions.append || this.editedPermissions.write,
+      };
+    },
+    permissionsEqual(left: Permissions, right: Permissions): boolean {
+      return (
+        left.read === right.read &&
+        left.append === right.append &&
+        left.write === right.write &&
+        left.control === right.control
+      );
+    },
+    // Convert an ISO timestamp to the local input shape expected by datetime-local.
+    toDateTimeLocalInput(dateValue: string): string {
+      const parsed = new Date(dateValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return "";
+      }
+      const pad = (value: number) => String(value).padStart(2, "0");
+      return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(
+        parsed.getHours()
+      )}:${pad(parsed.getMinutes())}`;
+    },
+    // Validate and resolve the optional scheduled revoke fields for permission edits.
+    resolvePermissionEditRevokeAtIsoOrThrow(): string | undefined {
+      if (this.permissionRevokeMode === "none") {
+        return undefined;
+      }
+
+      if (this.permissionRevokeMode === "duration") {
+        const durationValue = Number(this.permissionRevokeDurationValue);
+        if (!Number.isFinite(durationValue) || durationValue <= 0) {
+          throw new Error("Provide a duration greater than 0.");
+        }
+        const unitToMs: Record<"minutes" | "hours" | "days", number> = {
+          minutes: 60 * 1000,
+          hours: 60 * 60 * 1000,
+          days: 24 * 60 * 60 * 1000,
+        };
+        const revokeAt = new Date(
+          Date.now() + durationValue * unitToMs[this.permissionRevokeDurationUnit]
+        );
+        return revokeAt.toISOString();
+      }
+
+      const revokeDate = new Date(this.permissionRevokeDateTimeLocal);
+      if (!this.permissionRevokeDateTimeLocal || Number.isNaN(revokeDate.getTime())) {
+        throw new Error("Provide a valid future date/time.");
+      }
+      if (revokeDate.getTime() <= Date.now()) {
+        throw new Error("Revoke date/time must be in the future.");
+      }
+      return revokeDate.toISOString();
+    },
+    getPermissionEditKey(mode: userHash, userIndex: number): string {
+      return `${mode.sharedWith}-${mode.resourceUrl}-${mode.created}-${userIndex}`;
+    },
+    startPermissionEdit(mode: userHash, userIndex: number) {
+      this.permissionEditError = "";
+      this.editedPermissions = this.permissionsFromModeIris(mode.accessModes);
+      this.permissionRevokeDurationValue = null;
+      this.permissionRevokeDurationUnit = "hours";
+      this.permissionRevokeDateTimeLocal = "";
+      if (mode.revokeAt) {
+        this.permissionRevokeMode = "datetime";
+        this.permissionRevokeDateTimeLocal = this.toDateTimeLocalInput(mode.revokeAt);
+      } else {
+        this.permissionRevokeMode = "none";
+      }
+      this.editingPermissionKey = this.getPermissionEditKey(mode, userIndex);
+    },
+    cancelPermissionEdit() {
+      this.permissionEditError = "";
+      this.editingPermissionKey = null;
+      this.permissionEditSavingKey = null;
+      this.permissionRevokeMode = "none";
+      this.permissionRevokeDurationValue = null;
+      this.permissionRevokeDurationUnit = "hours";
+      this.permissionRevokeDateTimeLocal = "";
+    },
+    async savePermissionEdit(mode: userHash, userIndex: number) {
+      const editKey = this.getPermissionEditKey(mode, userIndex);
+      const previousPermissions = this.permissionsFromModeIris(mode.accessModes);
+      const nextPermissions = this.normalizeEditedPermissions();
+      let nextRevokeAt: string | undefined;
+
+      try {
+        nextRevokeAt = this.resolvePermissionEditRevokeAtIsoOrThrow();
+      } catch (error) {
+        this.permissionEditError = error instanceof Error ? error.message : "Provide a valid revoke schedule.";
+        return;
+      }
+
+      const previousRevokeAt = mode.revokeAt || "";
+      const revokeScheduleChanged = previousRevokeAt !== (nextRevokeAt || "");
+
+      if (this.permissionsEqual(previousPermissions, nextPermissions) && !revokeScheduleChanged) {
+        this.cancelPermissionEdit();
+        return;
+      }
+
+      this.permissionEditError = "";
+      this.permissionEditSavingKey = editKey;
+      const podRoot = this.currentPod.endsWith("/") ? this.currentPod : `${this.currentPod}/`;
+      const isPublicShare = mode.sharedWith === PUBLIC_AGENT_WEBID;
+
+      try {
+        if (isPublicShare) {
+          await changeAclPublic(mode.resourceUrl, nextPermissions);
+        } else {
+          await changeAclAgent(mode.resourceUrl, mode.sharedWith, nextPermissions);
+        }
+
+        // Replace the active Offer so permission and revoke-time edits do not leave overlapping records.
+        const previousModeIris = getEnabledAccessModeIris(previousPermissions);
+        if (previousModeIris.length > 0) {
+          await updateSharedWithOthers(podRoot, mode.resourceUrl, mode.sharedWith, nextPermissions, {
+            forceUndo: true,
+            modeIris: previousModeIris,
+            revokedOfferIri: mode.offerIri,
+          });
+          if (!isPublicShare) {
+            await updateSharedWithMe(mode.sharedWith, this.currentWebId, mode.resourceUrl, nextPermissions, {
+              forceUndo: true,
+              modeIris: previousModeIris,
+            });
+          }
+        }
+
+        // If any access remains enabled, append a fresh Offer without changing the resource hash.
+        if (getEnabledAccessModeIris(nextPermissions).length > 0) {
+          await updateSharedWithOthers(podRoot, mode.resourceUrl, mode.sharedWith, nextPermissions, {
+            revokeAt: nextRevokeAt,
+          });
+          if (!isPublicShare) {
+            await updateSharedWithMe(mode.sharedWith, this.currentWebId, mode.resourceUrl, nextPermissions);
+          }
+        }
+
+        await this.loadFileTtl();
+        this.cancelPermissionEdit();
+      } catch (error) {
+        console.error("Could not edit shared permission:", error);
+        this.permissionEditError =
+          "Could not update this permission. Check that the ACL file and notification inbox are writable.";
+      } finally {
+        if (this.permissionEditSavingKey === editKey) {
+          this.permissionEditSavingKey = null;
+        }
+      }
+    },
+    // Render compact labels for ACL mode IRIs.
+    formatMode(modeIri: string): string {
+      if (!modeIri || modeIri === "N/A") {
+        return "N/A";
+      }
+      const hashLabel = modeIri.split("#").pop();
+      if (hashLabel && hashLabel !== modeIri) {
+        return hashLabel;
+      }
+      const pathSegments = modeIri.split("/").filter(Boolean);
+      return pathSegments[pathSegments.length - 1] || modeIri;
+    },
+    // Ensure the access-mode field is always explicitly represented in the UI.
+    normalizeModeList(modes: string[] | undefined): string[] {
+      if (!modes || modes.length === 0) {
+        return ["N/A"];
+      }
+      return modes;
+    },
+    // Render compact labels for ActivityStreams/RDF type IRIs.
+    formatKind(kindIri: string): string {
+      if (!kindIri || kindIri === "N/A") {
+        return "N/A";
+      }
+      const hashLabel = kindIri.split("#").pop();
+      if (hashLabel && hashLabel !== kindIri) {
+        return hashLabel;
+      }
+      const pathSegments = kindIri.split("/").filter(Boolean);
+      return pathSegments[pathSegments.length - 1] || kindIri;
+    },
+    // Human-readable timestamp while preserving raw values as tooltip text.
+    formatDate(dateValue: string): string {
+      if (!dateValue || dateValue === "N/A") {
+        return "Unknown";
+      }
+      const parsed = new Date(dateValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return dateValue;
+      }
+      return parsed.toLocaleString();
+    },
+    // Render scheduled revoke timestamp when present.
+    formatRevokeAt(revokeValue: string | undefined): string {
+      if (!revokeValue || revokeValue === "N/A") {
+        return "No automatic revoke";
+      }
+      const parsed = new Date(revokeValue);
+      if (Number.isNaN(parsed.getTime())) {
+        return revokeValue;
+      }
+      return parsed.toLocaleString();
+    },
+    // SharedWithMe entries derive the resource URL from the first userHash row.
+    getPrimaryResourceUrl(item: sharedSomething): string {
+      return item.usersSharedWith[0]?.resourceUrl || item.resourceHash || "N/A";
+    },
+    // Compute an informative recipient summary for collapsed card subtitles.
+    getRecipientSummary(item: sharedSomething): string {
+      const count = item.usersSharedWith.length;
+      return count === 1 ? "1 recipient" : `${count} recipients`;
+    },
+    // Find the newest created timestamp among all recipients of one resource.
+    getLatestEntryDate(item: sharedSomething): string {
+      const times = item.usersSharedWith
+        .map((entry) => new Date(entry.created).getTime())
+        .filter((value) => !Number.isNaN(value));
+      if (times.length === 0) {
+        return "Unknown";
+      }
+      return new Date(Math.max(...times)).toISOString();
+    },
+    // Keep newest shared entries at the top for both list variants.
+    sortByNewest(items: sharedSomething[]): sharedSomething[] {
+      return [...items].sort((a, b) => {
+        const aTime = new Date(this.getLatestEntryDate(a)).getTime();
+        const bTime = new Date(this.getLatestEntryDate(b)).getTime();
+        return bTime - aTime;
+      });
+    },
     /*
     Fetches the sharedWith data from the user's inbox/
     */
     async loadFileTtl() {
-      this.foundDoc = await getStoredTtl(
-        this.currentPod + "inbox/" + this.currentOperation + ".ttl"
-      );
-      if (this.foundDoc) {
-        if (this.currentOperation === "sharedWithOthers") {
-          try {
-            const sharedItemsThings = await getSharedWithOthers(
-              this.currentPod,
-              this.currentWebId
-            );
-            this.sharedItems = await toRaw(sharedItemsThings);
-          } catch (err) {
-            console.error("Error fetching shared items:", err);
-          }
-        }
+      const loadToken = ++this.latestLoadToken;
+      this.showItemIndex = null;
+      this.sharedItems = [];
+      this.sharedMeItems = [];
+
+      // Guard against transient empty props during mount/route transitions.
+      if (!this.currentPod || !this.currentOperation) {
+        return;
       }
-      if (this.currentOperation === "sharedWithMe") {
+
+      // Normalize pod root so path joins remain valid even when the selected
+      // pod URL is missing a trailing slash.
+      const podRoot = this.currentPod.endsWith("/")
+        ? this.currentPod
+        : `${this.currentPod}/`;
+      const ttlUrl = `${podRoot}inbox/${this.currentOperation}.ttl`;
+
+      // Keep this probe as a hint for diagnostics, but do not block direct
+      // shared-data loading when it fails.
+      this.foundDoc = await getStoredTtl(ttlUrl);
+
+      if (this.currentOperation === "sharedWithOthers") {
         try {
-          const sharedItemsThings = await getSharedWithMe(this.currentPod);
-          this.sharedMeItems = sharedItemsThings.sharedItems;
+          const sharedItemsThings = await getSharedWithOthers(podRoot, this.currentWebId);
+          if (loadToken !== this.latestLoadToken) {
+            return;
+          }
+          this.sharedItems = this.sortByNewest(toRaw(sharedItemsThings));
         } catch (err) {
-          console.error("Error fetching shared items:", err);
+          console.error("Error fetching shared-with-others items:", err);
+        }
+      } else if (this.currentOperation === "sharedWithMe") {
+        try {
+          const sharedItemsThings = await getSharedWithMe(podRoot);
+          if (loadToken !== this.latestLoadToken) {
+            return;
+          }
+          this.sharedMeItems = this.sortByNewest(sharedItemsThings.sharedItems);
+        } catch (err) {
+          console.error("Error fetching shared-with-me items:", err);
         }
       }
     },
+    /**
+     * Debounces rapid prop changes to avoid duplicate inbox reads when users
+     * switch between tabs/pods quickly.
+     */
+    scheduleLoadFileTtl() {
+      if (this.loadTtlTimerId !== null) {
+        window.clearTimeout(this.loadTtlTimerId);
+      }
+      this.loadTtlTimerId = window.setTimeout(() => {
+        this.loadTtlTimerId = null;
+        this.loadFileTtl();
+      }, 120);
+    },
+  },
+  watch: {
+    currentOperation() {
+      this.scheduleLoadFileTtl();
+    },
+    currentPod() {
+      this.scheduleLoadFileTtl();
+    },
+    currentWebId() {
+      this.scheduleLoadFileTtl();
+    },
   },
   mounted() {
-    this.loadFileTtl();
+    this.scheduleLoadFileTtl();
+  },
+  beforeUnmount() {
+    if (this.loadTtlTimerId !== null) {
+      window.clearTimeout(this.loadTtlTimerId);
+      this.loadTtlTimerId = null;
+    }
   },
 };
 </script>
 
 <style scoped>
-/* sharedWithMe and sharedWithOthers Display */
 .shared-container {
   width: 100%;
   font-family: "Oxanium", monospace;
-  padding: 0.5rem;
+  padding: 0.15rem 0.1rem;
 }
-.shared-container li {
-  list-style: none;
-  padding: 0;
+.shared-section {
+  width: 100%;
 }
 .shared-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--text-secondary);
-  margin-bottom: 20px;
+  display: block;
+  margin: 0 0 0.55rem;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
 }
-
 .no-items {
-  font-family: "Oxanium", monospace;
-  padding: 1rem 0.5rem;
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, var(--primary) 30%);
+  border-radius: 12px;
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+}
+.no-items p {
+  margin: 0;
 }
 
-/* Query List Items */
-ul {
+.shared-list {
   list-style: none;
+  margin: 0;
   padding: 0;
+  display: grid;
+  gap: 0.58rem;
 }
-/* Query Card */
-.folder {
-  display: flex;
-  flex-direction: column;
+.shared-entry {
+  border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-elev) 94%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+.shared-entry:hover {
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  background: color-mix(in srgb, var(--hover) 86%, var(--panel-elev) 14%);
+}
+.shared-entry.expanded {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+}
+
+.entry-toggle {
   width: 100%;
-  background-color: var(--panel-elev);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  margin: 10px 0;
-  transition: all 0.3s ease-in-out;
-}
-.folder:hover {
-  background-color: var(--hover);
-  cursor: pointer;
-}
-/* Folder Header */
-.folder-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: large;
-  font-family: "Oxanium", monospace;
-}
-/* Icon Button */
-.icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%; /* Make button cover full width */
-  padding: 12px 16px; /* Add padding for better click area */
-  background: transparent;
   border: none;
-  cursor: pointer;
-  text-align: left;
-  font-family: "Oxanium", monospace;
-  font-size: large;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: background 0.3s ease-in-out;
-}
-.user-icon-button {
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%; /* Make button cover full width */
-  padding: 0.5rem 0.7rem; /* Add padding for better click area */
-  background: transparent;
-  border: none;
+  gap: 0.7rem;
+  padding: 0.62rem 0.78rem;
   cursor: pointer;
-  text-align: left;
   font-family: "Oxanium", monospace;
-  font-size: large;
-  font-weight: 600;
   color: var(--text-secondary);
-  transition: background 0.3s ease-in-out;
 }
-/* Ensure full-width coverage */
-.full-width {
+.entry-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  flex: 1;
+}
+.entry-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.shared-others-collapsed-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
   width: 100%;
-  height: 100%;
-  display: flex;
 }
-/* Icon & Query Text Layout */
-.icon-hash {
-  display: flex;
+.shared-others-collapsed-copy .entry-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.entry-inline-summary {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-size-page-summary);
+  white-space: nowrap;
 }
-/* Ensures icons align correctly */
-.material-icons {
-  font-size: 24px;
+.entry-inline-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
 }
-/* Ensures the info icon is at the right */
+.entry-copy-equalized {
+  min-height: 2.8rem;
+  align-content: center;
+}
+.entry-title {
+  display: block;
+  font-size: var(--font-size-section-title);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry-subtitle {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+  line-height: 1.35;
+}
 .info-icon {
-  margin-left: auto;
+  color: var(--text-muted);
+  flex: 0 0 auto;
 }
-/* Query Title */
-.query-title {
-  flex-grow: 1;
-  text-align: left;
-  padding-left: 10px;
-  color: var(--text-secondary);
+
+.entry-details {
+  border-top: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+  padding: 0.68rem 0.78rem 0.76rem;
+  display: grid;
+  gap: 0.64rem;
 }
-.card-panel .not-colored {
-  color: var(--text-secondary);
+.shared-me-details,
+.shared-others-details {
+  gap: 0.58rem;
 }
-/* Item Details (Hidden by Default) */
-.specific-access {
+.shared-me-summary-grid,
+.resource-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.48rem;
+}
+.summary-cell,
+.shared-me-resource-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+}
+.summary-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.46rem 0.54rem;
+}
+.summary-cell .field-value {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shared-me-resource-card {
+  display: grid;
+  gap: 0.54rem;
+  padding: 0.58rem 0.62rem;
+}
+.resource-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.48rem;
+  min-width: 0;
+}
+.resource-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+.resource-secondary-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.55fr);
+}
+.shared-others-recipient-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.entry-field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 0.52rem;
+}
+.entry-field {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.entry-field.compact {
+  gap: 0.14rem;
+}
+.entry-field.full-span {
+  grid-column: 1 / -1;
+}
+.field-label-row {
   display: flex;
-  flex-direction: column;
-  background: var(--panel);
-  padding: 0.8rem;
-  margin: 1rem 0;
-  border-radius: 5px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+.field-copy-button {
+  width: 1.72rem;
+  height: 1.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.field-copy-button:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  color: var(--text-primary);
+}
+.resource-url-value {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.field-label {
+  font-size: var(--font-size-section-kicker);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.field-value {
+  font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
-/* Users Details Spacing */
-.specific-access div {
-  padding: 8px;
+.mono {
+  font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.specific-access div:last-child {
-  border-bottom: none;
+
+.mode-row {
+  display: grid;
+  gap: 0.28rem;
 }
-.access-modes-items {
-  margin-left: 0;
+.mode-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
 }
-/* Query Labels */
-.user-tag {
-  font-weight: bold;
-  color: var(--text-secondary);
-}
-/* File Data */
-.the-user {
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
   color: var(--yasqe-keyword);
-  font-weight: 600;
-  font-style: italic;
+  padding: 0.14rem 0.46rem;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
-.shared-with-item {
-  margin: 0 0 0.3rem 0;
+
+.recipient-list {
+  display: grid;
+  gap: 0.5rem;
 }
-.expandable-item {
+.recipient-card {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--panel-elev) 8%);
+  padding: 0.62rem;
+  display: grid;
+  gap: 0.58rem;
+}
+.recipient-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem 0.7rem;
+  padding-bottom: 0.52rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+}
+.recipient-target,
+.recipient-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+  font-size: var(--font-size-page-summary);
+}
+.recipient-target {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.recipient-date {
+  color: var(--text-muted);
+}
+.recipient-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.recipient-body {
+  display: grid;
+  gap: 0.58rem;
+}
+.permission-edit-button,
+.permission-cancel-button,
+.permission-save-button {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 2rem;
+  padding: 0.28rem 0.7rem;
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.permission-edit-button:hover,
+.permission-cancel-button:hover,
+.permission-save-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel-elev));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  color: var(--text-primary);
+}
+.permission-save-button {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
+  color: var(--primary-contrast);
+}
+.permission-save-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+.permission-editor {
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--panel-elev) 94%, var(--primary) 6%),
+      color-mix(in srgb, var(--panel) 96%, var(--primary) 4%)
+    );
+  display: grid;
+  gap: 0.68rem;
+  padding: 0.72rem;
+}
+.permission-editor-header,
+.permission-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.permission-editor-heading {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.44rem;
+  min-width: 0;
+}
+.permission-editor-target {
+  display: block;
+  margin-top: 0.12rem;
+  color: var(--text-primary);
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.permission-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.85fr);
+  gap: 0.58rem;
+  align-items: start;
+}
+.permission-editor-panel {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  display: grid;
+  gap: 0.46rem;
+  padding: 0.58rem;
+  min-width: 0;
+}
+.permission-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+.permission-option {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.24rem 0.55rem;
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
+}
+.permission-option input {
+  accent-color: var(--primary);
   margin: 0;
 }
-.shared-with {
-  margin-top: 0.5rem;
+.permission-revoke-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 0.78fr);
+  gap: 0.42rem;
 }
-.user-list {
+.permission-revoke-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary) 18%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
+  min-height: 2.08rem;
+  padding: 0.34rem 0.52rem;
+  outline: none;
+}
+.permission-revoke-input:focus {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.permission-revoke-input.compact {
+  min-width: 7rem;
+}
+.permission-error {
   margin: 0;
+  color: var(--danger);
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
 }
-/* Query Sources */
-.shared-with ul {
-  padding-left: 20px;
-}
-.shared-with-title {
-  font-weight: bold;
-  font-size: 12pt;
-}
-.users-title {
-  font-weight: bold;
-  font-size: 12pt;
-  margin-top: 1rem;
+
+.material-icons.not-colored {
   color: var(--text-secondary);
 }
-.shared-with a {
-  color: var(--accent-700);
-  text-decoration: none;
+.material-icons.tiny {
+  font-size: 1rem;
 }
-.shared-with a:hover {
-  text-decoration: underline;
+
+@media (max-width: 860px) {
+  .entry-toggle {
+    padding: 0.58rem 0.7rem;
+  }
+  .entry-details {
+    padding: 0.6rem 0.7rem 0.68rem;
+  }
+  .entry-field-grid {
+    grid-template-columns: 1fr;
+  }
+  .shared-me-summary-grid,
+  .resource-secondary-grid,
+  .shared-others-recipient-grid {
+    grid-template-columns: 1fr;
+  }
+  .resource-main {
+    align-items: start;
+  }
+  .resource-url-value {
+    white-space: normal;
+  }
+  .entry-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .shared-others-collapsed-copy {
+    display: grid;
+    gap: 0.24rem;
+  }
+  .entry-inline-summary {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .recipient-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .permission-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .permission-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .permission-options {
+    grid-template-columns: 1fr;
+  }
+  .permission-revoke-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

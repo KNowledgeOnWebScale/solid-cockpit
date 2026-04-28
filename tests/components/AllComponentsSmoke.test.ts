@@ -7,7 +7,7 @@ import ThemeSwitch from "../../src/components/Styling/ThemeSwitch.vue";
 import FunctionSelector from "../../src/components/Styling/FunctionSelector.vue";
 import { useAuthStore } from "../../src/stores/auth";
 
-vi.mock("../../src/components/login.ts", () => ({
+vi.mock("../../src/services/solid/login.ts", () => ({
   session: {
     info: {
       isLoggedIn: false,
@@ -24,7 +24,7 @@ vi.mock("../../src/components/login.ts", () => ({
   handleRedirectAfterPageLoad: vi.fn(async () => {}),
 }));
 
-vi.mock("../../src/components/getData.ts", () => ({
+vi.mock("../../src/services/solid/getData.ts", () => ({
   webIdDataset: vi.fn(async () => {}),
   fetchData: vi.fn(async (url: string) => ({
     internal_resourceInfo: {
@@ -52,16 +52,20 @@ vi.mock("../../src/components/getData.ts", () => ({
   })),
 }));
 
-vi.mock("../../src/components/fileUpload.ts", () => ({
+vi.mock("../../src/services/solid/fileUpload.ts", () => ({
   handleFiles: vi.fn(async () => [{ name: "mock-file.ttl" }]),
   uploadSuccess: vi.fn(() => true),
   alreadyExistsCheck: vi.fn(() => false),
   deleteFromPod: vi.fn(async () => true),
   deleteContainer: vi.fn(async () => true),
+  getPodResourceDownload: vi.fn(async () => ({
+    file: new File(["mock"], "mock-file.ttl", { type: "text/turtle" }),
+    fileName: "mock-file.ttl",
+  })),
   deleteThing: vi.fn(async () => true),
 }));
 
-vi.mock("../../src/components/privacyEdit.ts", () => ({
+vi.mock("../../src/services/solid/privacyEdit.ts", () => ({
   checkUrl: vi.fn(() => false),
   generateAcl: vi.fn(async () => true),
   changeAclAgent: vi.fn(async () => true),
@@ -77,7 +81,7 @@ vi.mock("../../src/components/privacyEdit.ts", () => ({
   saveNewAccessTime: vi.fn(async () => true),
 }));
 
-vi.mock("../../src/components/queryPod.ts", () => ({
+vi.mock("../../src/services/query/queryPod.ts", () => ({
   ensureCacheContainer: vi.fn(async (_pod: string, _webId: string, base: string) => `${base}querycache/`),
   createQueriesTTL: vi.fn(async () => "hash-abc"),
   uploadQueryFile: vi.fn(async () => "hash-abc.rq"),

@@ -110,7 +110,12 @@
 </template>
 
 <script lang="ts">
-import { startLogin, isLoggedin, currentWebId, session } from "./login";
+import {
+  startLogin,
+  isLoggedin,
+  currentWebId,
+  session,
+} from "../services/solid/login";
 import { provide } from "vue";
 import { useAuthStore } from "../stores/auth";
 
@@ -353,6 +358,25 @@ export default {
   }
 }
 @media (max-width: 760px) {
+  /* Keep provider selector controls aligned when the field shrinks on mobile. */
+  .input-row {
+    align-items: stretch;
+  }
+  .v-combobox :deep(.v-input) {
+    width: 100%;
+    min-width: 0;
+  }
+  .v-combobox :deep(.v-field__input) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .v-combobox :deep(.v-field__append-inner) {
+    align-self: center;
+  }
+  .v-combobox :deep(.v-field__append-inner .v-btn) {
+    min-width: 78px;
+  }
+
   .session-card {
     grid-template-columns: 1fr;
     align-items: start;

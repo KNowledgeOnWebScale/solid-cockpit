@@ -8,7 +8,7 @@
 ![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Solid Cockpit is a web application for interacting with Solid Pods: authentication, data upload, query execution, and privacy management.
+Solid Cockpit is a Vue web application for interacting with Solid Pods: authentication, data upload, pod browsing, SPARQL query execution, query caching, and privacy/ACL management.
 
 This application was developed in the context of the CHIST-ERA TRIPLE project.
 
@@ -23,11 +23,12 @@ This application was developed in the context of the CHIST-ERA TRIPLE project.
 
 Main capabilities:
 
-- Solid Pod login and registration flow
-- File upload and pod resource operations
-- SPARQL querying over Solid Pods and endpoints
-- Query caching support
-- Privacy/ACL access management
+- Solid Pod login, session display, and pod registration/selection
+- File upload to typed or browsed pod container destinations
+- Pod browsing with filtering, metadata inspection, download, move, rename, and delete operations
+- SPARQL querying over Solid Pods, SPARQL endpoints, and mixed/federated sources
+- Query cache records with result previews, filtering, sorting, rename, sharing, and deletion
+- Privacy/ACL management with shared-with-me/shared-with-others records, notifications, and scheduled revocation
 
 ### Accessing the App
 
@@ -45,9 +46,13 @@ If you want to run locally, see [Developers](#developers).
 
 ### Usage Guides
 
-TRIPLE onboarding guide:
+In-app guides are available from the relevant page:
 
-- [TRIPLE-guide.md](./TRIPLE-guide.md)
+- `Home`: app overview and embedded video demonstration
+- `Data Upload`: upload destination and file upload workflow
+- `Pod Browser`: container browsing and resource operations
+- `Data Query`: query execution, examples, query URLs, and cache workflow
+- `Privacy Editing`: ACL editing, notifications, sharing records, and revocation scheduling
 
 Solid Pod VoID file generation:
 
@@ -106,78 +111,98 @@ You can also use:
 - Pinia
 - Inrupt Solid client/auth libraries
 - Comunica SPARQL engine
+- YASQE/YASR query editor and result viewers
+- npm-managed dependency workflow
+
+### Source Layout
+
+- `src/components/`: Vue UI components only
+- `src/services/solid/`: Solid auth, pod access, upload, and ACL helper modules
+- `src/services/query/`: query execution, parsing, and worker code
+- `src/stores/`: Pinia state modules
 
 ### Prerequisites
 
-- Node.js 20+
-- Yarn 1.x (repo currently uses `yarn.lock`)
+- Node.js 22.x (LTS recommended)
+- npm 10+ (repo now uses `package-lock.json`)
+- Do not use Yarn for this repo; npm is the supported package manager.
+
+Node 24 note:
+- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`, so this repo pins to Node 22 for strict engine compatibility.
 
 ### Local Setup
 
 Install dependencies:
 
 ```bash
-yarn install
+npm install
 ```
 
 Run locally:
 
 ```bash
-yarn dev
+npm run dev
 ```
 
 Build production assets:
 
 ```bash
-yarn build
+npm run build
+```
+
+If you hit a Node heap out-of-memory error during production builds, rerun with an increased heap size:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 npm run build
 ```
 
 Preview production build:
 
 ```bash
-yarn serve
+npm run serve
 ```
 
 ### Scripts
 
 | Script | Description |
 | --- | --- |
-| `yarn dev` | Start Vite development server |
-| `yarn build` | Build production assets into `dist/` |
-| `yarn serve` | Preview the production build locally |
-| `yarn test:unit` | Run unit tests (Node built-in runner + TS loader) |
-| `yarn test:unit:watch` | Run unit tests in watch mode |
-| `yarn test:unit:coverage` | Run unit tests with coverage report generation |
-| `yarn test:unit:compliance` | Enforce unit-test + coverage thresholds |
-| `yarn test:unit:compliance:quiet` | Enforce unit coverage with concise output |
-| `yarn test:component` | Run Vue component tests (`.vue`) via Vitest |
-| `yarn test:component:watch` | Run Vue component tests in watch mode |
-| `yarn test:component:coverage` | Run Vue component tests with coverage |
-| `yarn test:component:compliance` | Enforce Vue component test coverage thresholds |
-| `yarn test:component:compliance:quiet` | Enforce component coverage with concise output |
-| `yarn test:compliance` | Run full (unit + component) compliance checks |
-| `yarn test:compliance:quiet` | Run full compliance checks with concise output |
-| `yarn hooks:install` | Configure local git hooks path (`.githooks`) |
-| `yarn github-post-build` | Create route-compatible `index.html` copies in `dist/` |
-| `yarn deploy` | Publish `dist/` to GitHub Pages |
+| `npm run dev` | Start Vite development server |
+| `npm run build` | Build production assets into `dist/` |
+| `npm run build:highmem` | Build production assets with an 8GB Node heap |
+| `npm run serve` | Preview the production build locally |
+| `npm run test:unit` | Run unit tests (Node built-in runner + TS loader) |
+| `npm run test:unit:watch` | Run unit tests in watch mode |
+| `npm run test:unit:coverage` | Run unit tests with coverage report generation |
+| `npm run test:unit:compliance` | Enforce unit-test + coverage thresholds |
+| `npm run test:unit:compliance:quiet` | Enforce unit coverage with concise output |
+| `npm run test:component` | Run Vue component tests (`.vue`) via Vitest |
+| `npm run test:component:watch` | Run Vue component tests in watch mode |
+| `npm run test:component:coverage` | Run Vue component tests with coverage |
+| `npm run test:component:compliance` | Enforce Vue component test coverage thresholds |
+| `npm run test:component:compliance:quiet` | Enforce component coverage with concise output |
+| `npm run test:compliance` | Run full (unit + component) compliance checks |
+| `npm run test:compliance:quiet` | Run full compliance checks with concise output |
+| `npm run hooks:install` | Configure local git hooks path (`.githooks`) |
+| `npm run github-post-build` | Create route-compatible `index.html` copies in `dist/` |
+| `npm run deploy` | Publish `dist/` to GitHub Pages |
 
 ### Testing and Coverage
 
 Unit test suite:
 
 - Location: `tests/unit/`
-- Command: `yarn test:unit`
+- Command: `npm run test:unit`
 
 Component test suite:
 
 - Location: `tests/components/`
-- Command: `yarn test:component`
+- Command: `npm run test:component`
 - Includes focused `ThemeSwitch` + `TheFooter` tests and full `.vue` smoke mounts in `tests/components/AllComponentsSmoke.test.ts`
 
 Coverage tracker:
 
 ```bash
-yarn test:unit:coverage
+npm run test:unit:coverage
 ```
 
 This command:
@@ -194,16 +219,16 @@ Compliance thresholds (gating):
 
 Tracked files:
 
-- `src/components/fileUploadUtils.ts`
-- `src/components/mime_types.js`
-- `src/components/queryPodUtils.ts`
-- `src/components/z3-headers.ts`
+- `src/services/solid/fileUploadUtils.ts`
+- `src/services/solid/mime_types.js`
+- `src/services/query/queryPodUtils.ts`
+- `src/services/query/z3-headers.ts`
 
 Advisory (non-gating) coverage is also reported for:
 
-- `src/components/login.ts`
-- `src/components/getData.ts`
-- `src/components/privacyEdit.ts`
+- `src/services/solid/login.ts`
+- `src/services/solid/getData.ts`
+- `src/services/solid/privacyEdit.ts`
 
 Override thresholds with env vars:
 
@@ -222,7 +247,7 @@ Commit-time compliance check:
 Install hooks locally:
 
 ```bash
-yarn hooks:install
+npm run hooks:install
 ```
 
 If automatic hook setup is blocked in your environment:
@@ -254,14 +279,14 @@ Recommended release workflow:
 1. Update version:
 
 ```bash
-yarn version --new-version X.Y.Z
+npm version X.Y.Z
 ```
 
 2. Build and validate:
 
 ```bash
-yarn test:unit
-yarn build
+npm run test:unit
+npm run build:highmem
 ```
 
 3. Create and push release tags:
@@ -277,8 +302,8 @@ git push origin vX.Y.Z web-app-vX.Y.Z
 GitHub Pages deployment setup:
 
 - `vite.config.js` uses `/solid-cockpit/` base path for production
-- `yarn github-post-build` prepares route folders in `dist/`
-- `yarn deploy` publishes `dist/` via `gh-pages`
+- `npm run github-post-build` prepares route folders in `dist/`
+- `npm run deploy` publishes `dist/` via `gh-pages`
 
 ### Dependency Versions
 
@@ -288,13 +313,14 @@ Runtime dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@comunica/context-entries` | `^4.2.0` |
-| `@comunica/logger-pretty` | `^4.2.0` |
-| `@comunica/query-sparql` | `^4.3.0` |
-| `@comunica/query-sparql-solid` | `^4.0.2` |
-| `@inrupt/solid-client` | `2.1.2` |
-| `@inrupt/solid-client-authn-browser` | `3.1.0` |
-| `@inrupt/solid-client-authn-node` | `^3.1.0` |
+| `@comunica/context-entries` | `^5.2.0` |
+| `@comunica/logger-pretty` | `^5.2.0` |
+| `@comunica/query-sparql` | `^5.2.0` |
+| `@comunica/query-sparql-solid` | `^5.0.1` |
+| `@inrupt/solid-client` | `^3.0.0` |
+| `@inrupt/solid-client-authn-browser` | `^4.0.0` |
+| `@inrupt/solid-client-authn-node` | `^4.0.0` |
+| `@mdi/font` | `^7.4.47` |
 | `@triply/yasqe` | `^4.2.28` |
 | `@triply/yasr` | `^4.2.28` |
 | `@vitejs/plugin-vue` | `^5.2.3` |
@@ -302,6 +328,7 @@ Runtime dependencies:
 | `actor-query-process-remote-cache` | `^0.1.0` |
 | `core-js` | `^3.8.3` |
 | `fs` | `^0.0.1-security` |
+| `material-icons` | `^1.13.14` |
 | `pinia` | `^2.3.1` |
 | `query-sparql-remote-cache` | `^0.0.9` |
 | `sparqljs` | `^3.7.3` |
@@ -315,10 +342,10 @@ Development dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@tsconfig/node20` | `^20.1.5` |
+| `@tsconfig/node22` | `^22.0.2` |
 | `@typescript-eslint/eslint-plugin` | `^5.4.0` |
 | `@typescript-eslint/parser` | `^5.4.0` |
-| `@vitest/coverage-v8` | `2.1.9` |
+| `@vitest/coverage-istanbul` | `2.1.9` |
 | `@vue/test-utils` | `2.4.6` |
 | `eslint` | `^7.32.0` |
 | `eslint-config-prettier` | `^8.3.0` |

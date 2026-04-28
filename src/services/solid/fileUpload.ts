@@ -21,9 +21,20 @@ import {
   alreadyExistsCheck,
   uploadSuccess,
   derefrenceFile,
+  getDownloadFileName,
+  isDownloadableResourceUrl,
+  preparePodResourceDownload,
 } from "./fileUploadUtils";
 
-export { getMimeType, alreadyExistsCheck, uploadSuccess, derefrenceFile };
+export {
+  getMimeType,
+  alreadyExistsCheck,
+  uploadSuccess,
+  derefrenceFile,
+  getDownloadFileName,
+  isDownloadableResourceUrl,
+  preparePodResourceDownload,
+};
 
 /**
  * Iterates through a FileList and uploads files to a Solid Pod via the uploadToPod() inrupt method.
@@ -108,6 +119,18 @@ export async function deleteFromPod(fileUrl: string): Promise<boolean> {
     console.error(`Error deleting ${fileUrl}:`, error);
     return false;
   }
+}
+
+/**
+ * Fetches a single Solid resource as a browser File for local download.
+ *
+ * Containers are deliberately rejected here because downloading a directory
+ * requires packaging multiple resources, which is a different workflow.
+ */
+export async function getPodResourceDownload(resourceUrl: string) {
+  return preparePodResourceDownload(resourceUrl, async (url) =>
+    getFile(url, { fetch })
+  );
 }
 
 /**

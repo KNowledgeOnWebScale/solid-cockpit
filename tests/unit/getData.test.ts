@@ -6,7 +6,7 @@ import {
   fetchPermissionsData,
   fetchAclAgents,
   fetchPublicAccess,
-} from "../../src/components/getData.ts";
+} from "../../src/services/solid/getData.ts";
 
 test("webIdDataset throws for invalid WebID URL input", async () => {
   await assert.rejects(() => webIdDataset("not-a-url", ""), /Invalid URL/);
