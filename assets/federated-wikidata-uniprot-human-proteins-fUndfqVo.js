@@ -1,0 +1,31 @@
+const n=`# Datasources: https://query.wikidata.org/sparql, https://sparql.uniprot.org/sparql
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?wikidataProtein ?wikidataLabel ?uniprotAccession ?mnemonic
+WHERE {
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?wikidataProtein wdt:P31 wd:Q8054 ;        # protein
+                    wdt:P703 wd:Q15978631 ;    # Homo sapiens
+                    wdt:P352 ?uniprotAccession .
+    SERVICE wikibase:label {
+      bd:serviceParam wikibase:language "en" .
+      ?wikidataProtein rdfs:label ?wikidataLabel .
+    }
+  }
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotProtein a up:Protein ;
+                    up:mnemonic ?mnemonic .
+    BIND(
+      REPLACE(STR(?uniprotProtein), "http://purl.uniprot.org/uniprot/", "")
+      AS ?uniprotAccession
+    )
+  }
+}
+LIMIT 25
+`;export{n as default};
