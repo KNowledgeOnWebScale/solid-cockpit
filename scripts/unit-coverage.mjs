@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const args = new Set(process.argv.slice(2));
@@ -20,35 +20,58 @@ const advisoryFiles = [
   "src/services/solid/getData.ts",
   "src/services/solid/privacyEdit.ts",
 ];
+const supportsCoverageInclude = process.allowedNodeEnvironmentFlags.has(
+  "--test-coverage-include"
+);
+const coverageIncludeArgs = supportsCoverageInclude
+  ? [...new Set([...trackedFiles, ...advisoryFiles])].map(
+      (file) => `--test-coverage-include=${file}`
+    )
+  : [];
 
 const testFiles = readdirSync("tests/unit")
   .filter((fileName) => fileName.endsWith(".test.ts"))
   .sort()
   .map((fileName) => `./tests/unit/${fileName}`);
 
-const nodeResult = spawnSync(
-  "node",
-  [
+function runCoverageAttempt({
+  label,
+  extraArgs = [],
+}) {
+  const args = [
     "--test",
     "--experimental-test-coverage",
+    ...coverageIncludeArgs,
     "--import",
     "./tests/register-ts-loader.mjs",
+    ...extraArgs,
     ...testFiles,
-  ],
-  { encoding: "utf8" }
-);
+  ];
 
-if (!quiet) {
-  if (nodeResult.stdout) process.stdout.write(nodeResult.stdout);
-  if (nodeResult.stderr) process.stderr.write(nodeResult.stderr);
+  const result = spawnSync("node", args, { encoding: "utf8" });
+  const combinedOutput = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  return {
+    label,
+    args,
+    result,
+    combinedOutput,
+  };
 }
 
-if (nodeResult.status !== 0) {
+const primaryAttempt = runCoverageAttempt({ label: "primary" });
+let activeAttempt = primaryAttempt;
+
+if (!quiet) {
+  if (activeAttempt.result.stdout) process.stdout.write(activeAttempt.result.stdout);
+  if (activeAttempt.result.stderr) process.stderr.write(activeAttempt.result.stderr);
+}
+
+if (activeAttempt.result.status !== 0) {
   if (quiet) {
-    if (nodeResult.stdout) process.stdout.write(nodeResult.stdout);
-    if (nodeResult.stderr) process.stderr.write(nodeResult.stderr);
+    if (activeAttempt.result.stdout) process.stdout.write(activeAttempt.result.stdout);
+    if (activeAttempt.result.stderr) process.stderr.write(activeAttempt.result.stderr);
   }
-  process.exit(nodeResult.status ?? 1);
+  process.exit(activeAttempt.result.status ?? 1);
 }
 
 const coverageRegex =
@@ -94,45 +117,79 @@ function resolveMetricForFile(metricsByFile, filePath) {
   return null;
 }
 
-const metricsByFile = new Map();
-/**
- * Parse coverage from combined stdout/stderr because some Node reporter setups
- * emit diagnostics to stderr in CI while using stdout locally.
- */
-const rawCoverageOutput = `${nodeResult.stdout ?? ""}\n${nodeResult.stderr ?? ""}`;
-for (const line of stripAnsi(rawCoverageOutput).split("\n")) {
-  const normalizedLine = line.replace(/^[#ℹ>\s]+/, "").trim();
-  if (!normalizedLine) continue;
-  if (normalizedLine.includes("start of coverage report")) continue;
-  if (normalizedLine.includes("end of coverage report")) continue;
-  if (
-    normalizedLine.includes("file | line % | branch % | funcs %") ||
-    normalizedLine.includes("File | % Stmts | % Branch | % Funcs | % Lines")
-  ) {
-    continue;
-  }
-  if (
-    normalizedLine.startsWith("all files") ||
-    normalizedLine.startsWith("All files") ||
-    normalizedLine.startsWith("...files") ||
-    normalizedLine.startsWith("…files")
-  ) {
-    continue;
-  }
-  if (/^-{3,}/.test(normalizedLine)) continue;
+function parseMetricsFromCoverageOutput(rawCoverageOutput) {
+  const metricsByFile = new Map();
+  for (const line of stripAnsi(rawCoverageOutput).split("\n")) {
+    const normalizedLine = line.replace(/^[#ℹ>\s]+/, "").trim();
+    if (!normalizedLine) continue;
+    if (normalizedLine.includes("start of coverage report")) continue;
+    if (normalizedLine.includes("end of coverage report")) continue;
+    if (
+      normalizedLine.includes("file | line % | branch % | funcs %") ||
+      normalizedLine.includes("File | % Stmts | % Branch | % Funcs | % Lines")
+    ) {
+      continue;
+    }
+    if (
+      normalizedLine.startsWith("all files") ||
+      normalizedLine.startsWith("All files") ||
+      normalizedLine.startsWith("...files") ||
+      normalizedLine.startsWith("…files")
+    ) {
+      continue;
+    }
+    if (/^-{3,}/.test(normalizedLine)) continue;
 
-  const match = normalizedLine.match(coverageRegex);
-  if (!match) continue;
+    const match = normalizedLine.match(coverageRegex);
+    if (!match) continue;
 
-  const [, file, linePct, branchPct, funcPct, uncovered] = match;
-  const normalizedFile = normalizeCoveragePath(file);
-  metricsByFile.set(normalizedFile, {
-    file: normalizedFile,
-    linePct: Number(linePct),
-    branchPct: Number(branchPct),
-    funcPct: Number(funcPct),
-    uncovered: uncovered.trim(),
+    const [, file, linePct, branchPct, funcPct, uncovered] = match;
+    const normalizedFile = normalizeCoveragePath(file);
+    metricsByFile.set(normalizedFile, {
+      file: normalizedFile,
+      linePct: Number(linePct),
+      branchPct: Number(branchPct),
+      funcPct: Number(funcPct),
+      uncovered: uncovered.trim(),
+    });
+  }
+  return metricsByFile;
+}
+
+let metricsByFile = parseMetricsFromCoverageOutput(activeAttempt.combinedOutput);
+const primaryMissing = trackedFiles.filter(
+  (file) => !resolveMetricForFile(metricsByFile, file)
+);
+
+if (primaryMissing.length === trackedFiles.length) {
+  const lcovPath = "coverage/unit-retry.lcov";
+  if (existsSync(lcovPath)) unlinkSync(lcovPath);
+
+  const retryAttempt = runCoverageAttempt({
+    label: "retry-with-explicit-reporter",
+    extraArgs: [
+      "--test-reporter=tap",
+      "--test-reporter-destination=stdout",
+      "--test-reporter=lcov",
+      `--test-reporter-destination=${lcovPath}`,
+    ],
   });
+
+  if (!quiet) {
+    console.warn(
+      "\nCoverage output from primary attempt did not include tracked files; retrying with explicit TAP+LCOV reporters."
+    );
+    if (retryAttempt.result.stdout) process.stdout.write(retryAttempt.result.stdout);
+    if (retryAttempt.result.stderr) process.stderr.write(retryAttempt.result.stderr);
+  }
+
+  if (retryAttempt.result.status === 0) {
+    activeAttempt = retryAttempt;
+    metricsByFile = parseMetricsFromCoverageOutput(activeAttempt.combinedOutput);
+  } else if (quiet) {
+    if (retryAttempt.result.stdout) process.stdout.write(retryAttempt.result.stdout);
+    if (retryAttempt.result.stderr) process.stderr.write(retryAttempt.result.stderr);
+  }
 }
 
 const trackedMetrics = trackedFiles
@@ -232,6 +289,51 @@ for (const missingFile of missingFiles) {
 }
 
 if (failures.length > 0) {
+  if (missingFiles.length === trackedFiles.length) {
+    const debugPayload = {
+      generatedAt: new Date().toISOString(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      cwd: process.cwd(),
+      testFileCount: testFiles.length,
+      trackedFiles,
+      advisoryFiles,
+      coverageIncludeArgs,
+      attempts: [
+        {
+          label: primaryAttempt.label,
+          status: primaryAttempt.result.status,
+          signal: primaryAttempt.result.signal,
+          args: primaryAttempt.args,
+          outputPreview: stripAnsi(primaryAttempt.combinedOutput).split("\n").slice(-120),
+        },
+        {
+          label: activeAttempt.label,
+          status: activeAttempt.result.status,
+          signal: activeAttempt.result.signal,
+          args: activeAttempt.args,
+          outputPreview: stripAnsi(activeAttempt.combinedOutput).split("\n").slice(-120),
+        },
+      ],
+      message:
+        "Coverage parsing found no tracked files even after retry. This usually indicates a Node test-coverage reporter regression in CI runtime.",
+    };
+    writeFileSync(
+      "coverage/unit-coverage-debug.json",
+      JSON.stringify(debugPayload, null, 2) + "\n",
+      "utf8"
+    );
+    console.error(
+      "\nCoverage diagnostics were written to coverage/unit-coverage-debug.json"
+    );
+    console.error(
+      `Node runtime: ${process.version} (${process.platform}-${process.arch}).`
+    );
+    console.error(
+      "Suggestion: pin Node to a known-good patch and inspect the debug artifact from the failing CI run."
+    );
+  }
   console.error("\nCoverage compliance failed:");
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
