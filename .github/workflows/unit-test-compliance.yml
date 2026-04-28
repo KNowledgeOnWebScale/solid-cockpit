@@ -21,7 +21,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
+
+      - name: Ensure Rollup Linux binary is present
+        run: |
+          node -e "require.resolve('@rollup/rollup-linux-x64-gnu')" || npm i --no-save @rollup/rollup-linux-x64-gnu@$(node -p "require('./node_modules/rollup/package.json').optionalDependencies['@rollup/rollup-linux-x64-gnu'] || require('./node_modules/rollup/package.json').version")
 
       - name: Run unit + component compliance
         run: npm run test:compliance:quiet
