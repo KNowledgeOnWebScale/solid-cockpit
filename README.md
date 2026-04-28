@@ -2,8 +2,7 @@
 
 # Solid Cockpit
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Web App Tag](https://img.shields.io/badge/web--app--tag-web--app--v1.0.0-0a7ea4)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![Vue](https://img.shields.io/badge/vue-3.2.13-42b883)
 ![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
