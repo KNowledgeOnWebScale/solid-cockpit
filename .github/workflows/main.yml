@@ -16,7 +16,8 @@ jobs:
       - name: Setup Node ✨
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          # Pin to a known-good patch for Node's experimental unit coverage output.
+          node-version: 22.12.0
           cache: npm
 
       - name: Install Dependencies 🔧
@@ -46,7 +47,8 @@ jobs:
       - name: Setup Node ✨
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          # Pin to a known-good patch for Node's experimental unit coverage output.
+          node-version: 22.12.0
           cache: npm
 
       - name: Install Dependencies 🔧
