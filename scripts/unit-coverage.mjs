@@ -34,6 +34,9 @@ const testFiles = readdirSync("tests/unit")
   .sort()
   .map((fileName) => `./tests/unit/${fileName}`);
 
+// Ensure coverage outputs can always be written, including retry reporter files in CI.
+mkdirSync("coverage", { recursive: true });
+
 function runCoverageAttempt({
   label,
   extraArgs = [],
@@ -162,7 +165,7 @@ const primaryMissing = trackedFiles.filter(
 );
 
 if (primaryMissing.length === trackedFiles.length) {
-  const lcovPath = "coverage/unit-retry.lcov";
+  const lcovPath = `${process.cwd()}/coverage/unit-retry.lcov`;
   if (existsSync(lcovPath)) unlinkSync(lcovPath);
 
   const retryAttempt = runCoverageAttempt({
@@ -306,16 +309,16 @@ if (failures.length > 0) {
           status: primaryAttempt.result.status,
           signal: primaryAttempt.result.signal,
           args: primaryAttempt.args,
-          outputPreview: stripAnsi(primaryAttempt.combinedOutput).split("\n").slice(-120),
-        },
-        {
-          label: activeAttempt.label,
-          status: activeAttempt.result.status,
-          signal: activeAttempt.result.signal,
-          args: activeAttempt.args,
-          outputPreview: stripAnsi(activeAttempt.combinedOutput).split("\n").slice(-120),
-        },
-      ],
+      outputPreview: stripAnsi(primaryAttempt.combinedOutput).split("\n").slice(-120),
+    },
+    {
+      label: activeAttempt.label,
+      status: activeAttempt.result.status,
+      signal: activeAttempt.result.signal,
+      args: activeAttempt.args,
+      outputPreview: stripAnsi(activeAttempt.combinedOutput).split("\n").slice(-120),
+    },
+  ],
       message:
         "Coverage parsing found no tracked files even after retry. This usually indicates a Node test-coverage reporter regression in CI runtime.",
     };
