@@ -66,6 +66,13 @@ function normalizeCoveragePath(filePath) {
 }
 
 /**
+ * Remove ANSI escape sequences so coverage parsing is stable across terminals/CI.
+ */
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+/**
  * Resolve a tracked/advisory file to a parsed coverage metric.
  * Some Node versions emit absolute paths while others emit project-relative paths.
  */
@@ -88,8 +95,13 @@ function resolveMetricForFile(metricsByFile, filePath) {
 }
 
 const metricsByFile = new Map();
-for (const line of nodeResult.stdout.split("\n")) {
-  const normalizedLine = line.replace(/^[#ℹ]\s*/, "").trim();
+/**
+ * Parse coverage from combined stdout/stderr because some Node reporter setups
+ * emit diagnostics to stderr in CI while using stdout locally.
+ */
+const rawCoverageOutput = `${nodeResult.stdout ?? ""}\n${nodeResult.stderr ?? ""}`;
+for (const line of stripAnsi(rawCoverageOutput).split("\n")) {
+  const normalizedLine = line.replace(/^[#ℹ>\s]+/, "").trim();
   if (!normalizedLine) continue;
   if (normalizedLine.includes("start of coverage report")) continue;
   if (normalizedLine.includes("end of coverage report")) continue;
