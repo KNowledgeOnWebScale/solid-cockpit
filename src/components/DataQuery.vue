@@ -187,6 +187,30 @@
               </div>
             </div>
 
+            <div class="query-mode-container">
+              <div class="query-mode-header">
+                <span class="query-mode-title">Query mode</span>
+                <span class="query-mode-valid-targets">
+                  Valid targets: {{ selectedQueryModeInfo.validTargets }}
+                </span>
+              </div>
+              <div class="query-mode-options">
+                <button
+                  v-for="mode in queryModes"
+                  :key="mode.id"
+                  class="query-mode-option"
+                  :class="{ active: queryMode === mode.id }"
+                  type="button"
+                  @click="queryMode = mode.id"
+                >
+                  <span class="query-mode-option-label">{{ mode.label }}</span>
+                  <span class="query-mode-option-description">{{
+                    mode.recommendedUse
+                  }}</span>
+                </button>
+              </div>
+            </div>
+
             <!-- Source designation stays above the editor, but now reads as part of the same setup card. -->
             <div class="source-selection">
               <span>Datasources: </span>
@@ -1007,6 +1031,14 @@
             </div>
           </div>
 
+          <div class="query-error-mode" v-if="queryError">
+            <span class="query-error-section-label">Mode</span>
+            <div class="query-error-mode-copy">
+              <code>{{ getQueryModeLabel(queryError.mode) }}</code>
+              <span>{{ getQueryModeValidTargets(queryError.mode) }}</span>
+            </div>
+          </div>
+
           <div
             class="query-error-endpoints"
             v-if="queryError?.endpoints && queryError.endpoints.length > 0"
@@ -1063,6 +1095,9 @@ import {
   ComunicaSources,
   executeQueryInMainThread,
   renameCachedQueryEntry,
+  QUERY_MODE_DEFINITIONS,
+  QueryExecutionMode,
+  validateQuerySourcesForMode,
 } from "../services/query/queryPod";
 import {
   fetchPermissionsData,
@@ -1106,6 +1141,7 @@ type QueryExecutionError = {
   endpoints: string[];
   hints: string[];
   occurredAt: string;
+  mode: QueryExecutionMode;
 };
 
 const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
@@ -1121,6 +1157,8 @@ const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
   "Mixed source federated query":
     "Combines Solid/local RDF sources with endpoint federation in one execution flow.",
 };
+
+const QUERY_MODES = QUERY_MODE_DEFINITIONS;
 
 type YasqeConstructor = new (
   parent: HTMLElement,
@@ -1193,6 +1231,7 @@ export default {
         query: "" as string,
         output: null as any,
       },
+      queryMode: "endpoint" as QueryExecutionMode,
       sourceEditorText: "" as string,
       editingSourceIndex: null as number | null,
       sourceEditorFocused: false as boolean,
@@ -1241,7 +1280,6 @@ export default {
       showResultQuery: false as boolean,
       cachedQueryIndex: null as number | null,
       worker: null as Worker | null,
-      containsSolidSources: false as boolean,
       customCachePath: "" as string,
       useCustomCachePath: false as boolean,
       showCustomCache: false as boolean,
@@ -1279,6 +1317,7 @@ export default {
       lastExecutedQuerySignature: "" as string,
       queryUrlShareFeedback: null as string | null,
       queryUrlShareSuccess: false as boolean,
+      queryModes: QUERY_MODES,
     };
   },
   computed: {
@@ -1342,6 +1381,12 @@ export default {
       return {
         category: this.selectedExampleRecord.category,
       };
+    },
+    selectedQueryModeInfo() {
+      return (
+        this.queryModes.find((mode) => mode.id === this.queryMode) ||
+        this.queryModes[0]
+      );
     },
     /**
      * Keeps the suggestion list aligned with the current editor text while
@@ -1468,6 +1513,7 @@ export default {
       return JSON.stringify({
         query: this.currentQuery.query.trim(),
         sources: [...this.currentQuery.sources],
+        queryMode: this.queryMode,
         saveQuery: this.saveQuery,
         useCustomCachePath: this.useCustomCachePath,
         customCachePath: this.customCachePath.trim(),
@@ -1487,6 +1533,7 @@ export default {
       const draft = {
         query: this.currentQuery.query,
         sources: [...this.currentQuery.sources],
+        queryMode: this.queryMode,
         saveQuery: this.saveQuery,
         useCustomCachePath: this.useCustomCachePath,
         customCachePath: this.customCachePath,
@@ -1506,6 +1553,7 @@ export default {
         const parsedDraft = JSON.parse(rawDraft) as {
           query?: string;
           sources?: string[];
+          queryMode?: QueryExecutionMode;
           saveQuery?: boolean;
           useCustomCachePath?: boolean;
           customCachePath?: string;
@@ -1516,6 +1564,12 @@ export default {
         this.currentQuery.sources = Array.isArray(parsedDraft.sources)
           ? parsedDraft.sources
           : this.currentQuery.sources;
+        if (
+          parsedDraft.queryMode &&
+          this.queryModes.some((mode) => mode.id === parsedDraft.queryMode)
+        ) {
+          this.queryMode = parsedDraft.queryMode;
+        }
         this.saveQuery = parsedDraft.saveQuery ?? this.saveQuery;
         this.useCustomCachePath =
           parsedDraft.useCustomCachePath ?? this.useCustomCachePath;
@@ -1547,6 +1601,7 @@ export default {
       if (normalizedSources.length > 0) {
         params.set("transientDatasources", normalizedSources.join(","));
       }
+      params.set("queryMode", this.queryMode);
       if (this.saveQuery) {
         params.set("saveQuery", "true");
       }
@@ -1586,6 +1641,7 @@ export default {
       const transientSources = params.get("transientDatasources");
       const hasSourceParam =
         explicitSources.length > 0 || params.has("transientDatasources");
+      const queryModeParam = params.get("queryMode");
       const parsedSources =
         explicitSources.length > 0
           ? explicitSources
@@ -1607,6 +1663,14 @@ export default {
           // Query URLs without datasource params intentionally represent
           // source-less execution and should override any stored draft sources.
           this.currentQuery.sources = [];
+        }
+        if (
+          queryModeParam &&
+          this.queryModes.some((mode) => mode.id === queryModeParam)
+        ) {
+          this.queryMode = queryModeParam as QueryExecutionMode;
+        } else if (queryText !== null) {
+          this.queryMode = "endpoint";
         }
 
         const saveQueryFlag = params.get("saveQuery");
@@ -2020,6 +2084,16 @@ export default {
         title: item,
       };
     },
+    getQueryModeLabel(mode: QueryExecutionMode) {
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
+      return modeDetails.label;
+    },
+    getQueryModeValidTargets(mode: QueryExecutionMode) {
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
+      return `Valid targets: ${modeDetails.validTargets}`;
+    },
     isLikelySparqlEndpointSource(source: string) {
       const normalizedSource = this.normalizeSourceUrlForValidation(source);
       return /\/sparql\/?$/i.test(normalizedSource) || /sparql/i.test(normalizedSource);
@@ -2073,9 +2147,15 @@ export default {
      * Creates concise remediation hints based on common endpoint failure
      * signatures (CORS/auth/timeout/rate-limit/syntax).
      */
-    buildQueryErrorHints(message: string, endpoints: string[]): string[] {
+    buildQueryErrorHints(
+      message: string,
+      endpoints: string[],
+      mode: QueryExecutionMode
+    ): string[] {
       const normalized = message.toLowerCase();
       const hints: string[] = [];
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
 
       if (normalized.includes("cors") || normalized.includes("cross-origin")) {
         hints.push(
@@ -2115,6 +2195,24 @@ export default {
           "Review SPARQL syntax and PREFIX declarations, especially around SERVICE blocks."
         );
       }
+      if (
+        normalized.includes("expects sparql endpoint urls only") ||
+        normalized.includes("does not accept sparql endpoint targets")
+      ) {
+        hints.push(
+          `Selected mode "${modeDetails.label}" has strict target requirements. ${modeDetails.validTargets}`
+        );
+      }
+      if (normalized.includes("link-traversal mode requires")) {
+        hints.push(
+          "Install @comunica/query-sparql-link-traversal-solid to enable Solid link-traversal execution."
+        );
+      }
+      if (mode === "solid-link-traversal") {
+        hints.push(
+          "Link traversal follows discovered links and may be slower. Start from focused Solid seed sources."
+        );
+      }
       if (endpoints.length === 0) {
         hints.push(
           "No endpoint URL was detected in the error; check browser console details for the failing request."
@@ -2127,7 +2225,10 @@ export default {
      * Converts runtime query failures into a stable display object used by
      * both the in-page error panel and cache-entry diagnostics.
      */
-    buildQueryExecutionError(errorLike: unknown): QueryExecutionError {
+    buildQueryExecutionError(
+      errorLike: unknown,
+      mode: QueryExecutionMode = this.queryMode
+    ): QueryExecutionError {
       const fallbackMessage = "Unknown query execution error.";
       const message =
         errorLike instanceof Error
@@ -2136,7 +2237,7 @@ export default {
             ? errorLike
             : JSON.stringify(errorLike ?? fallbackMessage);
       const endpoints = this.collectErrorEndpoints(message);
-      const hints = this.buildQueryErrorHints(message, endpoints);
+      const hints = this.buildQueryErrorHints(message, endpoints, mode);
 
       const firstSentence = message.split("\n")[0]?.trim() || fallbackMessage;
       const summary =
@@ -2151,6 +2252,7 @@ export default {
         endpoints,
         hints,
         occurredAt: new Date().toISOString(),
+        mode,
       };
     },
     /**
@@ -2169,6 +2271,7 @@ export default {
 
       return [
         "Execution status: failed",
+        `Query mode: ${errorInfo.mode}`,
         `Occurred at: ${errorInfo.occurredAt}`,
         endpointSection,
         hintSection,
@@ -2189,8 +2292,9 @@ export default {
 
       const sourceUrlsForCache = cleanedSources.map((source) => source.value);
       const failedEntryHash = buildCacheEntryHash(
-        `${this.currentQuery.query}\n# failed at ${errorInfo.occurredAt}`,
+        `${this.currentQuery.query}\n# failed at ${errorInfo.occurredAt}\n# mode: ${this.queryMode}`,
         sourceUrlsForCache,
+        [this.queryMode],
       );
       const fallbackEmptyResults: QueryResultJson = {
         head: { vars: [] },
@@ -2285,6 +2389,13 @@ export default {
       // Clone example sources so user edits never mutate the static sample list.
       this.currentQuery.sources = [...example.sources];
       this.currentQuery.query = example.query || "";
+      if (example.category === "Solid query") {
+        this.queryMode = "solid-no-traversal";
+      } else if (example.category === "Mixed source federated query") {
+        this.queryMode = "endpoint";
+      } else {
+        this.queryMode = "endpoint";
+      }
 
       const editor = this.yasqe;
       editor.setValue(this.currentQuery.query);
@@ -2292,11 +2403,19 @@ export default {
       editor.focus();
     },
 
-    /* Determines whether sources contain a Solid source and reflects this in boolean */
-    checkSolidSources(querySources: ComunicaSources[]) {
-      this.containsSolidSources = querySources.some(
-        (source) => source.context != null,
-      );
+    /**
+     * Routes execution to the selected query engine mode.
+     * Endpoint mode keeps worker-based execution; Solid modes run in the main
+     * thread because Solid-authenticated Comunica engines cannot run in workers.
+     */
+    async executeQueryByMode(
+      query: string,
+      providedSources: ComunicaSources[],
+    ): Promise<CacheOutput | null | Error> {
+      if (this.queryMode === "endpoint") {
+        return this.executeQuery(query, providedSources);
+      }
+      return executeQueryInMainThread(query, providedSources, this.queryMode);
     },
     /**
      * Narrow unknown output values to the expected cache/query result object.
@@ -2439,7 +2558,16 @@ export default {
 
       // make sources into a ComunicaSources[]
       const cleanedSources = cleanSourcesUrls(this.currentQuery.sources);
-      this.checkSolidSources(cleanedSources);
+      try {
+        validateQuerySourcesForMode(this.queryMode, cleanedSources);
+      } catch (validationError) {
+        this.queryError = this.buildQueryExecutionError(
+          validationError,
+          this.queryMode,
+        );
+        this.loading = false;
+        return;
+      }
 
       try {
         // if Save Query box is selected (pod must be connected)
@@ -2463,23 +2591,15 @@ export default {
             this.currentQuery.query,
             cleanedSources,
             this.cachePath,
+            this.queryMode,
           );
 
           // If the output is a string, it means there was no matching entry in the cache
           if (this.currentQuery.output === "no-cache") {
-            // if there are NOT solid sources use the Worker
-            if (!this.containsSolidSources) {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            } else {
-              // if there are Solid sources, use custom execution in main thread
-              this.currentQuery.output = await executeQueryInMainThread(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            }
+            this.currentQuery.output = await this.executeQueryByMode(
+              this.currentQuery.query,
+              cleanedSources,
+            );
           }
 
           // obtaining query cache hash if the cache contains a similar query
@@ -2508,38 +2628,21 @@ export default {
               this.currentQuery.query,
               cleanedSources,
               this.cachePath,
+              this.queryMode,
             );
 
             // If the output is a string, it means there was no matching entry in the cache
             if (this.currentQuery.output === "no-cache") {
-              // if there are NOT solid sources use the Worker
-              if (!this.containsSolidSources) {
-                this.currentQuery.output = await this.executeQuery(
-                  this.currentQuery.query,
-                  cleanedSources,
-                );
-              } else {
-                // if there are Solid sources, use custom execution in main thread
-                this.currentQuery.output = await executeQueryInMainThread(
-                  this.currentQuery.query,
-                  cleanedSources,
-                );
-              }
+              this.currentQuery.output = await this.executeQueryByMode(
+                this.currentQuery.query,
+                cleanedSources,
+              );
             }
           } else {
-            // if there are NOT solid sources --> use the Worker
-            if (!this.containsSolidSources) {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            } else {
-              // if there are Solid sources, use custom execution in main thread
-              this.currentQuery.output = await executeQueryInMainThread(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            }
+            this.currentQuery.output = await this.executeQueryByMode(
+              this.currentQuery.query,
+              cleanedSources,
+            );
           }
 
           // try to obtain cache hash if the cache contains a similar query
@@ -2610,6 +2713,7 @@ export default {
           this.currHash = buildCacheEntryHash(
             this.currentQuery.query,
             this.currentQuery.sources,
+            [this.queryMode],
           );
 
           // Persist the concrete cache members first, then register the entry in queries.ttl.
@@ -3129,6 +3233,9 @@ export default {
       this.handleEditableQueryStateChanged();
     },
     saveQuery() {
+      this.handleEditableQueryStateChanged();
+    },
+    queryMode() {
       this.handleEditableQueryStateChanged();
     },
     cacheError(newValue) {
@@ -3659,6 +3766,63 @@ body {
   font-size: var(--font-size-section-title);
   font-weight: 600;
   color: var(--text-primary);
+}
+.query-mode-container {
+  margin: 0 0 0.75rem;
+  padding: 0.68rem 0.78rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  display: grid;
+  gap: 0.5rem;
+}
+.query-mode-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.query-mode-title {
+  font-size: var(--font-size-component-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-mode-valid-targets {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+}
+.query-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.query-mode-option {
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--primary) 15%);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  padding: 0.54rem 0.64rem;
+  display: grid;
+  gap: 0.25rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.query-mode-option:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.query-mode-option.active {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+}
+.query-mode-option-label {
+  font-size: var(--font-size-component-body);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-mode-option-description {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 /* Query Container Customizations */
 #yasqe-container {
@@ -4727,6 +4891,10 @@ ul {
     margin: 0;
   }
 
+  .query-mode-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .query-container {
     width: 100%;
   }
@@ -4771,6 +4939,10 @@ ul {
 
   .sample-query-meta {
     align-items: flex-start;
+  }
+
+  .query-mode-options {
+    grid-template-columns: 1fr;
   }
 
   .nav-header-row {
@@ -4922,6 +5094,21 @@ ul {
 .query-error-hints li {
   font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  line-height: 1.4;
+}
+.query-error-mode-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+.query-error-mode-copy code {
+  font-family: "Oxanium", monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-error-mode-copy span {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 .query-error-raw {

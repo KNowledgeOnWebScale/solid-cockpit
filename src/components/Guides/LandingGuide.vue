@@ -23,10 +23,14 @@
 
         <div v-if="videoGuideOpen" class="video-frame">
           <iframe
-            src="https://www.youtube.com/embed/eKKpJv-1U4s"
-            title="Solid Cockpit feature demonstration"
+            width="560"
+            height="315"
+            src="https://www.youtube.com/embed/eKKpJv-1U4s?si=X9GKwheWAVKLAGW_"
+            title="YouTube video player"
+            frameborder="0"
             loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
             allowfullscreen
           ></iframe>
         </div>

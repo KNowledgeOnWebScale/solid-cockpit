@@ -105,6 +105,9 @@
         <h3>Editor and datasource controls</h3>
         <ul>
           <li>
+            <span class="guide-control">Query mode</span> selects the Comunica engine and expected source type before execution.
+          </li>
+          <li>
             Datasource chips can be added, edited, removed, and reset with
             <span class="guide-control">Clear</span>.
           </li>
@@ -117,6 +120,34 @@
           <li>
             The SPARQL tutorial link is available on the guide icon
             <i class="material-icons guide-inline-icon">help_outline</i>.
+          </li>
+        </ul>
+      </section>
+
+      <section class="guide-section">
+        <h3>Query mode types (engine + valid targets)</h3>
+        <ul>
+          <li>
+            <span class="guide-tag">SPARQL endpoint(s)</span>
+            Engine: <span class="guide-control">@comunica/query-sparql</span>.
+            Use for endpoint-only and endpoint-federated queries.
+            Valid targets are SPARQL service URLs (for example
+            <span class="guide-control">/sparql</span>,
+            <span class="guide-control">/query</span>, or
+            <span class="guide-control">/endpoint</span> URLs).
+          </li>
+          <li>
+            <span class="guide-tag">Solid Pod (no link traversal)</span>
+            Engine: <span class="guide-control">@comunica/query-sparql-solid</span>.
+            Use for direct querying over explicit pod/container/resource URLs you already know.
+            Valid targets are Solid RDF documents/containers.
+          </li>
+          <li>
+            <span class="guide-tag">Solid Pod (link traversal)</span>
+            Engine:
+            <span class="guide-control">@comunica/query-sparql-link-traversal-solid</span>.
+            Use for exploratory Solid queries where links must be followed to discover more documents.
+            Valid targets are Solid seed documents/containers (not endpoint URLs).
           </li>
         </ul>
       </section>
