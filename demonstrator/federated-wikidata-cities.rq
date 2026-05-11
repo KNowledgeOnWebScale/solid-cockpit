@@ -15,12 +15,5 @@ WHERE {
     ?city rdfs:label ?cityLabel .
     ?country rdfs:label ?countryLabel .
   }
-
-  SERVICE <https://dbpedia.org/sparql> {
-    ?dbpediaCity rdfs:label ?cityLabel ;
-                 dbo:abstract ?dbpediaAbstract .
-    FILTER(lang(?cityLabel) = "en")
-    FILTER(lang(?dbpediaAbstract) = "en")
-  }
 }
 LIMIT 20

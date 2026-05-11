@@ -2538,11 +2538,25 @@ export default {
           line.startsWith("# QueryMode:"),
         );
         if (sourceLine) {
+          // Datasource declarations are whitespace-delimited (not comma-delimited).
+          // We still tolerate commas to remain backwards-compatible with older
+          // example files while allowing the new canonical spacing format.
           sources = sourceLine
             .replace("# Datasources:", "")
             .trim()
-            .split(",")
-            .map((s) => `<${s.trim()}>`);
+            .split(/[\s,]+/)
+            .filter((source) => source.length > 0)
+            .map((source) => {
+              const normalized = source.trim();
+              if (
+                normalized.startsWith("<") &&
+                normalized.endsWith(">") &&
+                normalized.length > 2
+              ) {
+                return normalized;
+              }
+              return `<${normalized}>`;
+            });
         }
 
         const declaredMode = queryModeLine
