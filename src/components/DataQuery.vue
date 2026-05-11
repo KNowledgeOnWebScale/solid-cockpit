@@ -167,7 +167,7 @@
                 <v-select
                   class="example-queries"
                   :item-props="itemPropsExampleQueries"
-                  :items="exampleQueries"
+                  :items="availableExampleQueries"
                   v-model="selectedExampleId"
                   @update:modelValue="onSelectExample"
                   density="compact"
@@ -175,7 +175,12 @@
                   prepend-inner-icon="mdi-lightbulb-on-outline"
                   menu-icon="mdi-chevron-down"
                   rounded
-                  placeholder="Sample Queries"
+                  :placeholder="
+                    availableExampleQueries.length > 0
+                      ? 'Sample Queries'
+                      : 'No examples for selected query mode'
+                  "
+                  :disabled="availableExampleQueries.length === 0"
                   hide-details
                   persistent-placeholder
                 ></v-select>
@@ -184,6 +189,30 @@
                     selectedExampleInfo.category
                   }}</span>
                 </div>
+              </div>
+            </div>
+
+            <div class="query-mode-container">
+              <div class="query-mode-header">
+                <span class="query-mode-title">Query mode</span>
+                <span class="query-mode-valid-targets">
+                  Valid targets: {{ selectedQueryModeInfo.validTargets }}
+                </span>
+              </div>
+              <div class="query-mode-options">
+                <button
+                  v-for="mode in queryModes"
+                  :key="mode.id"
+                  class="query-mode-option"
+                  :class="{ active: queryMode === mode.id }"
+                  type="button"
+                  @click="queryMode = mode.id"
+                >
+                  <span class="query-mode-option-label">{{ mode.label }}</span>
+                  <span class="query-mode-option-description">{{
+                    mode.recommendedUse
+                  }}</span>
+                </button>
               </div>
             </div>
 
@@ -1007,6 +1036,14 @@
             </div>
           </div>
 
+          <div class="query-error-mode" v-if="queryError">
+            <span class="query-error-section-label">Mode</span>
+            <div class="query-error-mode-copy">
+              <code>{{ getQueryModeLabel(queryError.mode) }}</code>
+              <span>{{ getQueryModeValidTargets(queryError.mode) }}</span>
+            </div>
+          </div>
+
           <div
             class="query-error-endpoints"
             v-if="queryError?.endpoints && queryError.endpoints.length > 0"
@@ -1063,6 +1100,9 @@ import {
   ComunicaSources,
   executeQueryInMainThread,
   renameCachedQueryEntry,
+  QUERY_MODE_DEFINITIONS,
+  QueryExecutionMode,
+  validateQuerySourcesForMode,
 } from "../services/query/queryPod";
 import {
   fetchPermissionsData,
@@ -1081,20 +1121,26 @@ import {
 import PodLogin from "./PodLogin.vue";
 import PodRegistration from "./PodRegistration.vue";
 import DataQueryGuide from "./Guides/DataQueryGuide.vue";
-import { toRaw, nextTick } from "vue";
+import { toRaw, nextTick, shallowRef, markRaw } from "vue";
+// YASQE FIX: load editor CSS statically so CodeMirror can measure line/cursor
+// geometry before the editor is constructed. Dynamic CSS loading can leave the
+// editor measuring against incomplete styles and cause cursor/text drift.
+import "@triply/yasqe/build/yasqe.min.css";
+import "@triply/yasr/build/yasr.min.css";
 import { useAuthStore } from "../stores/auth";
 
 type ExampleQueryCategory =
   | "Single SPARQL endpoint query"
   | "Federated query"
-  | "Solid query"
-  | "Mixed source federated query";
+  | "Solid query (no traversal)"
+  | "Solid query (link traversal)";
 
 type ExampleQueryRecord = {
   id: string;
   name: string;
   sources: string[];
   query: string;
+  mode: QueryExecutionMode;
   category: ExampleQueryCategory;
   description: string;
 };
@@ -1106,6 +1152,7 @@ type QueryExecutionError = {
   endpoints: string[];
   hints: string[];
   occurredAt: string;
+  mode: QueryExecutionMode;
 };
 
 const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
@@ -1116,11 +1163,13 @@ const EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS: Record<
     "Runs against one SPARQL endpoint only. Best for focused lookups in a single knowledge graph.",
   "Federated query":
     "Combines multiple endpoint services in one query execution, usually via SERVICE clauses.",
-  "Solid query":
-    "Targets Solid/local RDF resources instead of classic SPARQL endpoints.",
-  "Mixed source federated query":
-    "Combines Solid/local RDF sources with endpoint federation in one execution flow.",
+  "Solid query (no traversal)":
+    "Targets explicit Solid/local RDF source documents only, without following linked documents.",
+  "Solid query (link traversal)":
+    "Starts from Solid seed sources and follows discoverable linked documents during query evaluation.",
 };
+
+const QUERY_MODES = QUERY_MODE_DEFINITIONS;
 
 type YasqeConstructor = new (
   parent: HTMLElement,
@@ -1141,11 +1190,11 @@ async function loadQueryEditors(): Promise<void> {
   }
   if (!queryEditorsLoadPromise) {
     queryEditorsLoadPromise = (async () => {
+      // YASQE FIX: only lazy-load the JS constructors here. The CSS is imported
+      // statically above so CodeMirror/YASQE layout measurements are stable.
       const [{ default: YasqeCtor }, { default: YasrCtor }] = await Promise.all([
         import("@triply/yasqe"),
         import("@triply/yasr"),
-        import("@triply/yasqe/build/yasqe.min.css"),
-        import("@triply/yasr/build/yasr.min.css"),
       ]);
       yasqeConstructor = YasqeCtor as YasqeConstructor;
       yasrConstructor = YasrCtor as YasrConstructor;
@@ -1163,9 +1212,12 @@ export default {
   // TODO: Integrate demonstrators + example queries
   data() {
     return {
-      yasqe: null as any,
-      yasr: null as any,
-      cachedYasr: null as any,
+      // YASQE FIX: keep CodeMirror/YASQE/YASR instances out of Vue's deep
+      // reactivity graph. These are imperative editor/viewer objects with DOM
+      // references and layout caches; proxying them can corrupt cursor geometry.
+      yasqe: shallowRef<any | null>(null),
+      yasr: shallowRef<any | null>(null),
+      cachedYasr: shallowRef<any | null>(null),
       resultsForYasr: null as QueryResultJson | null,
       queryError: null as QueryExecutionError | null,
       successfulLogin: false as boolean,
@@ -1193,6 +1245,7 @@ export default {
         query: "" as string,
         output: null as any,
       },
+      queryMode: "endpoint" as QueryExecutionMode,
       sourceEditorText: "" as string,
       editingSourceIndex: null as number | null,
       sourceEditorFocused: false as boolean,
@@ -1241,7 +1294,6 @@ export default {
       showResultQuery: false as boolean,
       cachedQueryIndex: null as number | null,
       worker: null as Worker | null,
-      containsSolidSources: false as boolean,
       customCachePath: "" as string,
       useCustomCachePath: false as boolean,
       showCustomCache: false as boolean,
@@ -1276,9 +1328,18 @@ export default {
       // URL and local draft synchronization keep query editor state recoverable.
       syncingQueryStateFromUrl: false as boolean,
       queryStateSyncTimerId: null as number | null,
+      isYasqeFocused: false as boolean,
+      pendingUrlSyncWhileEditing: false as boolean,
+      pendingHashWhileEditing: null as string | null,
+      deferredYasqeRefreshTimerId: null as number | null,
+      // YASQE FIX: observe the editor container directly instead of refreshing
+      // after unrelated reactive updates such as result rendering/loading.
+      yasqeResizeObserver: null as ResizeObserver | null,
+      removeFontLoadingDoneListener: null as null | (() => void),
       lastExecutedQuerySignature: "" as string,
       queryUrlShareFeedback: null as string | null,
       queryUrlShareSuccess: false as boolean,
+      queryModes: QUERY_MODES,
     };
   },
   computed: {
@@ -1322,13 +1383,22 @@ export default {
      * Resolves the selected sample query from a stable ID so editor updates do
      * not depend on object identity from the dropdown internals.
      */
+    availableExampleQueries() {
+      return this.exampleQueries.filter(
+        (example) => example.mode === this.queryMode,
+      );
+    },
+    /**
+     * Resolves the selected sample query within the currently selected engine
+     * mode so hidden cross-mode entries are never treated as active.
+     */
     selectedExampleRecord() {
       if (!this.selectedExampleId) {
         return null;
       }
 
       return (
-        this.exampleQueries.find(
+        this.availableExampleQueries.find(
           (example) => example.id === this.selectedExampleId,
         ) || null
       );
@@ -1342,6 +1412,12 @@ export default {
       return {
         category: this.selectedExampleRecord.category,
       };
+    },
+    selectedQueryModeInfo() {
+      return (
+        this.queryModes.find((mode) => mode.id === this.queryMode) ||
+        this.queryModes[0]
+      );
     },
     /**
      * Keeps the suggestion list aligned with the current editor text while
@@ -1459,6 +1535,115 @@ export default {
     updateQueryLayoutMode() {
       if (typeof window === "undefined") return;
       this.isCompactQueryLayout = window.innerWidth <= 1080;
+      this.scheduleYasqeRefresh("layout-resize");
+    },
+    /**
+     * CodeMirror/YASQE renders incorrect cursor geometry when initialized or
+     * updated in a hidden/zero-width container. This visibility guard ensures
+     * refresh operations only run when layout measurements are meaningful.
+     */
+    isYasqeLayoutReady() {
+      if (!this.yasqe || typeof this.yasqe.refresh !== "function") return false;
+      const wrapper =
+        typeof this.yasqe.getWrapperElement === "function"
+          ? (this.yasqe.getWrapperElement() as HTMLElement | null)
+          : null;
+      if (!wrapper) return false;
+      return wrapper.offsetParent !== null && wrapper.clientWidth > 0;
+    },
+    /**
+     * YASQE FIX: queue refreshes only for real editor layout changes. CodeMirror
+     * refreshes while typing or while hidden can worsen cursor geometry, so this
+     * preserves the cursor and only measures once the wrapper is visible.
+     */
+    scheduleYasqeRefresh(reason: string, delayMs = 0) {
+      if (!this.yasqe || typeof window === "undefined") return;
+      if (this.deferredYasqeRefreshTimerId !== null) {
+        window.clearTimeout(this.deferredYasqeRefreshTimerId);
+      }
+
+      this.deferredYasqeRefreshTimerId = window.setTimeout(() => {
+        this.deferredYasqeRefreshTimerId = null;
+        this.$nextTick(() => {
+          requestAnimationFrame(() => {
+            const editor = this.yasqe;
+            if (!editor || typeof editor.refresh !== "function") return;
+            if (!this.isYasqeLayoutReady()) return;
+
+            const cursor =
+              typeof editor.getCursor === "function" ? editor.getCursor() : null;
+
+            try {
+              editor.refresh();
+
+              // YASQE FIX: if a resize/font refresh happens while focused, keep
+              // the user's cursor where it was instead of letting refresh move it.
+              if (
+                this.isYasqeFocused &&
+                cursor &&
+                typeof editor.setCursor === "function"
+              ) {
+                editor.setCursor(cursor);
+              }
+            } catch (error) {
+              console.warn(`YASQE refresh failed (${reason}):`, error);
+            }
+          });
+        });
+      }, delayMs);
+    },
+    /**
+     * Centralizes YASQE event binding so query edits remain strictly
+     * editor-driven and external URL state is only applied when safe.
+     */
+    bindYasqeEditorEvents(editor: any) {
+      editor.on("change", (instance: any) => {
+        this.syncingFromYasqeEditor = true;
+        try {
+          this.currentQuery.query = instance.getValue();
+        } finally {
+          this.syncingFromYasqeEditor = false;
+        }
+      });
+      editor.on("focus", () => {
+        this.isYasqeFocused = true;
+      });
+      editor.on("blur", () => {
+        this.isYasqeFocused = false;
+        if (this.pendingUrlSyncWhileEditing) {
+          this.replaceUrlHashWithQueryState(true);
+        }
+        // Apply deferred hash changes only after editing focus leaves YASQE.
+        if (this.pendingHashWhileEditing) {
+          const deferredHash = this.pendingHashWhileEditing;
+          this.pendingHashWhileEditing = null;
+          this.applyQueryStateFromUrlHash(deferredHash);
+        }
+        this.scheduleYasqeRefresh("editor-blur", 0);
+      });
+    },
+    /**
+     * One-way sync helper:
+     * only explicit external state changes (URL decode, sample selection) may
+     * write into YASQE. Regular typing always flows editor -> model -> URL.
+     */
+    syncYasqeFromExternalQuery(
+      queryText: string,
+      options?: { focus?: boolean; moveCursorToTop?: boolean },
+    ) {
+      if (!this.yasqe) return;
+      const currentEditorValue =
+        typeof this.yasqe.getValue === "function" ? this.yasqe.getValue() : null;
+      if (currentEditorValue !== queryText) {
+        this.yasqe.setValue(queryText);
+      }
+      if (options?.moveCursorToTop && typeof this.yasqe.setCursor === "function") {
+        this.yasqe.setCursor({ line: 0, ch: 0 });
+      }
+      if (options?.focus && typeof this.yasqe.focus === "function") {
+        this.yasqe.focus();
+      }
+      this.scheduleYasqeRefresh("external-query-sync", 0);
     },
     /**
      * Produces a stable representation of the active query state so the share
@@ -1468,6 +1653,7 @@ export default {
       return JSON.stringify({
         query: this.currentQuery.query.trim(),
         sources: [...this.currentQuery.sources],
+        queryMode: this.queryMode,
         saveQuery: this.saveQuery,
         useCustomCachePath: this.useCustomCachePath,
         customCachePath: this.customCachePath.trim(),
@@ -1487,6 +1673,7 @@ export default {
       const draft = {
         query: this.currentQuery.query,
         sources: [...this.currentQuery.sources],
+        queryMode: this.queryMode,
         saveQuery: this.saveQuery,
         useCustomCachePath: this.useCustomCachePath,
         customCachePath: this.customCachePath,
@@ -1506,6 +1693,7 @@ export default {
         const parsedDraft = JSON.parse(rawDraft) as {
           query?: string;
           sources?: string[];
+          queryMode?: QueryExecutionMode;
           saveQuery?: boolean;
           useCustomCachePath?: boolean;
           customCachePath?: string;
@@ -1516,6 +1704,12 @@ export default {
         this.currentQuery.sources = Array.isArray(parsedDraft.sources)
           ? parsedDraft.sources
           : this.currentQuery.sources;
+        if (
+          parsedDraft.queryMode &&
+          this.queryModes.some((mode) => mode.id === parsedDraft.queryMode)
+        ) {
+          this.queryMode = parsedDraft.queryMode;
+        }
         this.saveQuery = parsedDraft.saveQuery ?? this.saveQuery;
         this.useCustomCachePath =
           parsedDraft.useCustomCachePath ?? this.useCustomCachePath;
@@ -1536,7 +1730,7 @@ export default {
      */
     buildQueryStateHash() {
       const params = new URLSearchParams();
-      const queryText = this.currentQuery.query.trim();
+      const queryText = this.currentQuery.query;
       const normalizedSources = this.currentQuery.sources
         .map((source) => source.trim())
         .filter((source) => source.length > 0);
@@ -1545,22 +1739,25 @@ export default {
         params.set("query", queryText);
       }
       if (normalizedSources.length > 0) {
-        params.set("transientDatasources", normalizedSources.join(","));
+        // Comunica-like URL state: each datasource is independently encoded.
+        normalizedSources.forEach((source) => params.append("source", source));
       }
+      params.set("queryMode", this.queryMode);
       if (this.saveQuery) {
         params.set("saveQuery", "true");
-      }
-      if (this.useCustomCachePath) {
-        params.set("useCustomCachePath", "true");
-      }
-      if (this.customCachePath.trim()) {
-        params.set("customCachePath", this.customCachePath.trim());
       }
 
       return params.toString();
     },
-    replaceUrlHashWithQueryState() {
+    replaceUrlHashWithQueryState(force = false) {
       if (typeof window === "undefined" || this.syncingQueryStateFromUrl) return;
+      if (this.isYasqeFocused && !force) {
+        // Keep URL updates one-way but defer writes while typing to avoid any
+        // browser hash side-effects during active cursor movement.
+        this.pendingUrlSyncWhileEditing = true;
+        return;
+      }
+      this.pendingUrlSyncWhileEditing = false;
 
       const hashPayload = this.buildQueryStateHash();
       const nextHash = hashPayload ? `#${hashPayload}` : "";
@@ -1572,12 +1769,14 @@ export default {
     /**
      * Reads query state from URL hash and applies it to the editor model.
      */
-    applyQueryStateFromUrlHash() {
+    applyQueryStateFromUrlHash(rawHashOverride?: string) {
       if (typeof window === "undefined") return;
 
-      const rawHash = window.location.hash.startsWith("#")
-        ? window.location.hash.slice(1)
-        : window.location.hash;
+      const effectiveHash =
+        rawHashOverride !== undefined ? rawHashOverride : window.location.hash;
+      const rawHash = effectiveHash.startsWith("#")
+        ? effectiveHash.slice(1)
+        : effectiveHash;
       if (!rawHash) return;
 
       const params = new URLSearchParams(rawHash);
@@ -1586,6 +1785,7 @@ export default {
       const transientSources = params.get("transientDatasources");
       const hasSourceParam =
         explicitSources.length > 0 || params.has("transientDatasources");
+      const queryModeParam = params.get("queryMode");
       const parsedSources =
         explicitSources.length > 0
           ? explicitSources
@@ -1598,8 +1798,12 @@ export default {
 
       this.syncingQueryStateFromUrl = true;
       try {
+        let shouldSyncEditorQuery = false;
         if (queryText !== null) {
-          this.currentQuery.query = queryText;
+          if (this.currentQuery.query !== queryText) {
+            this.currentQuery.query = queryText;
+            shouldSyncEditorQuery = true;
+          }
         }
         if (hasSourceParam) {
           this.currentQuery.sources = parsedSources;
@@ -1608,6 +1812,14 @@ export default {
           // source-less execution and should override any stored draft sources.
           this.currentQuery.sources = [];
         }
+        if (
+          queryModeParam &&
+          this.queryModes.some((mode) => mode.id === queryModeParam)
+        ) {
+          this.queryMode = queryModeParam as QueryExecutionMode;
+        } else if (queryText !== null) {
+          this.queryMode = "endpoint";
+        }
 
         const saveQueryFlag = params.get("saveQuery");
         if (saveQueryFlag !== null) {
@@ -1615,28 +1827,23 @@ export default {
         } else if (queryText !== null) {
           this.saveQuery = false;
         }
+        this.syncSelectedExampleForMode();
 
-        const customCacheEnabledFlag = params.get("useCustomCachePath");
-        if (customCacheEnabledFlag !== null) {
-          this.useCustomCachePath = customCacheEnabledFlag === "true";
-        } else if (queryText !== null) {
-          this.useCustomCachePath = false;
+        if (shouldSyncEditorQuery) {
+          this.$nextTick(() => {
+            this.syncYasqeFromExternalQuery(this.currentQuery.query);
+          });
         }
-
-        const customCachePath = params.get("customCachePath");
-        if (customCachePath !== null) {
-          this.customCachePath = customCachePath;
-        } else if (queryText !== null) {
-          this.customCachePath = "";
-        }
-        this.showCustomCache = !!(
-          this.useCustomCachePath || this.customCachePath.trim()
-        );
       } finally {
         this.syncingQueryStateFromUrl = false;
       }
     },
     handleQueryHashChange() {
+      if (this.isYasqeFocused && typeof window !== "undefined") {
+        // Do not re-hydrate URL state into YASQE mid-edit; queue it for blur.
+        this.pendingHashWhileEditing = window.location.hash;
+        return;
+      }
       this.applyQueryStateFromUrlHash();
     },
     /**
@@ -1681,7 +1888,8 @@ export default {
       this.queryUrlShareSuccess = false;
 
       try {
-        this.replaceUrlHashWithQueryState();
+        // Force a final URL sync before copy, even if editor is focused.
+        this.replaceUrlHashWithQueryState(true);
         const shareUrl = window.location.href;
         await navigator.clipboard.writeText(shareUrl);
         this.queryUrlShareSuccess = true;
@@ -2020,6 +2228,16 @@ export default {
         title: item,
       };
     },
+    getQueryModeLabel(mode: QueryExecutionMode) {
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
+      return modeDetails.label;
+    },
+    getQueryModeValidTargets(mode: QueryExecutionMode) {
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
+      return `Valid targets: ${modeDetails.validTargets}`;
+    },
     isLikelySparqlEndpointSource(source: string) {
       const normalizedSource = this.normalizeSourceUrlForValidation(source);
       return /\/sparql\/?$/i.test(normalizedSource) || /sparql/i.test(normalizedSource);
@@ -2028,14 +2246,21 @@ export default {
       return !this.isLikelySparqlEndpointSource(source);
     },
     /**
-     * Categorizes example queries so users can pick the right starting point
-     * for endpoint-only, federated, Solid, or mixed-source workflows.
+     * Determines the target query engine mode for an example query. Authors can
+     * explicitly pin a mode via `# QueryMode: <mode-id>` in the .rq file.
      */
-    categorizeExampleQuery(
-      queryText: string,
+    determineExampleQueryMode(
+      _queryText: string,
       sources: string[],
-    ): ExampleQueryCategory {
-      const hasServiceClause = /service\s*<[^>]+>/i.test(queryText);
+      declaredMode?: string,
+    ): QueryExecutionMode {
+      if (
+        declaredMode &&
+        this.queryModes.some((mode) => mode.id === declaredMode)
+      ) {
+        return declaredMode as QueryExecutionMode;
+      }
+
       const endpointSourceCount = sources.filter((source) =>
         this.isLikelySparqlEndpointSource(source),
       ).length;
@@ -2043,13 +2268,33 @@ export default {
         this.isLikelySolidOrRdfSource(source),
       ).length;
 
-      if (solidOrRdfSourceCount > 0 && endpointSourceCount > 0) {
-        return "Mixed source federated query";
+      if (solidOrRdfSourceCount > 0 && endpointSourceCount === 0) {
+        return "solid-no-traversal";
       }
 
-      if (solidOrRdfSourceCount > 0 && endpointSourceCount === 0) {
-        return "Solid query";
+      // Fallback keeps legacy demonstrator files stable.
+      return "endpoint";
+    },
+    /**
+     * Categorizes example queries so users can pick the right starting point
+     * for endpoint-only, federated, Solid no-traversal, or Solid traversal workflows.
+     */
+    categorizeExampleQuery(
+      queryText: string,
+      sources: string[],
+      mode: QueryExecutionMode,
+    ): ExampleQueryCategory {
+      if (mode === "solid-link-traversal") {
+        return "Solid query (link traversal)";
       }
+      if (mode === "solid-no-traversal") {
+        return "Solid query (no traversal)";
+      }
+
+      const hasServiceClause = /service\s*<[^>]+>/i.test(queryText);
+      const endpointSourceCount = sources.filter((source) =>
+        this.isLikelySparqlEndpointSource(source),
+      ).length;
 
       if (
         hasServiceClause ||
@@ -2060,6 +2305,19 @@ export default {
       }
 
       return "Single SPARQL endpoint query";
+    },
+    /**
+     * Ensures the selected example remains valid when users switch query
+     * engines; stale selections are cleared to avoid mode/query mismatches.
+     */
+    syncSelectedExampleForMode() {
+      if (!this.selectedExampleId) return;
+      const stillAvailable = this.availableExampleQueries.some(
+        (example) => example.id === this.selectedExampleId,
+      );
+      if (!stillAvailable) {
+        this.selectedExampleId = null;
+      }
     },
     /**
      * Extract endpoint URLs from the surfaced error message so users can
@@ -2073,9 +2331,15 @@ export default {
      * Creates concise remediation hints based on common endpoint failure
      * signatures (CORS/auth/timeout/rate-limit/syntax).
      */
-    buildQueryErrorHints(message: string, endpoints: string[]): string[] {
+    buildQueryErrorHints(
+      message: string,
+      endpoints: string[],
+      mode: QueryExecutionMode
+    ): string[] {
       const normalized = message.toLowerCase();
       const hints: string[] = [];
+      const modeDetails =
+        this.queryModes.find((entry) => entry.id === mode) || this.queryModes[0];
 
       if (normalized.includes("cors") || normalized.includes("cross-origin")) {
         hints.push(
@@ -2115,6 +2379,24 @@ export default {
           "Review SPARQL syntax and PREFIX declarations, especially around SERVICE blocks."
         );
       }
+      if (
+        normalized.includes("expects sparql endpoint urls only") ||
+        normalized.includes("does not accept sparql endpoint targets")
+      ) {
+        hints.push(
+          `Selected mode "${modeDetails.label}" has strict target requirements. ${modeDetails.validTargets}`
+        );
+      }
+      if (normalized.includes("link-traversal mode requires")) {
+        hints.push(
+          "Install @comunica/query-sparql-link-traversal-solid to enable Solid link-traversal execution."
+        );
+      }
+      if (mode === "solid-link-traversal") {
+        hints.push(
+          "Link traversal follows discovered links and may be slower. Start from focused Solid seed sources."
+        );
+      }
       if (endpoints.length === 0) {
         hints.push(
           "No endpoint URL was detected in the error; check browser console details for the failing request."
@@ -2127,7 +2409,10 @@ export default {
      * Converts runtime query failures into a stable display object used by
      * both the in-page error panel and cache-entry diagnostics.
      */
-    buildQueryExecutionError(errorLike: unknown): QueryExecutionError {
+    buildQueryExecutionError(
+      errorLike: unknown,
+      mode: QueryExecutionMode = this.queryMode
+    ): QueryExecutionError {
       const fallbackMessage = "Unknown query execution error.";
       const message =
         errorLike instanceof Error
@@ -2136,7 +2421,7 @@ export default {
             ? errorLike
             : JSON.stringify(errorLike ?? fallbackMessage);
       const endpoints = this.collectErrorEndpoints(message);
-      const hints = this.buildQueryErrorHints(message, endpoints);
+      const hints = this.buildQueryErrorHints(message, endpoints, mode);
 
       const firstSentence = message.split("\n")[0]?.trim() || fallbackMessage;
       const summary =
@@ -2151,6 +2436,7 @@ export default {
         endpoints,
         hints,
         occurredAt: new Date().toISOString(),
+        mode,
       };
     },
     /**
@@ -2169,6 +2455,7 @@ export default {
 
       return [
         "Execution status: failed",
+        `Query mode: ${errorInfo.mode}`,
         `Occurred at: ${errorInfo.occurredAt}`,
         endpointSection,
         hintSection,
@@ -2189,8 +2476,9 @@ export default {
 
       const sourceUrlsForCache = cleanedSources.map((source) => source.value);
       const failedEntryHash = buildCacheEntryHash(
-        `${this.currentQuery.query}\n# failed at ${errorInfo.occurredAt}`,
+        `${this.currentQuery.query}\n# failed at ${errorInfo.occurredAt}\n# mode: ${this.queryMode}`,
         sourceUrlsForCache,
+        [this.queryMode],
       );
       const fallbackEmptyResults: QueryResultJson = {
         head: { vars: [] },
@@ -2246,24 +2534,55 @@ export default {
         const sourceLine = lines.find((line) =>
           line.startsWith("# Datasources:"),
         );
+        const queryModeLine = lines.find((line) =>
+          line.startsWith("# QueryMode:"),
+        );
         if (sourceLine) {
+          // Datasource declarations are whitespace-delimited (not comma-delimited).
+          // We still tolerate commas to remain backwards-compatible with older
+          // example files while allowing the new canonical spacing format.
           sources = sourceLine
             .replace("# Datasources:", "")
             .trim()
-            .split(",")
-            .map((s) => `<${s.trim()}>`);
+            .split(/[\s,]+/)
+            .filter((source) => source.length > 0)
+            .map((source) => {
+              const normalized = source.trim();
+              if (
+                normalized.startsWith("<") &&
+                normalized.endsWith(">") &&
+                normalized.length > 2
+              ) {
+                return normalized;
+              }
+              return `<${normalized}>`;
+            });
         }
 
+        const declaredMode = queryModeLine
+          ? queryModeLine.replace("# QueryMode:", "").trim()
+          : undefined;
+
         const query = lines
-          .filter((line) => !line.startsWith("# Datasources:"))
+          .filter(
+            (line) =>
+              !line.startsWith("# Datasources:") &&
+              !line.startsWith("# QueryMode:"),
+          )
           .join("\n")
           .trim();
 
-        const category = this.categorizeExampleQuery(query, sources);
+        const mode = this.determineExampleQueryMode(
+          query,
+          sources,
+          declaredMode,
+        );
+        const category = this.categorizeExampleQuery(query, sources, mode);
         queries.push({
           id: rawName,
           name,
           sources,
+          mode,
           query,
           category,
           description: EXAMPLE_QUERY_CATEGORY_DESCRIPTIONS[category],
@@ -2274,29 +2593,40 @@ export default {
         if (categorySort !== 0) return categorySort;
         return left.name.localeCompare(right.name);
       });
+      this.syncSelectedExampleForMode();
     },
     // displays example query in YASQUE
     onSelectExample(exampleId: string | null) {
-      if (!exampleId || !this.yasqe) return;
+      if (!exampleId) return;
 
-      const example = this.exampleQueries.find((item) => item.id === exampleId);
+      const example = this.availableExampleQueries.find(
+        (item) => item.id === exampleId,
+      );
       if (!example) return;
 
       // Clone example sources so user edits never mutate the static sample list.
       this.currentQuery.sources = [...example.sources];
       this.currentQuery.query = example.query || "";
-
-      const editor = this.yasqe;
-      editor.setValue(this.currentQuery.query);
-      editor.setCursor({ line: 0, ch: 0 });
-      editor.focus();
+      this.queryMode = example.mode;
+      this.syncYasqeFromExternalQuery(this.currentQuery.query, {
+        focus: true,
+        moveCursorToTop: true,
+      });
     },
 
-    /* Determines whether sources contain a Solid source and reflects this in boolean */
-    checkSolidSources(querySources: ComunicaSources[]) {
-      this.containsSolidSources = querySources.some(
-        (source) => source.context != null,
-      );
+    /**
+     * Routes execution to the selected query engine mode.
+     * Endpoint mode keeps worker-based execution; Solid modes run in the main
+     * thread because Solid-authenticated Comunica engines cannot run in workers.
+     */
+    async executeQueryByMode(
+      query: string,
+      providedSources: ComunicaSources[],
+    ): Promise<CacheOutput | null | Error> {
+      if (this.queryMode === "endpoint") {
+        return this.executeQuery(query, providedSources);
+      }
+      return executeQueryInMainThread(query, providedSources, this.queryMode);
     },
     /**
      * Narrow unknown output values to the expected cache/query result object.
@@ -2439,7 +2769,16 @@ export default {
 
       // make sources into a ComunicaSources[]
       const cleanedSources = cleanSourcesUrls(this.currentQuery.sources);
-      this.checkSolidSources(cleanedSources);
+      try {
+        validateQuerySourcesForMode(this.queryMode, cleanedSources);
+      } catch (validationError) {
+        this.queryError = this.buildQueryExecutionError(
+          validationError,
+          this.queryMode,
+        );
+        this.loading = false;
+        return;
+      }
 
       try {
         // if Save Query box is selected (pod must be connected)
@@ -2463,23 +2802,15 @@ export default {
             this.currentQuery.query,
             cleanedSources,
             this.cachePath,
+            this.queryMode,
           );
 
           // If the output is a string, it means there was no matching entry in the cache
           if (this.currentQuery.output === "no-cache") {
-            // if there are NOT solid sources use the Worker
-            if (!this.containsSolidSources) {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            } else {
-              // if there are Solid sources, use custom execution in main thread
-              this.currentQuery.output = await executeQueryInMainThread(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            }
+            this.currentQuery.output = await this.executeQueryByMode(
+              this.currentQuery.query,
+              cleanedSources,
+            );
           }
 
           // obtaining query cache hash if the cache contains a similar query
@@ -2508,38 +2839,21 @@ export default {
               this.currentQuery.query,
               cleanedSources,
               this.cachePath,
+              this.queryMode,
             );
 
             // If the output is a string, it means there was no matching entry in the cache
             if (this.currentQuery.output === "no-cache") {
-              // if there are NOT solid sources use the Worker
-              if (!this.containsSolidSources) {
-                this.currentQuery.output = await this.executeQuery(
-                  this.currentQuery.query,
-                  cleanedSources,
-                );
-              } else {
-                // if there are Solid sources, use custom execution in main thread
-                this.currentQuery.output = await executeQueryInMainThread(
-                  this.currentQuery.query,
-                  cleanedSources,
-                );
-              }
+              this.currentQuery.output = await this.executeQueryByMode(
+                this.currentQuery.query,
+                cleanedSources,
+              );
             }
           } else {
-            // if there are NOT solid sources --> use the Worker
-            if (!this.containsSolidSources) {
-              this.currentQuery.output = await this.executeQuery(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            } else {
-              // if there are Solid sources, use custom execution in main thread
-              this.currentQuery.output = await executeQueryInMainThread(
-                this.currentQuery.query,
-                cleanedSources,
-              );
-            }
+            this.currentQuery.output = await this.executeQueryByMode(
+              this.currentQuery.query,
+              cleanedSources,
+            );
           }
 
           // try to obtain cache hash if the cache contains a similar query
@@ -2610,6 +2924,7 @@ export default {
           this.currHash = buildCacheEntryHash(
             this.currentQuery.query,
             this.currentQuery.sources,
+            [this.queryMode],
           );
 
           // Persist the concrete cache members first, then register the entry in queries.ttl.
@@ -2766,24 +3081,49 @@ export default {
       //   this.abortController.abort();
       // }
     },
-    // Resets the currentQuery object to its initial state
+    // Resets query/editor state in a YASQE-compatible order.
     clearQuery() {
-      this.currentQuery = {
-        name: "",
-        sources: [],
-        query: "",
-        output: null,
-      };
+      // Keep object identity stable to avoid unnecessary reactive churn while
+      // CodeMirror/YASQE is also dispatching its own change events.
+      this.currentQuery.name = "";
+      this.currentQuery.sources = [];
+      this.currentQuery.output = null;
       this.lastExecutedQuerySignature = "";
       this.queryUrlShareFeedback = null;
       this.queryUrlShareSuccess = false;
-      if (this.yasqe) {
-        this.yasqe.setValue("");
-      }
       this.selectedExampleId = null;
       this.resultsForYasr = null;
       this.queryError = null;
+
+      // Clear source-chip editing UI so stale inline edits are not left active.
+      this.sourceEditorText = "";
+      this.editingSourceIndex = null;
+      this.sourceSuggestionsOpen = false;
+
+      if (this.yasqe) {
+        // Editor-first clear: keep YASQE as source of truth for query text.
+        this.syncYasqeFromExternalQuery("", {
+          moveCursorToTop: true,
+        });
+
+        // Align with CodeMirror guidance: clear history after setValue so undo
+        // does not bring back the previously cleared query buffer.
+        const editorDoc =
+          typeof this.yasqe.getDoc === "function" ? this.yasqe.getDoc() : null;
+        if (editorDoc && typeof editorDoc.clearHistory === "function") {
+          editorDoc.clearHistory();
+        }
+      }
+
+      // Ensure model is cleared even in environments where editor change events
+      // are delayed or suppressed.
+      this.currentQuery.query = "";
+
+      // Drop any deferred URL hydration/update work tied to the previous query.
+      this.pendingHashWhileEditing = null;
+      this.pendingUrlSyncWhileEditing = false;
       this.scheduleQueryStateSync();
+      this.scheduleYasqeRefresh("clear-query", 0);
     },
 
     async ensureQueryEditorsLoaded() {
@@ -2796,10 +3136,14 @@ export default {
       await this.ensureQueryEditorsLoaded();
       if (!yasrConstructor) return;
       if (this.yasr) parent.replaceChildren();
-      this.yasr = new yasrConstructor(parent, {
-        pluginOrder: ["table", "response"],
-        defaultPlugin: "table",
-      });
+      // YASQE FIX: mark YASR raw for the same reason as YASQE; it owns DOM and
+      // measurement state and should not be Vue-proxied.
+      this.yasr = markRaw(
+        new yasrConstructor(parent, {
+          pluginOrder: ["table", "response"],
+          defaultPlugin: "table",
+        }),
+      );
     },
     /**
      * Render any SPARQL JSON result (SELECT/ASK) into YASR
@@ -2831,10 +3175,13 @@ export default {
       if (this.cachedYasr) {
         parent.replaceChildren();
       }
-      this.cachedYasr = new yasrConstructor(parent, {
-        pluginOrder: ["table"],
-        defaultPlugin: "table",
-      });
+      // YASQE FIX: cached preview YASR is also a raw third-party instance.
+      this.cachedYasr = markRaw(
+        new yasrConstructor(parent, {
+          pluginOrder: ["table"],
+          defaultPlugin: "table",
+        }),
+      );
     },
     destroyCachedYasr() {
       const parent = document.getElementById("cached-yasr-container");
@@ -3131,6 +3478,10 @@ export default {
     saveQuery() {
       this.handleEditableQueryStateChanged();
     },
+    queryMode() {
+      this.syncSelectedExampleForMode();
+      this.handleEditableQueryStateChanged();
+    },
     cacheError(newValue) {
       if (newValue) {
         this.showCustomCache = true;
@@ -3145,15 +3496,9 @@ export default {
       }
       this.handleEditableQueryStateChanged();
     },
-    "currentQuery.query"(newQuery: string) {
-      // Avoid write-back loops when CodeMirror itself is the source of change.
-      if (!this.syncingFromYasqeEditor) {
-        this.$nextTick(() => {
-          if (this.yasqe && this.yasqe.getValue() !== newQuery) {
-            this.yasqe.setValue(newQuery);
-          }
-        });
-      }
+    "currentQuery.query"() {
+      // One-way sync policy: never force reactive query changes back into
+      // YASQE during normal edits. URL updates are derived from this model.
       this.handleEditableQueryStateChanged();
     },
     resultsForYasr: {
@@ -3161,9 +3506,23 @@ export default {
         if (newResults && newResults.results && !this.loading) {
           this.$nextTick(() => {
             void this.renderYasrFromJson(newResults);
+            // YASQE FIX: do not refresh the query editor just because results
+            // rendered. YASR updates are unrelated to CodeMirror measurement and
+            // can otherwise disturb an editor that was working correctly.
           });
         }
       },
+    },
+    loading(newValue) {
+      if (newValue) return;
+      // YASQE FIX: intentionally no YASQE refresh here. Loading completion
+      // does not resize/unhide the editor; ResizeObserver handles real layout
+      // changes without coupling CodeMirror refreshes to unrelated state.
+    },
+    currentView(newView: "newQuery" | "previousQueries") {
+      if (newView === "newQuery") {
+        this.scheduleYasqeRefresh("view-switched-to-editor");
+      }
     },
   },
   beforeUnmount() {
@@ -3173,6 +3532,16 @@ export default {
       window.clearTimeout(this.queryStateSyncTimerId);
       this.queryStateSyncTimerId = null;
     }
+    if (this.deferredYasqeRefreshTimerId !== null) {
+      window.clearTimeout(this.deferredYasqeRefreshTimerId);
+      this.deferredYasqeRefreshTimerId = null;
+    }
+    // YASQE FIX: disconnect the editor container observer before destroying the
+    // editor instance so no pending resize callback touches a destroyed editor.
+    this.yasqeResizeObserver?.disconnect();
+    this.yasqeResizeObserver = null;
+    this.removeFontLoadingDoneListener?.();
+    this.removeFontLoadingDoneListener = null;
     this.saveQueryDraftToStorage();
     if (this.worker) this.worker.terminate();
     if (this.yasqe) this.yasqe.destroy();
@@ -3184,24 +3553,49 @@ export default {
   async mounted() {
     await this.authStore.initializeAuth();
     await this.ensureQueryEditorsLoaded();
-    this.loadExampleQueries();
+    await this.loadExampleQueries();
     // Restore draft first, then let an explicit URL hash override it.
     this.restoreQueryDraftFromStorage();
     this.applyQueryStateFromUrlHash();
     const yasqeContainer = document.getElementById("yasqe-container");
     if (yasqeContainer && yasqeConstructor) {
-      this.yasqe = new yasqeConstructor(yasqeContainer, {
-        showQueryButton: false,
-      });
-      this.yasqe.setValue(this.currentQuery.query);
-      this.yasqe.on("change", (instance: any) => {
-        this.syncingFromYasqeEditor = true;
-        try {
-          this.currentQuery.query = instance.getValue();
-        } finally {
-          this.syncingFromYasqeEditor = false;
-        }
-      });
+      // YASQE FIX: construct the editor as a raw imperative object. Vue should
+      // track query text, not proxy CodeMirror's DOM/layout internals.
+      const editor = markRaw(
+        new yasqeConstructor(yasqeContainer, {
+          showQueryButton: false,
+        }),
+      );
+
+      this.yasqe = editor;
+      this.syncYasqeFromExternalQuery(this.currentQuery.query);
+      this.bindYasqeEditorEvents(editor);
+      this.scheduleYasqeRefresh("initial-editor-init", 0);
+
+      // YASQE FIX: refresh when the actual editor container changes size, which
+      // covers nav collapse, responsive layout, and parent panel resizing.
+      if (typeof ResizeObserver !== "undefined") {
+        // YASQE FIX: keep the observer raw too; it is an imperative browser
+        // object with callbacks, not component state.
+        this.yasqeResizeObserver = markRaw(
+          new ResizeObserver(() => {
+            this.scheduleYasqeRefresh("yasqe-container-resize", 0);
+          }),
+        );
+        this.yasqeResizeObserver.observe(yasqeContainer);
+      }
+
+      // CodeMirror docs recommend refreshing when fonts load because glyph
+      // metrics can change after initialization and skew cursor geometry.
+      const fontSet = document.fonts;
+      if (fontSet && typeof fontSet.addEventListener === "function") {
+        const onLoadingDone = () => this.scheduleYasqeRefresh("font-loadingdone", 0);
+        fontSet.addEventListener("loadingdone", onLoadingDone);
+        this.removeFontLoadingDoneListener = () => {
+          fontSet.removeEventListener("loadingdone", onLoadingDone);
+        };
+        void fontSet.ready.then(() => this.scheduleYasqeRefresh("font-ready", 0));
+      }
     }
     this.updateQueryLayoutMode();
     window.addEventListener("resize", this.updateQueryLayoutMode);
@@ -3659,6 +4053,63 @@ body {
   font-size: var(--font-size-section-title);
   font-weight: 600;
   color: var(--text-primary);
+}
+.query-mode-container {
+  margin: 0 0 0.75rem;
+  padding: 0.68rem 0.78rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--panel-elev) 92%, transparent);
+  display: grid;
+  gap: 0.5rem;
+}
+.query-mode-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.query-mode-title {
+  font-size: var(--font-size-component-title);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-mode-valid-targets {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
+}
+.query-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.query-mode-option {
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--primary) 15%);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  padding: 0.54rem 0.64rem;
+  display: grid;
+  gap: 0.25rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.query-mode-option:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.query-mode-option.active {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
+}
+.query-mode-option-label {
+  font-size: var(--font-size-component-body);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-mode-option-description {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 /* Query Container Customizations */
 #yasqe-container {
@@ -4727,6 +5178,10 @@ ul {
     margin: 0;
   }
 
+  .query-mode-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .query-container {
     width: 100%;
   }
@@ -4771,6 +5226,10 @@ ul {
 
   .sample-query-meta {
     align-items: flex-start;
+  }
+
+  .query-mode-options {
+    grid-template-columns: 1fr;
   }
 
   .nav-header-row {
@@ -4922,6 +5381,21 @@ ul {
 .query-error-hints li {
   font-size: var(--font-size-page-summary);
   color: var(--text-secondary);
+  line-height: 1.4;
+}
+.query-error-mode-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+.query-error-mode-copy code {
+  font-family: "Oxanium", monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.query-error-mode-copy span {
+  font-size: var(--font-size-page-summary);
+  color: var(--text-muted);
   line-height: 1.4;
 }
 .query-error-raw {

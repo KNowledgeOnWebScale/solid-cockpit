@@ -82,6 +82,30 @@ vi.mock("../../src/services/solid/privacyEdit.ts", () => ({
 }));
 
 vi.mock("../../src/services/query/queryPod.ts", () => ({
+  QUERY_MODE_DEFINITIONS: [
+    {
+      id: "endpoint",
+      label: "SPARQL endpoint(s)",
+      description: "Endpoint mode",
+      validTargets: "SPARQL endpoints",
+      recommendedUse: "Endpoint and federated queries",
+    },
+    {
+      id: "solid-no-traversal",
+      label: "Solid Pod (no link traversal)",
+      description: "Direct Solid mode",
+      validTargets: "Solid pod resources",
+      recommendedUse: "Known Solid documents",
+    },
+    {
+      id: "solid-link-traversal",
+      label: "Solid Pod (link traversal)",
+      description: "Traversal Solid mode",
+      validTargets: "Solid seed documents",
+      recommendedUse: "Exploratory Solid traversal",
+    },
+  ],
+  validateQuerySourcesForMode: vi.fn(() => undefined),
   ensureCacheContainer: vi.fn(async (_pod: string, _webId: string, base: string) => `${base}querycache/`),
   createQueriesTTL: vi.fn(async () => "hash-abc"),
   uploadQueryFile: vi.fn(async () => "hash-abc.rq"),
@@ -103,6 +127,7 @@ vi.mock("../../src/services/query/queryPod.ts", () => ({
       results: { bindings: [] },
     },
   })),
+  renameCachedQueryEntry: vi.fn(async () => true),
 }));
 
 vi.mock("@inrupt/solid-client", () => ({

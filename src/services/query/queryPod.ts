@@ -1,5 +1,5 @@
 import { QueryEngine as SparqlEngineCache } from "query-sparql-remote-cache";
-import { QueryEngine as SolidQueryEngine } from "@comunica/query-sparql";
+import { QueryEngine as SolidQueryEngine } from "@comunica/query-sparql-solid";
 import { KeyRemoteCache } from "actor-query-process-remote-cache";
 import { createCoiFetch } from "./z3-headers";
 import { Bindings } from "@comunica/types";
@@ -125,6 +125,56 @@ export interface CoiFetchOptions {
   onError?: (e: unknown) => void;
 }
 
+export type QueryExecutionMode =
+  | "endpoint"
+  | "solid-no-traversal"
+  | "solid-link-traversal";
+
+export interface QueryModeDefinition {
+  id: QueryExecutionMode;
+  label: string;
+  description: string;
+  validTargets: string;
+  recommendedUse: string;
+}
+
+/**
+ * Central mode metadata used by UI copy and validation hints so mode behavior
+ * stays consistent between component and service layers.
+ */
+export const QUERY_MODE_DEFINITIONS: QueryModeDefinition[] = [
+  {
+    id: "endpoint",
+    label: "SPARQL endpoint(s)",
+    description:
+      "Use Comunica @comunica/query-sparql for one or more SPARQL endpoints.",
+    validTargets:
+      "HTTP(S) SPARQL service URLs (for example /sparql, /query, /endpoint).",
+    recommendedUse:
+      "Best for classic endpoint querying and endpoint federation with SERVICE clauses.",
+  },
+  {
+    id: "solid-no-traversal",
+    label: "Solid Pod (no link traversal)",
+    description:
+      "Use Comunica @comunica/query-sparql-solid for direct pod/container/resource sources.",
+    validTargets:
+      "Solid pod resource/container URLs where you already know the RDF documents to query.",
+    recommendedUse:
+      "Best when you want predictable, bounded execution over explicit Solid documents.",
+  },
+  {
+    id: "solid-link-traversal",
+    label: "Solid Pod (link traversal)",
+    description:
+      "Use Comunica @comunica/query-sparql-link-traversal-solid to discover documents by following links.",
+    validTargets:
+      "Solid pod seed documents/containers that can be traversed to discover linked RDF documents.",
+    recommendedUse:
+      "Best for exploratory multi-document Solid queries when links must be followed dynamically.",
+  },
+];
+
 /**
  * Cleans an array of source URLs by removing angle brackets ("<" and ">")
  * Also turns string[] into a ComunicaSources[], meaning Solid sources are given auth context.
@@ -134,6 +184,78 @@ export interface CoiFetchOptions {
  */
 export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
   return cleanSourcesUrlsInternal(dirtySources, fetch);
+}
+
+export function isQueryExecutionMode(modeLike: string): modeLike is QueryExecutionMode {
+  return QUERY_MODE_DEFINITIONS.some((mode) => mode.id === modeLike);
+}
+
+function getQueryModeDefinition(mode: QueryExecutionMode): QueryModeDefinition {
+  return (
+    QUERY_MODE_DEFINITIONS.find((definition) => definition.id === mode) ??
+    QUERY_MODE_DEFINITIONS[0]
+  );
+}
+
+function isLikelySparqlEndpointUrl(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return (
+    normalized.includes("/sparql") ||
+    normalized.includes("/query") ||
+    normalized.includes("/endpoint")
+  );
+}
+
+/**
+ * Validates source targets against the selected query mode and throws an
+ * actionable error when a source list does not match the intended engine.
+ */
+export function validateQuerySourcesForMode(
+  mode: QueryExecutionMode,
+  mixedSources: ComunicaSources[]
+): void {
+  if (mixedSources.length === 0) {
+    throw new Error(
+      "Select at least one datasource URL before running the query."
+    );
+  }
+
+  const sourceUrls = mixedSources.map((source) => source.value);
+  const endpointLikeSources = sourceUrls.filter((source) =>
+    isLikelySparqlEndpointUrl(source)
+  );
+  const nonEndpointSources = sourceUrls.filter(
+    (source) => !isLikelySparqlEndpointUrl(source)
+  );
+  const modeDefinition = getQueryModeDefinition(mode);
+
+  if (mode === "endpoint") {
+    if (endpointLikeSources.length !== sourceUrls.length) {
+      const invalidSources = sourceUrls.filter(
+        (source) => !isLikelySparqlEndpointUrl(source)
+      );
+      throw new Error(
+        `Query mode "${modeDefinition.label}" expects SPARQL endpoint URLs only. Invalid target(s): ${invalidSources.join(
+          ", "
+        )}.`
+      );
+    }
+    return;
+  }
+
+  if (nonEndpointSources.length === 0) {
+    throw new Error(
+      `Query mode "${modeDefinition.label}" expects Solid document/container targets. Current sources look like endpoint targets only.`
+    );
+  }
+
+  if (endpointLikeSources.length > 0) {
+    throw new Error(
+      `Query mode "${modeDefinition.label}" does not accept SPARQL endpoint targets. Remove endpoint URL(s): ${endpointLikeSources.join(
+        ", "
+      )}.`
+    );
+  }
 }
 
 /**
@@ -206,63 +328,15 @@ function validateCacheSources(sources: string[]): string[] {
 export async function executeQueryWithPodConnected(
   query: string,
   providedSources: ComunicaSources[],
-  userCachePath: string
+  userCachePath: string,
+  queryMode: QueryExecutionMode = "endpoint"
 ): Promise<CacheOutput | string | null> {
-  // TODO: z3-solver DOES NOT work on a Worker Thread... (maybe could fix?)
-  // First, try to perform the query using the cache worker.
-  // This worker attempts to find results in the user's cache (Solid Pod).
-  // const cacheWorker = new Worker(new URL("./queryWorkerCache.js", import.meta.url), {
-  //   type: "module",
-  // });
-  // cacheWorker.postMessage({
-  //   query,
-  //   sources: cleanedSources,
-  //   cachepath: userCachePath,
-  // });
-
-  // Create a promise that resolves when the cache worker returns a result.
-  // If the cache worker fails (no cache or error), start a regular worker to run the query without cache.
-  // return new Promise<CacheOutput | null>((resolve) => {
-  //   cacheWorker.onmessage = (e) => {
-  //     const { data: c } = e;
-  //     if (c.error) {
-  //       // Cache worker did not find results or encountered an error.
-  //       console.log("Cache search result:", c.error);
-  //       // Start a regular worker to run the query directly (no cache).
-  //       const regWorker = new Worker(
-  //         new URL("./queryWorkerCache.js", import.meta.url),
-  //         { type: "module" }
-  //       );
-  //       regWorker.postMessage({
-  //         query,
-  //         sources: cleanedSources,
-  //       });
-  //       // Listen for the result from the regular worker.
-  //       regWorker.onmessage = (ev) => {
-  //         const { data: r } = ev;
-  //         if (r.error) {
-  //           // Regular worker also failed.
-  //           console.log("Regular worker error:", r.error);
-  //           resolve(null);
-  //         } else {
-  //           // Regular worker succeeded, return results with no provenance.
-  //           resolve({
-  //             provenanceOutput: null,
-  //             resultsOutput: r,
-  //           });
-  //         }
-  //       };
-  //     } else {
-  //       // Cache worker succeeded, return cached results.
-  //       resolve(c);
-  //     }
-  //   };
-  // });
 
   const output = await sparqlQueryWithCache(
     query,
     providedSources,
-    userCachePath
+    userCachePath,
+    queryMode
   );
   // case where cache is not used
   return output;
@@ -282,8 +356,15 @@ export async function executeQueryWithPodConnected(
 async function sparqlQueryWithCache(
   inputQuery: string,
   mixedSources: ComunicaSources[],
-  cachePath: string
+  cachePath: string,
+  queryMode: QueryExecutionMode = "endpoint"
 ): Promise<CacheOutput | string | null> {
+  // Current remote-cache engine is endpoint-focused; non-endpoint modes bypass
+  // cache-hit probing and fall back to direct execution in the caller.
+  if (queryMode !== "endpoint") {
+    return "no-cache";
+  }
+
   const cacheLocation = { url: cachePath + "queries.ttl" };
   const mySparqlEngine = new SparqlEngineCache();
 
@@ -379,9 +460,24 @@ async function sparqlQueryWithCache(
  */
 export async function executeQueryInMainThread(
   inputQuery: string,
-  mixedSources: ComunicaSources[]
+  mixedSources: ComunicaSources[],
+  queryMode: QueryExecutionMode = "solid-no-traversal"
 ): Promise<CacheOutput | Error> {
-  const mySparqlEngine = new SolidQueryEngine();
+  let mySparqlEngine: { queryBindings: Function };
+  if (queryMode === "solid-link-traversal") {
+    try {
+      const traversalModuleName =
+        "@comunica/" + "query-sparql-link-traversal-solid";
+      const traversalModule = await import(traversalModuleName);
+      mySparqlEngine = new traversalModule.QueryEngine();
+    } catch {
+      return new Error(
+        "Link-traversal mode requires @comunica/query-sparql-link-traversal-solid. Install it and try again."
+      );
+    }
+  } else {
+    mySparqlEngine = new SolidQueryEngine();
+  }
 
   const fetchForCache = createCoiFetch(fetch, {
     coepCredentialless: false,
@@ -393,6 +489,7 @@ export async function executeQueryInMainThread(
     const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
       lenient: true,
       sources: mixedSources,
+      fetch: fetchForCache,
     });
 
     // Displays the results of the query
