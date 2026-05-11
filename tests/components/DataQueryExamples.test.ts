@@ -17,6 +17,7 @@ describe("DataQuery sample query editing flow", () => {
     const sample = {
       id: "federated-example",
       name: "Federated Example",
+      mode: "endpoint",
       category: "Federated query",
       description: "desc",
       query: "SELECT * WHERE { ?s ?p ?o } LIMIT 10",
@@ -26,15 +27,23 @@ describe("DataQuery sample query editing flow", () => {
     const vm = {
       yasqe: editor,
       exampleQueries: [sample],
+      availableExampleQueries: [sample],
+      queryMode: "endpoint",
       currentQuery: {
         query: "",
         sources: [] as string[],
+      },
+      syncYasqeFromExternalQuery: (query: string) => {
+        editor.setValue(query);
+        editor.setCursor({ line: 0, ch: 0 });
+        editor.focus();
       },
     };
 
     componentOptions.methods.onSelectExample.call(vm, sample.id);
 
     expect(vm.currentQuery.query).toBe(sample.query);
+    expect(vm.queryMode).toBe("endpoint");
     expect(vm.currentQuery.sources).toEqual(sample.sources);
     expect(vm.currentQuery.sources).not.toBe(sample.sources);
     expect(editor.setValue).toHaveBeenCalledWith(sample.query);
@@ -42,17 +51,14 @@ describe("DataQuery sample query editing flow", () => {
     expect(editor.focus).toHaveBeenCalledTimes(1);
   });
 
-  it("skips editor write-back when the change originated from YASQE", () => {
+  it("keeps one-way sync by never writing query watcher changes back to YASQE", () => {
     const editor = {
-      getValue: vi.fn(() => "SELECT * WHERE { ?s ?p ?o }"),
       setValue: vi.fn(),
     };
     const handleEditableQueryStateChanged = vi.fn();
 
     const vm = {
-      syncingFromYasqeEditor: true,
       yasqe: editor,
-      $nextTick: (callback: () => void) => callback(),
       handleEditableQueryStateChanged,
     };
 
