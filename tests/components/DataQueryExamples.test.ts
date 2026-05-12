@@ -51,6 +51,96 @@ describe("DataQuery sample query editing flow", () => {
     expect(editor.focus).toHaveBeenCalledTimes(1);
   });
 
+  it("infers solid link-traversal mode from link-traversal filename prefixes", () => {
+    const vm = {
+      queryModes: [
+        { id: "endpoint" },
+        { id: "solid-no-traversal" },
+        { id: "solid-link-traversal" },
+      ],
+      inferModeFromExampleId:
+        componentOptions.methods.inferModeFromExampleId,
+      isLikelySparqlEndpointSource: () => false,
+      isLikelySolidOrRdfSource: () => true,
+    };
+
+    const standardPrefix = componentOptions.methods.determineExampleQueryMode.call(
+      vm,
+      "SELECT * WHERE { ?s ?p ?o }",
+      [],
+      undefined,
+      "link-traversal-solidbench-1",
+    );
+    const legacyTypoPrefix =
+      componentOptions.methods.determineExampleQueryMode.call(
+        vm,
+        "SELECT * WHERE { ?s ?p ?o }",
+        [],
+        undefined,
+        "link-taversal-demo",
+      );
+
+    expect(standardPrefix).toBe("solid-link-traversal");
+    expect(legacyTypoPrefix).toBe("solid-link-traversal");
+  });
+
+  it("categorizes federated-prefixed examples as Federated query", () => {
+    const vm = {
+      isLikelySparqlEndpointSource: () => true,
+      normalizeSourceUrlForValidation: (value: string) => value,
+    };
+
+    const category = componentOptions.methods.categorizeExampleQuery.call(
+      vm,
+      "SELECT * WHERE { ?s ?p ?o }",
+      ["https://query.wikidata.org/sparql"],
+      "endpoint",
+      "federated-example",
+    );
+
+    expect(category).toBe("Federated query");
+  });
+
+  it("loads link-traversal examples with empty datasources", () => {
+    const editor = {
+      setValue: vi.fn(),
+      setCursor: vi.fn(),
+      focus: vi.fn(),
+    };
+
+    const linkTraversalExample = {
+      id: "link-traversal-solidbench-1",
+      name: "Link Traversal Example",
+      mode: "solid-link-traversal",
+      category: "Solid query (link traversal)",
+      description: "desc",
+      query: "SELECT * WHERE { ?s ?p ?o } LIMIT 10",
+      // Even if the example metadata provides sources, UI load should blank them.
+      sources: ["<https://solid.example/profile/card>"],
+    };
+
+    const vm = {
+      yasqe: editor,
+      exampleQueries: [linkTraversalExample],
+      availableExampleQueries: [linkTraversalExample],
+      queryMode: "endpoint",
+      currentQuery: {
+        query: "",
+        sources: [] as string[],
+      },
+      syncYasqeFromExternalQuery: (query: string) => {
+        editor.setValue(query);
+        editor.setCursor({ line: 0, ch: 0 });
+        editor.focus();
+      },
+    };
+
+    componentOptions.methods.onSelectExample.call(vm, linkTraversalExample.id);
+
+    expect(vm.queryMode).toBe("solid-link-traversal");
+    expect(vm.currentQuery.sources).toEqual([]);
+  });
+
   it("keeps one-way sync by never writing query watcher changes back to YASQE", () => {
     const editor = {
       setValue: vi.fn(),

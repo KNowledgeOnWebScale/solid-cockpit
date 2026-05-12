@@ -1,4 +1,4 @@
-# Datasources: https://triple.ilabt.imec.be/test/bio-usecase/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl
+# Datasources: https://triple.ilabt.imec.be/test/
 # QueryMode: solid-no-traversal
 SELECT ?s ?p ?o
 WHERE {

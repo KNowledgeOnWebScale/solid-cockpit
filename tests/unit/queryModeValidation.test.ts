@@ -50,3 +50,9 @@ test("solid traversal mode accepts Solid-like document/container targets", () =>
     validateQuerySourcesForMode("solid-link-traversal", sources)
   );
 });
+
+test("solid traversal mode allows empty source lists", () => {
+  assert.doesNotThrow(() =>
+    validateQuerySourcesForMode("solid-link-traversal", [])
+  );
+});

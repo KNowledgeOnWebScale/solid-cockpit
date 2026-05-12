@@ -77,6 +77,27 @@ test("startLogin stores redirect and calls session.login when logged out", async
   );
 });
 
+test("startLogin strips hash and reserved OIDC params from redirectUrl", async () => {
+  (globalThis as any).window.location.href =
+    "https://example.org/dataQuery?foo=bar&code=abc123&state=xyz#query=SELECT%20*%20WHERE%20%7B%20?s%20?p%20?o%20%7D";
+
+  let capturedRedirectUrl = "";
+  session.login = (async (options: any) => {
+    capturedRedirectUrl = options.redirectUrl;
+  }) as any;
+
+  const status = await startLogin("https://issuer.example");
+  assert.equal(status, "");
+  assert.equal(
+    capturedRedirectUrl,
+    "https://example.org/dataQuery?foo=bar"
+  );
+  assert.equal(
+    (globalThis as any).sessionStorage.getItem("postLoginRedirect"),
+    "https://example.org/dataQuery?foo=bar&code=abc123&state=xyz#query=SELECT%20*%20WHERE%20%7B%20?s%20?p%20?o%20%7D"
+  );
+});
+
 test("startLogin is a no-op when already logged in", async () => {
   session.info.isLoggedIn = true;
   let callCount = 0;

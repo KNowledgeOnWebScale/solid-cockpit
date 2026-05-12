@@ -2246,6 +2246,23 @@ export default {
       return !this.isLikelySparqlEndpointSource(source);
     },
     /**
+     * Infers query mode from canonical example filename prefixes so the sample
+     * picker remains stable even when files omit explicit # QueryMode metadata.
+     */
+    inferModeFromExampleId(exampleId: string): QueryExecutionMode | null {
+      const normalizedId = exampleId.toLowerCase();
+      if (
+        normalizedId.startsWith("link-traversal-") ||
+        normalizedId.startsWith("link-taversal-")
+      ) {
+        return "solid-link-traversal";
+      }
+      if (normalizedId.startsWith("solid-no-traversal-")) {
+        return "solid-no-traversal";
+      }
+      return null;
+    },
+    /**
      * Determines the target query engine mode for an example query. Authors can
      * explicitly pin a mode via `# QueryMode: <mode-id>` in the .rq file.
      */
@@ -2253,12 +2270,20 @@ export default {
       _queryText: string,
       sources: string[],
       declaredMode?: string,
+      exampleId?: string,
     ): QueryExecutionMode {
       if (
         declaredMode &&
         this.queryModes.some((mode) => mode.id === declaredMode)
       ) {
         return declaredMode as QueryExecutionMode;
+      }
+
+      if (exampleId) {
+        const modeFromName = this.inferModeFromExampleId(exampleId);
+        if (modeFromName) {
+          return modeFromName;
+        }
       }
 
       const endpointSourceCount = sources.filter((source) =>
@@ -2283,6 +2308,7 @@ export default {
       queryText: string,
       sources: string[],
       mode: QueryExecutionMode,
+      exampleId?: string,
     ): ExampleQueryCategory {
       if (mode === "solid-link-traversal") {
         return "Solid query (link traversal)";
@@ -2291,13 +2317,32 @@ export default {
         return "Solid query (no traversal)";
       }
 
+      const normalizedId = (exampleId || "").toLowerCase();
+      if (normalizedId.startsWith("federated-")) {
+        return "Federated query";
+      }
+
       const hasServiceClause = /service\s*<[^>]+>/i.test(queryText);
       const endpointSourceCount = sources.filter((source) =>
         this.isLikelySparqlEndpointSource(source),
       ).length;
+      const endpointHosts = new Set(
+        sources
+          .filter((source) => this.isLikelySparqlEndpointSource(source))
+          .map((source) => this.normalizeSourceUrlForValidation(source))
+          .map((source) => {
+            try {
+              return new URL(source).host;
+            } catch {
+              return "";
+            }
+          })
+          .filter((host) => host.length > 0),
+      );
 
       if (
         hasServiceClause ||
+        endpointHosts.size > 1 ||
         endpointSourceCount > 1 ||
         (endpointSourceCount === 1 && sources.length > 1)
       ) {
@@ -2576,8 +2621,14 @@ export default {
           query,
           sources,
           declaredMode,
+          rawName,
         );
-        const category = this.categorizeExampleQuery(query, sources, mode);
+        const category = this.categorizeExampleQuery(
+          query,
+          sources,
+          mode,
+          rawName,
+        );
         queries.push({
           id: rawName,
           name,
@@ -2604,8 +2655,10 @@ export default {
       );
       if (!example) return;
 
-      // Clone example sources so user edits never mutate the static sample list.
-      this.currentQuery.sources = [...example.sources];
+      // Link-traversal examples intentionally start with no explicit datasource.
+      // Comunica can derive traversal seeds from IRIs that appear in the query.
+      this.currentQuery.sources =
+        example.mode === "solid-link-traversal" ? [] : [...example.sources];
       this.currentQuery.query = example.query || "";
       this.queryMode = example.mode;
       this.syncYasqeFromExternalQuery(this.currentQuery.query, {
