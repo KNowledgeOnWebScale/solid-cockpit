@@ -1,4 +1,4 @@
-const t=`# Datasources: http://localhost:3000/test/random/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl
+const e=`# Datasources: https://triple.ilabt.imec.be/test/bio-usecase/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl
 # QueryMode: solid-no-traversal
 PREFIX thd: <urn:triple-hybrid-demo:>
 SELECT DISTINCT ?CAS WHERE {
@@ -7,4 +7,4 @@ SELECT DISTINCT ?CAS WHERE {
   ?SOLIDPOD thd:predicate ?CAS .
 
 }
-`;export{t as default};
+`;export{e as default};

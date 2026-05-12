@@ -1,0 +1,21 @@
+const t=`# Datasources: https://sparql.rhea-db.org/sparql https://sparql.uniprot.org/sparql/
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+# Query 13
+# Select all Rhea reactions used to annotate Escherichia coli (taxid=83333) in UniProtKB/Swiss-Prot
+# return the number of UniProtKB entries
+SELECT ?uniprot ?mnemo ?rhea ?accession ?equation 
+WHERE {
+	{
+    VALUES (?taxid) { (taxon:83333) }
+    GRAPH <http://sparql.uniprot.org/uniprot> {
+      ?uniprot up:reviewed true . 
+      ?uniprot up:mnemonic ?mnemo . 
+      ?uniprot up:organism ?taxid .
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+    }
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}`;export{t as default};

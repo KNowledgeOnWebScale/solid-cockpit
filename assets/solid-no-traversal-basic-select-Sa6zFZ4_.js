@@ -1,0 +1,8 @@
+const e=`# Datasources: https://triple.ilabt.imec.be/test/
+# QueryMode: solid-no-traversal
+SELECT ?s ?p ?o
+WHERE {
+  ?s ?p ?o .
+}
+LIMIT 15
+`;export{e as default};

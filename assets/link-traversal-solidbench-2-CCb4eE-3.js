@@ -1,0 +1,11 @@
+const s=`# Datasources: https://solidbench.linkeddatafragments.org/pods/00000015393162789111/posts
+# QueryMode: solid-link-traversal
+PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+SELECT ?personId ?firstName ?lastName WHERE {
+  <https://solidbench.linkeddatafragments.org/pods/00000015393162789111/posts#893353506423> snvoc:id ?messageId;
+    snvoc:hasCreator ?creator.
+  ?creator snvoc:id ?personId;
+    snvoc:firstName ?firstName;
+    snvoc:lastName ?lastName.
+}
+`;export{s as default};
