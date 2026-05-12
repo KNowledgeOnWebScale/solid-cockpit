@@ -14,6 +14,19 @@ Crucially, stores credentials in session and fetch objects.
 export const session: Session = getDefaultSession()
 
 /**
+ * Builds a redirect URL that is valid for Solid OIDC login callbacks.
+ * Hash fragments and reserved OIDC params are removed from the callback URL,
+ * while the full original page URL is preserved separately in sessionStorage.
+ */
+function buildSafeLoginRedirectUrl(currentHref: string): string {
+  const currentUrl = new URL(currentHref, window.location.origin);
+  currentUrl.hash = "";
+  currentUrl.searchParams.delete("code");
+  currentUrl.searchParams.delete("state");
+  return currentUrl.toString();
+}
+
+/**
  * Begins the User login process via the login() method from @inrupt/solid-client by following a Pod Provider URL link.
  * 
  * @param purl The URL of user's Pod Provider.
@@ -25,10 +38,11 @@ export async function startLogin(purl: string): Promise<string> {
   if (!session.info.isLoggedIn) {
     try {
       sessionStorage.setItem("postLoginRedirect", window.location.href);
+      const safeRedirectUrl = buildSafeLoginRedirectUrl(window.location.href);
 
       await session.login({
         oidcIssuer: purl, 
-        redirectUrl: window.location.href,
+        redirectUrl: safeRedirectUrl,
         clientName: "Solid Cockpit"
       });
     } catch (error) {
@@ -118,4 +132,3 @@ export async function handleRedirectAfterPageLoad(): Promise<void> {
     console.error("Error during session restoration:", error);
   }
 }
-

@@ -1,5 +1,6 @@
 import { QueryEngine as SparqlEngineCache } from "query-sparql-remote-cache";
 import { QueryEngine as SolidQueryEngine } from "@comunica/query-sparql-solid";
+import { QueryEngine as SolidLinkTraversalQueryEngine } from "@comunica/query-sparql-link-traversal-solid";
 import { KeyRemoteCache } from "actor-query-process-remote-cache";
 import { createCoiFetch } from "./z3-headers";
 import { Bindings } from "@comunica/types";
@@ -24,7 +25,7 @@ import {
   setStringNoLocale,
   setDatetime,
 } from "@inrupt/solid-client";
-import { fetch } from "@inrupt/solid-client-authn-browser";
+import { fetch, getDefaultSession } from "@inrupt/solid-client-authn-browser";
 import {
   stopQuery,
   cleanSourcesUrlsForCache,
@@ -215,6 +216,11 @@ export function validateQuerySourcesForMode(
   mixedSources: ComunicaSources[]
 ): void {
   if (mixedSources.length === 0) {
+    if (mode === "solid-link-traversal") {
+      // Link-traversal execution may derive seed URLs directly from IRIs in the
+      // query text, so explicit sources are optional for this mode.
+      return;
+    }
     throw new Error(
       "Select at least one datasource URL before running the query."
     );
@@ -342,8 +348,206 @@ export async function executeQueryWithPodConnected(
   return output;
 }
 
+interface QueryBindingsEngine {
+  queryBindings: (
+    inputQuery: string,
+    context: Record<string, unknown>
+  ) => Promise<BindingsStreamWithProperties>;
+}
+
+interface QueryStreamToJsonOptions {
+  includeProvenance?: boolean;
+}
+
+interface BindingsStreamWithProperties extends AsyncIterable<Bindings> {
+  getProperty?: (name: string, callback: (value: unknown) => void) => void;
+}
+
+function normalizeTermType(termType: string): string {
+  switch (termType) {
+    case "Literal":
+      return "literal";
+    case "NamedNode":
+      return "uri";
+    case "BlankNode":
+      return "bnode";
+    default:
+      return termType.toLowerCase();
+  }
+}
+
 /**
- * Executes a SPARQL query over a list of provided Solid Pod URLs.
+ * Parses a Comunica bindings stream into the JSON structure consumed by YASR/UI.
+ * Provenance extraction is optional and used only for endpoint cache-hit reads.
+ */
+async function streamBindingsToOutput(
+  bindingsStream: BindingsStreamWithProperties,
+  options: QueryStreamToJsonOptions = {}
+): Promise<CacheOutput> {
+  let provenanceOutput: ProvenanceData | null = null;
+  if (options.includeProvenance && typeof bindingsStream.getProperty === "function") {
+    bindingsStream.getProperty("provenance", (val) => {
+      if (
+        val &&
+        typeof val === "object" &&
+        "algorithm" in val &&
+        "id" in val &&
+        val.id &&
+        typeof val.id === "object" &&
+        "termType" in val.id &&
+        "value" in val.id
+      ) {
+        provenanceOutput = {
+          algorithm: String(val.algorithm),
+          id: {
+            termType: String(val.id.termType),
+            value: String(val.id.value),
+          },
+        };
+      }
+    });
+  }
+
+  const bindingsArray: any[] = [];
+  let firstBinding: Bindings | undefined = undefined;
+
+  for await (const binding of bindingsStream) {
+    if (!firstBinding) {
+      firstBinding = binding;
+    }
+    const bindingObj: Record<string, { type: string; value: string }> = {};
+    binding.forEach((term, variable) => {
+      bindingObj[variable.value] = {
+        type: normalizeTermType(term.termType),
+        value: term.value,
+      };
+    });
+    bindingsArray.push(bindingObj);
+  }
+
+  const vars = firstBinding
+    ? Array.from(firstBinding.keys()).map((variable) => variable.value)
+    : [];
+
+  return {
+    provenanceOutput,
+    resultsOutput: {
+      head: { vars },
+      results: { bindings: bindingsArray },
+    },
+  };
+}
+
+/**
+ * Creates an authenticated fetch wrapper for endpoint/cache-related Comunica
+ * contexts where response header normalization is needed.
+ */
+function createAuthenticatedQueryFetch(options: { noCors: boolean }): FetchLike {
+  return createCoiFetch(fetch, {
+    coepCredentialless: false,
+    passthroughOpaque: true,
+    noCors: options.noCors,
+  });
+}
+
+function createSolidQueryContext(mixedSources: ComunicaSources[]): Record<string, unknown> {
+  const session = getDefaultSession();
+  const hasAuthenticatedSession = Boolean(session.info.isLoggedIn);
+  const authenticatedFetch: FetchLike = hasAuthenticatedSession
+    ? session.fetch.bind(session)
+    : fetch;
+
+  // Per Comunica Solid docs, provide the authn session in context so the Solid
+  // HTTP actor can attach credentials for protected pod resources.
+  const solidContext: Record<string, unknown> = {
+    lenient: true,
+    fetch: authenticatedFetch,
+    // Solid engines are most stable when sources are explicit IRI strings.
+    sources: mixedSources.map((source) => source.value),
+  };
+
+  if (hasAuthenticatedSession) {
+    solidContext["@comunica/actor-http-inrupt-solid-client-authn:session"] = session;
+  }
+
+  return solidContext;
+}
+
+function createEndpointCacheContext(
+  mixedSources: ComunicaSources[],
+  cachePath: string
+): Record<string, unknown> {
+  const authenticatedFetch = createAuthenticatedQueryFetch({ noCors: false });
+  return {
+    lenient: true,
+    fetch: authenticatedFetch,
+    [KeyRemoteCache.location.name]: { url: `${cachePath}queries.ttl` },
+    sources: mixedSources,
+    failOnCacheMiss: true,
+  };
+}
+
+async function executeWithEngine(
+  engine: QueryBindingsEngine,
+  inputQuery: string,
+  context: Record<string, unknown>,
+  options: QueryStreamToJsonOptions = {}
+): Promise<CacheOutput> {
+  const bindingsStream = await engine.queryBindings(inputQuery, context);
+  return streamBindingsToOutput(bindingsStream, options);
+}
+
+async function executeEndpointCacheLookup(
+  inputQuery: string,
+  mixedSources: ComunicaSources[],
+  cachePath: string
+): Promise<CacheOutput | string> {
+  const endpointEngine = new SparqlEngineCache();
+  try {
+    return await executeWithEngine(
+      endpointEngine,
+      inputQuery,
+      createEndpointCacheContext(mixedSources, cachePath),
+      { includeProvenance: true }
+    );
+  } catch {
+    return "no-cache";
+  }
+}
+
+async function executeSolidNoTraversalQuery(
+  inputQuery: string,
+  mixedSources: ComunicaSources[]
+): Promise<CacheOutput | Error> {
+  try {
+    const solidEngine = new SolidQueryEngine();
+    return await executeWithEngine(
+      solidEngine,
+      inputQuery,
+      createSolidQueryContext(mixedSources)
+    );
+  } catch (err) {
+    return err instanceof Error ? err : new Error(String(err));
+  }
+}
+
+async function executeSolidLinkTraversalQuery(
+  inputQuery: string,
+  mixedSources: ComunicaSources[]
+): Promise<CacheOutput | Error> {
+  try {
+    return await executeWithEngine(
+      new SolidLinkTraversalQueryEngine(),
+      inputQuery,
+      createSolidQueryContext(mixedSources)
+    );
+  } catch (err) {
+    return err instanceof Error ? err : new Error(String(err));
+  }
+}
+
+/**
+ * Executes a SPARQL query with a pod cache conntected.
  *
  * @param inputQuery The string representation of a SPARQL query to be executed.
  * @param mixedSources a ComunicaSources[] that provides the Solid Pod or SPARQL Endpoint sources for executing the specified query.
@@ -364,95 +568,11 @@ async function sparqlQueryWithCache(
   if (queryMode !== "endpoint") {
     return "no-cache";
   }
-
-  const cacheLocation = { url: cachePath + "queries.ttl" };
-  const mySparqlEngine = new SparqlEngineCache();
-
-  try {
-    const fetchForCache = createCoiFetch(fetch, {
-      coepCredentialless: false,
-      passthroughOpaque: true,
-      noCors: false,
-    });
-
-    // Query executor using Comunica
-    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
-      lenient: true,
-      fetch: fetchForCache,
-      [KeyRemoteCache.location.name]: cacheLocation,
-      sources: mixedSources,
-      failOnCacheMiss: true,
-    });
-
-    // extract provenance information
-    let provenance: ProvenanceData | null = null;
-    // Extract provenance information to display in the UI
-    bindingsStream.getProperty("provenance", (val) => {
-      if (val && typeof val === "object" && "algorithm" in val && "id" in val) {
-        provenance = {
-          algorithm: val.algorithm,
-          id: {
-            termType: val.id.termType,
-            value: val.id.value,
-          },
-        };
-      }
-    });
-
-    // Displays the results of the query
-    const bindingsArray: any[] = [];
-    let firstBinding: Bindings | undefined = undefined;
-
-    // Process each binding from the stream.
-    for await (const binding of bindingsStream) {
-      // Capture the variable names from the first binding.
-      if (!firstBinding) {
-        firstBinding = binding;
-      }
-      const bindingObj: Record<string, { type: string; value: string }> = {};
-      binding.forEach((term, variable) => {
-        let termType: string;
-        switch (term.termType) {
-          case "Literal":
-            termType = "literal";
-            break;
-          case "NamedNode":
-            termType = "uri";
-            break;
-          case "BlankNode":
-            termType = "bnode";
-            break;
-          default:
-            termType = term.termType.toLowerCase();
-        }
-        bindingObj[variable.value] = { type: termType, value: term.value };
-      });
-      bindingsArray.push(bindingObj);
-    }
-
-    // If there were no results, use an empty array of variables.
-    const vars = firstBinding
-      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
-      : [];
-
-    // results as an object
-    const resultsOutput: QueryResultJson = {
-      head: { vars },
-      results: { bindings: bindingsArray },
-    };
-
-    const returnVal: CacheOutput = {
-      provenanceOutput: provenance,
-      resultsOutput: resultsOutput,
-    };
-    return returnVal;
-  } catch (err) {
-    return "no-cache";
-  }
+  return executeEndpointCacheLookup(inputQuery, mixedSources, cachePath);
 }
 
 /**
- * Executes a SPARQL query over a list of provided Solid Pod URLs.
+ * Executes a SPARQL query in a woker thread.
  *
  * @param inputQuery The string representation of a SPARQL query to be executed.
  * @param mixedSources a ComunicaSources[] that provides the Solid Pod or SPARQL Endpoint sources for executing the specified query.
@@ -463,85 +583,17 @@ export async function executeQueryInMainThread(
   mixedSources: ComunicaSources[],
   queryMode: QueryExecutionMode = "solid-no-traversal"
 ): Promise<CacheOutput | Error> {
-  let mySparqlEngine: { queryBindings: Function };
   if (queryMode === "solid-link-traversal") {
-    try {
-      const traversalModuleName =
-        "@comunica/" + "query-sparql-link-traversal-solid";
-      const traversalModule = await import(traversalModuleName);
-      mySparqlEngine = new traversalModule.QueryEngine();
-    } catch {
-      return new Error(
-        "Link-traversal mode requires @comunica/query-sparql-link-traversal-solid. Install it and try again."
-      );
-    }
-  } else {
-    mySparqlEngine = new SolidQueryEngine();
+    return executeSolidLinkTraversalQuery(inputQuery, mixedSources);
   }
 
-  const fetchForCache = createCoiFetch(fetch, {
-    coepCredentialless: false,
-    passthroughOpaque: true,
-    noCors: true,
-  });
-  try {
-    // Query executor using Comunica
-    const bindingsStream = await mySparqlEngine.queryBindings(inputQuery, {
-      lenient: true,
-      sources: mixedSources,
-      fetch: fetchForCache,
-    });
-
-    // Displays the results of the query
-    const bindingsArray: any[] = [];
-    let firstBinding: Bindings | undefined = undefined;
-
-    // Process each binding from the stream.
-    for await (const binding of bindingsStream) {
-      // Capture the variable names from the first binding.
-      if (!firstBinding) {
-        firstBinding = binding;
-      }
-      const bindingObj: Record<string, { type: string; value: string }> = {};
-      binding.forEach((term, variable) => {
-        let termType: string;
-        switch (term.termType) {
-          case "Literal":
-            termType = "literal";
-            break;
-          case "NamedNode":
-            termType = "uri";
-            break;
-          case "BlankNode":
-            termType = "bnode";
-            break;
-          default:
-            termType = term.termType.toLowerCase();
-        }
-        bindingObj[variable.value] = { type: termType, value: term.value };
-      });
-      bindingsArray.push(bindingObj);
-    }
-
-    // If there were no results, use an empty array of variables.
-    const vars = firstBinding
-      ? Array.from(firstBinding.keys()).map((variable) => variable.value)
-      : [];
-
-    // results as an object
-    const resultsOutput: QueryResultJson = {
-      head: { vars },
-      results: { bindings: bindingsArray },
-    };
-
-    const returnVal: CacheOutput = {
-      provenanceOutput: null,
-      resultsOutput: resultsOutput,
-    };
-    return returnVal;
-  } catch (err) {
-    return err;
+  if (queryMode === "solid-no-traversal") {
+    return executeSolidNoTraversalQuery(inputQuery, mixedSources);
   }
+
+  return new Error(
+    `Main-thread query execution is only supported for Solid modes. Received "${queryMode}".`
+  );
 }
 
 /**

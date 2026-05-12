@@ -52,12 +52,12 @@
             Targets multiple SPARQL endpoints in one execution (commonly via SERVICE clauses).
           </li>
           <li>
-            <span class="guide-tag">Solid query</span>
-            Targets RDF resources from a Solid pod or local server.
+            <span class="guide-tag">Solid query (no traversal)</span>
+            Targets explicit Solid RDF resources/containers without discovering linked documents.
           </li>
           <li>
-            <span class="guide-tag">Mixed source federated query</span>
-            Targets both Solid pod sources and SPARQL endpoint sources.
+            <span class="guide-tag">Solid query (link traversal)</span>
+            Starts from Solid seed URLs and discovers additional RDF documents by following links.
           </li>
         </ul>
       </section>
@@ -69,6 +69,22 @@
           <li>
             <span class="guide-control">baseline-test</span>
             Quick concept-check query on the Rhea endpoint that returns a small set of predicate IRIs.
+          </li>
+          <li>
+            <span class="guide-control">federated-automated-rhea-13</span>
+            Federates UniProt and Rhea to list E. coli-reviewed proteins and associated reactions.
+          </li>
+          <li>
+            <span class="guide-control">federated-uniprot-rhea-human-reactions</span>
+            Fetches human proteins in UniProt and joins to reaction labels from Rhea.
+          </li>
+          <li>
+            <span class="guide-control">federated-wikidata-uniprot-human-proteins</span>
+            Uses Wikidata + UniProt federation to enrich proteins with mnemonics.
+          </li>
+          <li>
+            <span class="guide-control">federated-wikidata-cities</span>
+            Single-endpoint Wikidata city query with label service for readable output.
           </li>
           <li>
             <span class="guide-control">triple-wikidata-1</span>
@@ -95,8 +111,20 @@
             Retrieves OMA ortholog protein links and organism names for a selected UniProt protein.
           </li>
           <li>
-            <span class="guide-control">triple-combined-service</span>
-            Full mixed-source federated workflow that chains Solid/local CAS data, IDSM similarity search, and Rhea reactions.
+            <span class="guide-control">solid-no-traversal-basic-select</span>
+            Reads triples directly from a selected Solid container without traversal.
+          </li>
+          <li>
+            <span class="guide-control">solid-no-traversal-literal-preview</span>
+            Extracts literal values from a specific Solid RDF document.
+          </li>
+          <li>
+            <span class="guide-control">link-traversal-solidbench-1</span>
+            SolidBench link-traversal query that starts at a profile seed and discovers related posts.
+          </li>
+          <li>
+            <span class="guide-control">link-traversal-solidbench-2</span>
+            SolidBench link-traversal query that resolves creator details from a message seed URL.
           </li>
         </ul>
       </section>
