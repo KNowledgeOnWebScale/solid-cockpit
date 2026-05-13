@@ -10,7 +10,10 @@
       <!-- Compact cards mirror the My Pod card style while showing full metadata on expand. -->
       <ul v-else class="shared-list" role="list">
         <li v-for="(item, index) in sharedMeItems" :key="`${item.resourceHash}-${index}`">
-          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+          <article
+            class="shared-entry"
+            :class="{ expanded: showItemIndex === index, 'revoked-entry': isSharedWithMeRevoked(item) }"
+          >
             <button @click="toggleItem(index)" class="entry-toggle">
               <div class="entry-main">
                 <i class="material-icons not-colored">{{
@@ -19,6 +22,12 @@
                 <div class="entry-copy entry-copy-equalized">
                   <span class="entry-title" :title="getPrimaryResourceUrl(item)">
                     {{ normalizeTargetLabel(getPrimaryResourceUrl(item)) }}
+                  </span>
+                  <span
+                    class="entry-status"
+                    :class="{ revoked: isSharedWithMeRevoked(item) }"
+                  >
+                    {{ getSharedWithMeStatusLabel(item) }}
                   </span>
                 </div>
               </div>
@@ -52,6 +61,17 @@
                   <div>
                     <span class="field-label">Type</span>
                     <span class="field-value">{{ formatKind(item.whatKind) }}</span>
+                  </div>
+                </div>
+                <div class="summary-cell">
+                  <i class="material-icons tiny not-colored">{{
+                    isSharedWithMeRevoked(item) ? "block" : "verified_user"
+                  }}</i>
+                  <div>
+                    <span class="field-label">Status</span>
+                    <span class="field-value">
+                      {{ getSharedWithMeStatusLabel(item) }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -96,12 +116,22 @@
                         v-for="(ac, acIndex) in normalizeModeList(item.usersSharedWith[0]?.accessModes)"
                         :key="`mode-${acIndex}`"
                         class="mode-chip"
+                        :class="{ revoked: isSharedWithMeRevoked(item) }"
                         :title="ac"
                         >{{ formatMode(ac) }}</span
                       >
                     </div>
                   </div>
                 </div>
+
+                <p
+                  v-if="isSharedWithMeRevoked(item)"
+                  class="shared-revoked-note"
+                  :title="item.usersSharedWith[0]?.revokedAt || 'Revoked access'"
+                >
+                  Access was revoked on
+                  {{ formatDate(item.usersSharedWith[0]?.revokedAt || "N/A") }}.
+                </p>
               </div>
             </div>
           </article>
@@ -119,7 +149,10 @@
       <!-- Each expanded card shows resource-level data and all recipient-level metadata. -->
       <ul v-else class="shared-list" role="list">
         <li v-for="(item, index) in sharedItems" :key="`${item.resourceHash}-${index}`">
-          <article class="shared-entry" :class="{ expanded: showItemIndex === index }">
+          <article
+            class="shared-entry"
+            :class="{ expanded: showItemIndex === index, 'revoked-entry': !hasActiveRecipients(item) }"
+          >
             <button @click="toggleItem(index)" class="entry-toggle">
               <div class="entry-main">
                 <i class="material-icons not-colored">{{
@@ -130,7 +163,7 @@
                   <span class="entry-inline-summary">
                     <span>
                       <i class="material-icons tiny not-colored">group</i>
-                      {{ getRecipientSummary(item) }}
+                      {{ getRecipientStatusSummary(item) }}
                     </span>
                     <span>
                       <i class="material-icons tiny not-colored">schedule</i>
@@ -174,6 +207,7 @@
               <div class="recipient-list">
                 <article
                   class="recipient-card"
+                  :class="{ 'revoked-recipient': isRecipientRevoked(mode) }"
                   v-for="(mode, userIndex) in item.usersSharedWith"
                   :key="`${mode.sharedWith}-${mode.created}-${userIndex}`"
                 >
@@ -187,7 +221,14 @@
                         <i class="material-icons tiny not-colored">schedule</i>
                         {{ formatDate(mode.created) }}
                       </span>
+                      <span
+                        class="entry-status"
+                        :class="{ revoked: isRecipientRevoked(mode) }"
+                      >
+                        {{ isRecipientRevoked(mode) ? "Revoked" : "Active" }}
+                      </span>
                       <button
+                        v-if="!isRecipientRevoked(mode)"
                         class="permission-edit-button"
                         type="button"
                         @click="startPermissionEdit(mode, userIndex)"
@@ -238,6 +279,19 @@
                       </div>
                       <div class="entry-field">
                         <span class="field-label">
+                          <i class="material-icons tiny not-colored">block</i>
+                          Revocation
+                        </span>
+                        <span class="field-value" :title="mode.revokedAt || 'Not revoked'">
+                          {{
+                            isRecipientRevoked(mode)
+                              ? `Revoked on ${formatDate(mode.revokedAt || "N/A")}`
+                              : "Not revoked"
+                          }}
+                        </span>
+                      </div>
+                      <div class="entry-field">
+                        <span class="field-label">
                           <i class="material-icons tiny not-colored">tag</i>
                           Resource hash
                         </span>
@@ -255,6 +309,7 @@
                             v-for="(ac, acIndex) in normalizeModeList(mode.accessModes)"
                             :key="`${mode.sharedWith}-mode-${acIndex}`"
                             class="mode-chip"
+                            :class="{ revoked: isRecipientRevoked(mode) }"
                             :title="ac"
                             >{{ formatMode(ac) }}</span
                           >
@@ -263,7 +318,10 @@
                     </div>
 
                     <form
-                      v-if="editingPermissionKey === getPermissionEditKey(mode, userIndex)"
+                      v-if="
+                        editingPermissionKey === getPermissionEditKey(mode, userIndex) &&
+                        !isRecipientRevoked(mode)
+                      "
                       class="permission-editor"
                       @submit.prevent="savePermissionEdit(mode, userIndex)"
                     >
@@ -455,6 +513,22 @@ export default {
     copyText(text: string) {
       navigator.clipboard.writeText(text);
     },
+    // SharedWithMe uses as:Offer/as:Undo rows; Undo rows represent revoked access.
+    isSharedWithMeRevoked(item: sharedSomething): boolean {
+      return Boolean(item.usersSharedWith[0]?.revoked);
+    },
+    // SharedWithOthers rows carry revocation state from matched as:Undo entries.
+    isRecipientRevoked(mode: userHash): boolean {
+      return Boolean(mode.revoked);
+    },
+    // Keep resource-level card state accurate even when one recipient was revoked.
+    hasActiveRecipients(item: sharedSomething): boolean {
+      return item.usersSharedWith.some((entry) => !this.isRecipientRevoked(entry));
+    },
+    // Compact state label used in collapsed/expanded sections.
+    getSharedWithMeStatusLabel(item: sharedSomething): string {
+      return this.isSharedWithMeRevoked(item) ? "Access revoked" : "Active access";
+    },
     /*
     Checks if the input item url is a container
     */
@@ -536,6 +610,9 @@ export default {
       return `${mode.sharedWith}-${mode.resourceUrl}-${mode.created}-${userIndex}`;
     },
     startPermissionEdit(mode: userHash, userIndex: number) {
+      if (this.isRecipientRevoked(mode)) {
+        return;
+      }
       this.permissionEditError = "";
       this.editedPermissions = this.permissionsFromModeIris(mode.accessModes);
       this.permissionRevokeDurationValue = null;
@@ -691,6 +768,20 @@ export default {
       const count = item.usersSharedWith.length;
       return count === 1 ? "1 recipient" : `${count} recipients`;
     },
+    // Show active/revoked counts so revoked permissions remain visible and understandable.
+    getRecipientStatusSummary(item: sharedSomething): string {
+      const revokedCount = item.usersSharedWith.filter((entry) =>
+        this.isRecipientRevoked(entry)
+      ).length;
+      const activeCount = item.usersSharedWith.length - revokedCount;
+      if (revokedCount === 0) {
+        return `${this.getRecipientSummary(item)} active`;
+      }
+      if (activeCount === 0) {
+        return `${this.getRecipientSummary(item)} revoked`;
+      }
+      return `${activeCount} active, ${revokedCount} revoked`;
+    },
     // Find the newest created timestamp among all recipients of one resource.
     getLatestEntryDate(item: sharedSomething): string {
       const times = item.usersSharedWith
@@ -827,6 +918,9 @@ export default {
   display: grid;
   gap: 0.58rem;
 }
+.shared-list > li {
+  min-width: 0;
+}
 .shared-entry {
   border: 1px solid color-mix(in srgb, var(--border) 84%, var(--primary) 16%);
   border-radius: 14px;
@@ -843,6 +937,14 @@ export default {
 .shared-entry.expanded {
   border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
 }
+.shared-entry.revoked-entry {
+  border-color: color-mix(in srgb, var(--border) 92%, var(--text-muted) 8%);
+  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
+}
+.shared-entry.revoked-entry:hover {
+  border-color: color-mix(in srgb, var(--border) 90%, var(--text-muted) 10%);
+  background: color-mix(in srgb, var(--panel) 94%, var(--panel-elev) 6%);
+}
 
 .entry-toggle {
   width: 100%;
@@ -856,6 +958,7 @@ export default {
   cursor: pointer;
   font-family: "Oxanium", monospace;
   color: var(--text-secondary);
+  min-width: 0;
 }
 .entry-main {
   display: inline-flex;
@@ -870,10 +973,13 @@ export default {
   min-width: 0;
 }
 .shared-others-collapsed-copy {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.8rem;
+  column-gap: 0.8rem;
+  row-gap: 0.24rem;
   width: 100%;
+  min-width: 0;
 }
 .shared-others-collapsed-copy .entry-title {
   flex: 1 1 auto;
@@ -884,15 +990,19 @@ export default {
   align-items: center;
   justify-content: flex-end;
   gap: 0.7rem;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   color: var(--text-muted);
   font-size: var(--font-size-page-summary);
-  white-space: nowrap;
+  white-space: normal;
+  flex-wrap: wrap;
 }
 .entry-inline-summary span {
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
+  min-width: 0;
 }
 .entry-copy-equalized {
   min-height: 2.8rem;
@@ -912,6 +1022,26 @@ export default {
   font-size: var(--font-size-page-summary);
   color: var(--text-muted);
   line-height: 1.35;
+}
+.entry-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--success) 45%, var(--border) 55%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 12%, var(--panel-elev) 88%);
+  color: color-mix(in srgb, var(--success) 80%, var(--text-primary) 20%);
+  font-size: var(--font-size-section-kicker);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  padding: 0.16rem 0.44rem;
+}
+.entry-status.revoked {
+  border-color: color-mix(in srgb, var(--border) 78%, var(--text-muted) 22%);
+  background: color-mix(in srgb, var(--panel) 84%, var(--panel-elev) 16%);
+  color: var(--text-muted);
 }
 .info-icon {
   color: var(--text-muted);
@@ -1043,6 +1173,16 @@ export default {
   color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
+.shared-revoked-note {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text-muted) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
+  color: var(--text-muted);
+  font-size: var(--font-size-page-summary);
+  font-weight: 700;
+  padding: 0.42rem 0.52rem;
+}
 .mono {
   font-family: "Oxanium", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -1067,6 +1207,11 @@ export default {
   font-size: 0.76rem;
   font-weight: 700;
 }
+.mode-chip.revoked {
+  border-color: color-mix(in srgb, var(--border) 80%, var(--text-muted) 20%);
+  background: color-mix(in srgb, var(--panel) 94%, var(--panel-elev) 6%);
+  color: var(--text-muted);
+}
 
 .recipient-list {
   display: grid;
@@ -1079,15 +1224,20 @@ export default {
   padding: 0.62rem;
   display: grid;
   gap: 0.58rem;
+  min-width: 0;
+}
+.recipient-card.revoked-recipient {
+  border-color: color-mix(in srgb, var(--border) 88%, var(--text-muted) 12%);
+  background: color-mix(in srgb, var(--panel) 96%, var(--panel-elev) 4%);
 }
 .recipient-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 0.45rem 0.7rem;
   padding-bottom: 0.52rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  min-width: 0;
 }
 .recipient-target,
 .recipient-date {
@@ -1098,19 +1248,24 @@ export default {
   font-size: var(--font-size-page-summary);
 }
 .recipient-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   color: var(--text-primary);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 .recipient-date {
   color: var(--text-muted);
 }
 .recipient-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.55rem;
   flex-wrap: wrap;
   min-width: 0;
+  max-width: 100%;
 }
 .recipient-body {
   display: grid;
@@ -1122,7 +1277,7 @@ export default {
   border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel-elev) 90%, transparent);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1148,7 +1303,7 @@ export default {
 .permission-save-button {
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   border-color: color-mix(in srgb, var(--primary) 62%, var(--border));
-  color: var(--primary-contrast);
+  color: var(--text-primary);
 }
 .permission-save-button:disabled {
   cursor: wait;
@@ -1157,12 +1312,7 @@ export default {
 .permission-editor {
   border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
   border-radius: 12px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--panel-elev) 94%, var(--primary) 6%),
-      color-mix(in srgb, var(--panel) 96%, var(--primary) 4%)
-    );
+  background: var(--panel-elev);
   display: grid;
   gap: 0.68rem;
   padding: 0.72rem;
@@ -1296,6 +1446,7 @@ export default {
   .shared-others-collapsed-copy {
     display: grid;
     gap: 0.24rem;
+    grid-template-columns: minmax(0, 1fr);
   }
   .entry-inline-summary {
     justify-content: flex-start;
@@ -1311,6 +1462,21 @@ export default {
   }
   .permission-editor-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1160px) {
+  .shared-others-collapsed-copy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .entry-inline-summary {
+    justify-content: flex-start;
+  }
+  .recipient-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recipient-actions {
+    justify-content: flex-start;
   }
 }
 

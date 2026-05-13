@@ -648,7 +648,7 @@
                       <span class="user-tag">Query File: <br /></span>
                       <button
                         @click="
-                          fetchQuery(query.hash, selectedPodUrl + 'querycache/')
+                          fetchQuery(query.hash, getQueryCacheContainerUrl())
                         "
                         class="drop-down"
                       >
@@ -679,7 +679,7 @@
                           @click="
                             fetchResults(
                               query.hash,
-                              selectedPodUrl + 'querycache/',
+                              getQueryCacheContainerUrl(),
                             )
                           "
                           class="drop-down"
@@ -902,6 +902,7 @@
         class="results-container"
         v-if="
           loading ||
+          queryError != null ||
           (currentQuery.output != null &&
             typeof currentQuery.output !== 'string')
         "
@@ -1020,6 +1021,7 @@
           class="null-results"
           v-show="
             !loading &&
+            queryError == null &&
             resultsForYasr != null &&
             resultsForYasr.results.bindings.length === 0
           "
@@ -2199,7 +2201,7 @@ export default {
       this.renameFeedback = null;
       try {
         const renamed = await renameCachedQueryEntry(
-          `${this.selectedPodUrl}querycache/queries.ttl`,
+          this.getQueryCacheIndexUrl(),
           query.hash,
           trimmedLabel,
         );
@@ -3292,8 +3294,8 @@ export default {
 
     // Methods for the deletion of a query cache entry
     async confirmAndDelete(queryHash: string) {
-      const queryFile = `${this.selectedPodUrl}querycache/${queryHash}.rq`;
-      const resultsFile = `${this.selectedPodUrl}querycache/${queryHash}.json`;
+      const queryFile = `${this.getQueryCacheContainerUrl()}${queryHash}.rq`;
+      const resultsFile = `${this.getQueryCacheContainerUrl()}${queryHash}.json`;
 
       const message =
         "Are you sure you want to delete this cache entry? This action cannot be undone.";
@@ -3336,7 +3338,7 @@ export default {
     async removeCachedRecord(queryHash: string) {
       // remove the record from queries.ttl
       const queriesttlUpdate = await deleteThing(
-        this.selectedPodUrl + "querycache/queries.ttl",
+        this.getQueryCacheIndexUrl(),
         queryHash,
       );
       return queriesttlUpdate;
@@ -3348,16 +3350,37 @@ export default {
       this.currentView = "previousQueries";
       await this.loadCache();
     },
+    /**
+     * Normalizes the selected pod URL into a predictable querycache container.
+     * This prevents subtle path bugs when the selected pod omits trailing slash.
+     */
+    getQueryCacheContainerUrl() {
+      const podUrl = this.selectedPodUrl.trim();
+      if (podUrl === "") {
+        return "";
+      }
+      const podBase = podUrl.endsWith("/") ? podUrl : `${podUrl}/`;
+      return `${podBase}querycache/`;
+    },
+    /**
+     * Resolves the canonical path of the cache index file.
+     */
+    getQueryCacheIndexUrl() {
+      return `${this.getQueryCacheContainerUrl()}queries.ttl`;
+    },
     async loadCache() {
+      if (!this.loggedIn || this.selectedPodUrl.trim() === "") {
+        this.queriesCacheExists = false;
+        this.cachedQueries = [];
+        return;
+      }
+
       this.clearRetrievedResults();
-      this.queriesCacheExists = await getStoredTtl(
-        this.selectedPodUrl + "querycache/queries.ttl",
-      );
+      const cacheIndexUrl = this.getQueryCacheIndexUrl();
+      this.queriesCacheExists = await getStoredTtl(cacheIndexUrl);
       if (this.queriesCacheExists) {
         try {
-          this.cachedQueries = await getCachedQueries(
-            this.selectedPodUrl + "querycache/queries.ttl",
-          );
+          this.cachedQueries = await getCachedQueries(cacheIndexUrl);
         } catch (err) {
           console.log("Error fetching queries:", err);
         }
@@ -3443,7 +3466,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificCacheAclData() {
-      const cacheUrl = this.selectedPodUrl + "querycache/";
+      const cacheUrl = this.getQueryCacheContainerUrl();
       this.hasAcl = await fetchPermissionsData(cacheUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(cacheUrl);
@@ -3461,7 +3484,7 @@ export default {
      * @param path the URL of the resource or container for which access rights are to be displayed
      */
     async getSpecificQueryAclData(queryHash: string) {
-      const queryUrl = this.selectedPodUrl + "querycache/" + queryHash;
+      const queryUrl = `${this.getQueryCacheContainerUrl()}${queryHash}`;
       this.hasAcl = await fetchPermissionsData(queryUrl); // value is either .acl obj OR null (if .acl does not exist)
       if (this.hasAcl !== null) {
         this.hasAccess = await fetchAclAgents(queryUrl);
@@ -3479,7 +3502,7 @@ export default {
      * @param path the URL of the resource or container for which an .acl is to be made
      */
     async makeNewAcl() {
-      const cacheUrl = this.selectedPodUrl + "querycache/";
+      const cacheUrl = this.getQueryCacheContainerUrl();
       try {
         await generateAcl(cacheUrl, this.webId);
         await this.getSpecificCacheAclData();

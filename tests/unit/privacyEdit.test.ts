@@ -264,3 +264,30 @@ test("getDueSharedWithOthersRevocations returns only entries with expired revoke
     "https://owner.example/inbox/sharedWithOthers.ttl#offer-a"
   );
 });
+
+test("getDueSharedWithOthersRevocations skips entries already marked as revoked", () => {
+  const dueEntries = getDueSharedWithOthersRevocations(
+    [
+      {
+        resourceHash: "https://owner.example/docs/",
+        owner: "https://owner.example/profile/card#me",
+        whatKind: "https://www.w3.org/ns/ldp#Container",
+        usersSharedWith: [
+          {
+            sharedWith: "https://target.example/profile/card#me",
+            accessModes: ["http://www.w3.org/ns/auth/acl#Read"],
+            resourceUrl: "https://owner.example/docs/",
+            created: "2029-01-01T00:00:00.000Z",
+            revokeAt: "2030-01-01T00:00:00.000Z",
+            offerIri: "https://owner.example/inbox/sharedWithOthers.ttl#offer-a",
+            revoked: true,
+            revokedAt: "2030-01-01T00:01:00.000Z",
+          },
+        ],
+      },
+    ],
+    new Date("2030-06-01T00:00:00.000Z")
+  );
+
+  assert.equal(dueEntries.length, 0);
+});

@@ -633,6 +633,11 @@ export default {
 .input-box {
   width: 100%;
 }
+/* Keep selected file chip text readable in both light and dark themes. */
+.input-box :deep(.v-field__input .v-chip),
+.input-box :deep(.v-field__input .v-chip .v-chip__content) {
+  color: var(--text-primary) !important;
+}
 .check-exists {
   list-style-type: none;
 }

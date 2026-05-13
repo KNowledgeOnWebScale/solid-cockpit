@@ -798,6 +798,9 @@ export interface userHash {
   created: string;
   revokeAt?: string;
   offerIri?: string;
+  revoked?: boolean;
+  revokedAt?: string;
+  revokedOfferIri?: string;
 }
 
 export interface indexedUserHash {
@@ -835,12 +838,37 @@ export async function getSharedWithOthers(
   things.forEach((thing) => thingByUrl.set(thing.url, thing));
 
   // Undo entries explicitly revoke prior offers through as:object.
-  const revokedOfferIris = new Set<string>(
-    things
-      .filter((thing) => getIri(thing, RDF_TYPE) === AS_UNDO)
-      .map((thing) => getUrl(thing, AS_OBJECT))
-      .filter((iri): iri is string => Boolean(iri))
-  );
+  const revokedOfferInfo = new Map<
+    string,
+    { revokedAt?: string; undoIri?: string }
+  >();
+  things
+    .filter((thing) => getIri(thing, RDF_TYPE) === AS_UNDO)
+    .forEach((thing) => {
+      const revokedOfferIri = getUrl(thing, AS_OBJECT);
+      if (!revokedOfferIri) {
+        return;
+      }
+      const nextRevokedAt = getDatetime(thing, DCT_CREATED)?.toISOString();
+      const existing = revokedOfferInfo.get(revokedOfferIri);
+      if (!existing) {
+        revokedOfferInfo.set(revokedOfferIri, {
+          revokedAt: nextRevokedAt,
+          undoIri: thing.url,
+        });
+        return;
+      }
+      const existingTime = existing.revokedAt
+        ? new Date(existing.revokedAt).getTime()
+        : 0;
+      const nextTime = nextRevokedAt ? new Date(nextRevokedAt).getTime() : 0;
+      if (nextTime >= existingTime) {
+        revokedOfferInfo.set(revokedOfferIri, {
+          revokedAt: nextRevokedAt,
+          undoIri: thing.url,
+        });
+      }
+    });
   const sharedItems: sharedSomething[] = [];
   things.forEach((thing) => {
     // Extract the hash from the Thing’s URL fragment.
@@ -859,10 +887,12 @@ export async function getSharedWithOthers(
       const sharedHashes = getIriAll(
         thing,
         AS_OFFER
-      )
-        // Offers that are already referenced by Undo entries are no longer active.
-        .filter((offerIri) => !revokedOfferIris.has(offerIri));
-      const usersSharedWith = thingsUsersSharedWithParse(sharedHashes, thingByUrl);
+      );
+      const usersSharedWith = thingsUsersSharedWithParse(
+        sharedHashes,
+        thingByUrl,
+        revokedOfferInfo
+      );
       const owner = currentUserWebId;
 
       if (usersSharedWith.length > 0) {
@@ -887,7 +917,8 @@ export async function getSharedWithOthers(
  */
 function thingsUsersSharedWithParse(
   userHashes: string[],
-  thingByUrl: Map<string, Thing>
+  thingByUrl: Map<string, Thing>,
+  revokedOfferInfo: Map<string, { revokedAt?: string; undoIri?: string }>
 ): userHash[] {
   const usersSharedWith: userHash[] = [];
   userHashes.forEach((hashIri) => {
@@ -900,6 +931,8 @@ function thingsUsersSharedWithParse(
     const resourceUrl = getUrl(hashThing, ACL_ACCESS_TO) || "N/A";
     const access = getIriAll(hashThing, "http://www.w3.org/ns/auth/acl#mode") || ["N/A"];
     const revokeAt = getDatetime(hashThing, DCT_VALID)?.toISOString();
+    const revokedInfo = revokedOfferInfo.get(hashThing.url);
+    const revoked = Boolean(revokedInfo);
 
     usersSharedWith.push({
       sharedWith,
@@ -908,6 +941,9 @@ function thingsUsersSharedWithParse(
       created,
       revokeAt,
       offerIri: hashThing.url,
+      revoked,
+      revokedAt: revokedInfo?.revokedAt,
+      revokedOfferIri: revokedInfo?.undoIri,
     });
   });
   return usersSharedWith;
@@ -938,6 +974,9 @@ export function getDueSharedWithOthersRevocations(
   return sharedItems.flatMap((item) =>
     item.usersSharedWith
       .filter((entry) => {
+        if (entry.revoked) {
+          return false;
+        }
         if (!entry.revokeAt || !entry.offerIri) {
           return false;
         }
@@ -1158,6 +1197,37 @@ export async function getSharedWithMe(
   const dataset = await getSolidDataset(sharedWithMeUrl, { fetch });
 
   const things: Thing[] = getThingAll(dataset);
+  const revokedOfferInfo = new Map<
+    string,
+    { revokedAt?: string; undoIri?: string }
+  >();
+  things
+    .filter((thing) => getIri(thing, RDF_TYPE) === AS_UNDO)
+    .forEach((thing) => {
+      const revokedOfferIri = getUrl(thing, AS_OBJECT);
+      if (!revokedOfferIri) {
+        return;
+      }
+      const nextRevokedAt = getDatetime(thing, DCT_CREATED)?.toISOString();
+      const existing = revokedOfferInfo.get(revokedOfferIri);
+      if (!existing) {
+        revokedOfferInfo.set(revokedOfferIri, {
+          revokedAt: nextRevokedAt,
+          undoIri: thing.url,
+        });
+        return;
+      }
+      const existingTime = existing.revokedAt
+        ? new Date(existing.revokedAt).getTime()
+        : 0;
+      const nextTime = nextRevokedAt ? new Date(nextRevokedAt).getTime() : 0;
+      if (nextTime >= existingTime) {
+        revokedOfferInfo.set(revokedOfferIri, {
+          revokedAt: nextRevokedAt,
+          undoIri: thing.url,
+        });
+      }
+    });
   const sharedItems: sharedSomething[] = [];
   let lastAccessed: string = "N/A";
 
@@ -1166,6 +1236,7 @@ export async function getSharedWithMe(
       const resourceHash = thing.url.includes("#")
         ? thing.url.split("#")[1]
         : "";
+      const typeIri = getIri(thing, RDF_TYPE) || "N/A";
 
       // Get the last accessed time
       if (resourceHash === "lastAccess") {
@@ -1175,6 +1246,16 @@ export async function getSharedWithMe(
             "http://purl.org/dc/terms/modified"
           )?.toISOString() || "N/A";
       } else {
+        const isOffer = typeIri === AS_OFFER;
+        const isUndo = typeIri === AS_UNDO;
+        if (!isOffer && !isUndo) {
+          return;
+        }
+        // Skip offers that were later revoked; the matching Undo entry is used
+        // to represent current state in SharedWithMe.
+        if (isOffer && revokedOfferInfo.has(thing.url)) {
+          return;
+        }
         // Get all other info
         const creator =
           getUrl(thing, "http://purl.org/dc/terms/creator") || "N/A";
@@ -1189,9 +1270,11 @@ export async function getSharedWithMe(
           thing,
           "http://www.w3.org/ns/auth/acl#mode"
         ) || ["N/A"];
-        const whatKind =
-          getIri(thing, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type") ||
-          "N/A";
+        const revokedOfferIri = isUndo ? getUrl(thing, AS_OBJECT) || undefined : undefined;
+        const revokedInfo = revokedOfferIri
+          ? revokedOfferInfo.get(revokedOfferIri)
+          : undefined;
+        const whatKind = typeIri;
 
         const usersSharedWith: userHash[] = [
           {
@@ -1199,6 +1282,9 @@ export async function getSharedWithMe(
             resourceUrl: accessTo,
             accessModes: accessModes,
             created: created,
+            revoked: isUndo,
+            revokedAt: revokedInfo?.revokedAt || (isUndo ? created : undefined),
+            revokedOfferIri,
           },
         ];
 
