@@ -1,7 +1,7 @@
 {
   "name": "solid-cockpit",
-  "version": "1.0.0",
-  "description": "The Solid Cockpit applicaiton for Pod utilization",
+  "version": "1.2.1",
+  "description": "The Solid Cockpit application for Solid Pod utilization",
   "main": "~/src/App.vue",
   "homepage": "https://knowledgeonwebscale.github.io/solid-cockpit",
   "repository": "https://github.com/KNowledgeOnWebScale/solid-cockpit/tree/EDC_active",

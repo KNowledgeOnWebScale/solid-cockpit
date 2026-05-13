@@ -9,7 +9,7 @@ import {
   saveSolidDatasetAt,
   createSolidDataset,
   createContainerAt,
-  saveFileInContainer,
+  overwriteFile,
   createThing,
   buildThing,
   setThing,
@@ -126,6 +126,25 @@ export interface CoiFetchOptions {
   onError?: (e: unknown) => void;
 }
 
+interface HttpFetchIssue {
+  url: string;
+  status: number;
+  statusText: string;
+}
+
+/**
+ * Returns the Solid SDK-authenticated fetch used across query/cache operations.
+ *
+ * We intentionally rely on the module-level `fetch` export from
+ * `@inrupt/solid-client-authn-browser` because it is the most stable auth
+ * bridge across redirects and route transitions in this app. Earlier
+ * conditional session switching caused `queries.ttl` reads to intermittently
+ * fall back to unauthorized requests, breaking Past Queries loading.
+ */
+function getSolidAuthenticatedFetch(): FetchLike {
+  return fetch;
+}
+
 export type QueryExecutionMode =
   | "endpoint"
   | "solid-no-traversal"
@@ -184,7 +203,7 @@ export const QUERY_MODE_DEFINITIONS: QueryModeDefinition[] = [
  * @returns A new array of cleaned source URLs without angle brackets.
  */
 export function cleanSourcesUrls(dirtySources: string[]): ComunicaSources[] {
-  return cleanSourcesUrlsInternal(dirtySources, fetch);
+  return cleanSourcesUrlsInternal(dirtySources, getSolidAuthenticatedFetch() as typeof fetch);
 }
 
 export function isQueryExecutionMode(modeLike: string): modeLike is QueryExecutionMode {
@@ -292,6 +311,22 @@ export function buildCacheEntryHash(
 
 function getIndexResourceUrl(containerUrl: string, fileName = "queries.ttl"): string {
   return `${containerUrl}${fileName}`;
+}
+
+function ensureTrailingSlash(url: string): string {
+  return url.endsWith("/") ? url : `${url}/`;
+}
+
+/**
+ * Builds a deterministic cache member file URL inside a container.
+ * This avoids server-dependent POST+Slug handling and keeps member URLs explicit.
+ */
+export function buildCacheMemberFileUrl(
+  containerUrl: string,
+  fileName: string
+): string {
+  const normalizedContainerUrl = ensureTrailingSlash(containerUrl.trim());
+  return `${normalizedContainerUrl}${fileName}`;
 }
 
 function getQueryEntryUrl(
@@ -443,19 +478,86 @@ async function streamBindingsToOutput(
  * contexts where response header normalization is needed.
  */
 function createAuthenticatedQueryFetch(options: { noCors: boolean }): FetchLike {
-  return createCoiFetch(fetch, {
+  const baseFetch: FetchLike = getSolidAuthenticatedFetch();
+
+  return createCoiFetch(baseFetch, {
     coepCredentialless: false,
     passthroughOpaque: true,
     noCors: options.noCors,
   });
 }
 
-function createSolidQueryContext(mixedSources: ComunicaSources[]): Record<string, unknown> {
+function getFetchInputUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  if (typeof Request !== "undefined" && input instanceof Request) {
+    return input.url;
+  }
+  return String(input);
+}
+
+function isBlockingHttpStatus(status: number): boolean {
+  return status >= 400;
+}
+
+function summarizeBlockingHttpIssues(
+  issues: HttpFetchIssue[],
+  mode: QueryExecutionMode
+): string | null {
+  const blockingIssues = issues.filter((issue) =>
+    isBlockingHttpStatus(issue.status)
+  );
+  if (blockingIssues.length === 0) {
+    return null;
+  }
+
+  const uniqueIssues = Array.from(
+    new Map(
+      blockingIssues.map((issue) => [
+        `${issue.status}|${issue.url}`,
+        `${issue.status} ${issue.statusText || ""}`.trim() +
+          ` at ${issue.url}`,
+      ])
+    ).values()
+  );
+
+  return `HTTP request error(s) detected during ${mode} query execution: ${uniqueIssues.join(
+    " | "
+  )}`;
+}
+
+function createHttpIssueTrackingFetch(
+  baseFetch: FetchLike,
+  issues: HttpFetchIssue[]
+): FetchLike {
+  return async (input, init) => {
+    const response = await baseFetch(input, init);
+    if (response && isBlockingHttpStatus(response.status)) {
+      issues.push({
+        url: response.url || getFetchInputUrl(input),
+        status: response.status,
+        statusText: response.statusText || "",
+      });
+    }
+    return response;
+  };
+}
+
+function createSolidQueryContext(
+  mixedSources: ComunicaSources[],
+  httpIssues: HttpFetchIssue[]
+): Record<string, unknown> {
   const session = getDefaultSession();
   const hasAuthenticatedSession = Boolean(session.info.isLoggedIn);
-  const authenticatedFetch: FetchLike = hasAuthenticatedSession
-    ? session.fetch.bind(session)
-    : fetch;
+  const authenticatedFetchBase: FetchLike = getSolidAuthenticatedFetch();
+  const authenticatedFetch = createHttpIssueTrackingFetch(
+    authenticatedFetchBase,
+    httpIssues
+  );
 
   // Per Comunica Solid docs, provide the authn session in context so the Solid
   // HTTP actor can attach credentials for protected pod resources.
@@ -475,9 +577,13 @@ function createSolidQueryContext(mixedSources: ComunicaSources[]): Record<string
 
 function createEndpointCacheContext(
   mixedSources: ComunicaSources[],
-  cachePath: string
+  cachePath: string,
+  httpIssues: HttpFetchIssue[]
 ): Record<string, unknown> {
-  const authenticatedFetch = createAuthenticatedQueryFetch({ noCors: false });
+  const authenticatedFetch = createHttpIssueTrackingFetch(
+    createAuthenticatedQueryFetch({ noCors: false }),
+    httpIssues
+  );
   return {
     lenient: true,
     fetch: authenticatedFetch,
@@ -503,13 +609,21 @@ async function executeEndpointCacheLookup(
   cachePath: string
 ): Promise<CacheOutput | string> {
   const endpointEngine = new SparqlEngineCache();
+  const httpIssues: HttpFetchIssue[] = [];
   try {
-    return await executeWithEngine(
+    const output = await executeWithEngine(
       endpointEngine,
       inputQuery,
-      createEndpointCacheContext(mixedSources, cachePath),
+      createEndpointCacheContext(mixedSources, cachePath, httpIssues),
       { includeProvenance: true }
     );
+    // A cache hit that resolves to an empty set can be caused by hard HTTP
+    // errors against one or more remote sources. Surface those explicitly.
+    const httpIssueMessage = summarizeBlockingHttpIssues(httpIssues, "endpoint");
+    if (httpIssueMessage && output.resultsOutput.results.bindings.length === 0) {
+      throw new Error(httpIssueMessage);
+    }
+    return output;
   } catch {
     return "no-cache";
   }
@@ -519,13 +633,22 @@ async function executeSolidNoTraversalQuery(
   inputQuery: string,
   mixedSources: ComunicaSources[]
 ): Promise<CacheOutput | Error> {
+  const httpIssues: HttpFetchIssue[] = [];
   try {
     const solidEngine = new SolidQueryEngine();
-    return await executeWithEngine(
+    const output = await executeWithEngine(
       solidEngine,
       inputQuery,
-      createSolidQueryContext(mixedSources)
+      createSolidQueryContext(mixedSources, httpIssues)
     );
+    const httpIssueMessage = summarizeBlockingHttpIssues(
+      httpIssues,
+      "solid-no-traversal"
+    );
+    if (httpIssueMessage && output.resultsOutput.results.bindings.length === 0) {
+      return new Error(httpIssueMessage);
+    }
+    return output;
   } catch (err) {
     return err instanceof Error ? err : new Error(String(err));
   }
@@ -535,12 +658,21 @@ async function executeSolidLinkTraversalQuery(
   inputQuery: string,
   mixedSources: ComunicaSources[]
 ): Promise<CacheOutput | Error> {
+  const httpIssues: HttpFetchIssue[] = [];
   try {
-    return await executeWithEngine(
+    const output = await executeWithEngine(
       new SolidLinkTraversalQueryEngine(),
       inputQuery,
-      createSolidQueryContext(mixedSources)
+      createSolidQueryContext(mixedSources, httpIssues)
     );
+    const httpIssueMessage = summarizeBlockingHttpIssues(
+      httpIssues,
+      "solid-link-traversal"
+    );
+    if (httpIssueMessage && output.resultsOutput.results.bindings.length === 0) {
+      return new Error(httpIssueMessage);
+    }
+    return output;
   } catch (err) {
     return err instanceof Error ? err : new Error(String(err));
   }
@@ -623,12 +755,12 @@ export async function ensureCacheContainer(
 
   try {
     // Try to retrieve the dataset (container)
-    await getSolidDataset(cacheUrl, { fetch });
+    await getSolidDataset(cacheUrl, { fetch: getSolidAuthenticatedFetch() });
     return cacheUrl;
   } catch (error) {
     // If not found, create the container (if it is the users pod in question)
     if (providedCache === podUrl) {
-      await createContainerAt(cacheUrl, { fetch });
+      await createContainerAt(cacheUrl, { fetch: getSolidAuthenticatedFetch() });
 
       console.log(`Query Cache container was created at ${cacheUrl}`);
       return cacheUrl;
@@ -646,16 +778,22 @@ export async function ensureCacheContainer(
  *    - head: A Thing representing the head of the RDF list.
  *    - nodes: An array of all list node Things (to be added to your dataset).
  */
-function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
+export function buildRdfList(sources: string[]): { head: Thing; nodes: Thing[] } {
   if (sources.length === 0) {
     throw new Error(
-      "Cannot create a cache entry without at least one endpoint source."
+      "Cannot create a cache entry without at least one source URI."
     );
   }
 
   // Create a blank node for the current list element.
   let listNode = createThing(); // creates a blank node automatically
   listNode = buildThing(listNode).addIri(RDF_FIRST, sources[0]).build();
+
+  // Base case: a single source terminates the RDF list with rdf:nil.
+  if (sources.length === 1) {
+    listNode = buildThing(listNode).addIri(RDF_REST, RDF_NIL).build();
+    return { head: listNode, nodes: [listNode] };
+  }
 
   // Recursively build the rest of the list.
   const restList = buildRdfList(sources.slice(1));
@@ -742,7 +880,7 @@ export async function upsertQueryCacheEntry(
   let dataset: SolidDataset;
   try {
     dataset = await getSolidDataset(getIndexResourceUrl(containerUrl, fileName), {
-      fetch,
+      fetch: getSolidAuthenticatedFetch(),
     });
   } catch {
     dataset = createSolidDataset();
@@ -817,7 +955,7 @@ export async function upsertQueryCacheEntry(
   });
 
   await saveSolidDatasetAt(getIndexResourceUrl(containerUrl, fileName), updatedDataset, {
-    fetch,
+    fetch: getSolidAuthenticatedFetch(),
   });
 
   return entry.hash;
@@ -891,12 +1029,12 @@ export async function uploadQueryFile(
 ): Promise<string> {
   const fileName = hashName + ".rq";
   const blob = new Blob([query], { type: "application/sparql-query" });
+  const fileUrl = buildCacheMemberFileUrl(containerUrl, fileName);
 
   try {
-    const savedFile = await saveFileInContainer(containerUrl, blob, {
-      slug: fileName,
+    const savedFile = await overwriteFile(fileUrl, blob, {
       contentType: "application/sparql-query",
-      fetch,
+      fetch: getSolidAuthenticatedFetch(),
     });
     console.log(
       `Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`
@@ -941,12 +1079,12 @@ export async function uploadResults(
   const blob = new Blob([jsonString], {
     type: "application/sparql-results+json",
   });
+  const fileUrl = buildCacheMemberFileUrl(containerUrl, fileName);
 
   try {
-    const savedFile = await saveFileInContainer(containerUrl, blob, {
-      slug: fileName,
+    const savedFile = await overwriteFile(fileUrl, blob, {
       contentType: "application/json",
-      fetch,
+      fetch: getSolidAuthenticatedFetch(),
     });
     console.log(
       `Uploaded ${fileName} to ${savedFile.internal_resourceInfo.sourceIri}`
@@ -959,7 +1097,7 @@ export async function uploadResults(
 }
 
 /**
- * Determines if there is are cached queries in the pod.
+ * Determines if there are cached queries in the pod.
  *
  * @param containerUrl - The ttl URL
  * @returns boolean representing if a cache is present.
@@ -967,7 +1105,7 @@ export async function uploadResults(
 export async function getStoredTtl(resourceUrl: string): Promise<boolean> {
   try {
     // Try to retrieve the dataset and save updated dataset
-    await getSolidDataset(resourceUrl, { fetch });
+    await getSolidDataset(resourceUrl, { fetch: getSolidAuthenticatedFetch() });
     return true;
   } catch (error) {
     return false;
@@ -997,7 +1135,7 @@ export async function renameCachedQueryEntry(
 ): Promise<boolean> {
   const entryUrl = `${ttlFileUrl}#${targetHash}`;
   try {
-    let dataset = await getSolidDataset(ttlFileUrl, { fetch });
+    let dataset = await getSolidDataset(ttlFileUrl, { fetch: getSolidAuthenticatedFetch() });
     const entryThing = getThing(dataset, entryUrl);
     if (!entryThing) {
       return false;
@@ -1006,7 +1144,7 @@ export async function renameCachedQueryEntry(
     let renamedThing = setStringNoLocale(entryThing, DCT_TITLE, title.trim());
     renamedThing = setDatetime(renamedThing, DCT_MODIFIED, new Date());
     dataset = setThing(dataset, renamedThing);
-    await saveSolidDatasetAt(ttlFileUrl, dataset, { fetch });
+    await saveSolidDatasetAt(ttlFileUrl, dataset, { fetch: getSolidAuthenticatedFetch() });
     return true;
   } catch (error) {
     console.error(`Could not rename cached query ${targetHash}:`, error);
@@ -1034,7 +1172,9 @@ export async function renameCachedQueryEntry(
 export async function getCachedQueries(
   ttlFileUrl: string
 ): Promise<QueryEntry[]> {
-  const dataset: SolidDataset = await getSolidDataset(ttlFileUrl, { fetch });
+  const dataset: SolidDataset = await getSolidDataset(ttlFileUrl, {
+    fetch: getSolidAuthenticatedFetch(),
+  });
   const things: Thing[] = getThingAll(dataset);
   const queryEntries: QueryEntry[] = [];
 
@@ -1113,7 +1253,7 @@ function rdfListSources(
  * @returns A promise that resolves to the text content of the query file.
  */
 export async function fetchQueryFileData(fileUrl: string): Promise<string> {
-  const file = await getFile(fileUrl, { fetch });
+  const file = await getFile(fileUrl, { fetch: getSolidAuthenticatedFetch() });
   const textContent = await file.text();
   return textContent;
 }
@@ -1127,7 +1267,7 @@ export async function fetchQueryFileData(fileUrl: string): Promise<string> {
 export async function fetchSparqlJsonFileData(
   fileUrl: string
 ): Promise<QueryResultJson | null> {
-  const file = await getFile(fileUrl, { fetch });
+  const file = await getFile(fileUrl, { fetch: getSolidAuthenticatedFetch() });
   const textContent = await file.text();
   try {
     const jsonData = JSON.parse(textContent);

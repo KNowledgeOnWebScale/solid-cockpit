@@ -317,8 +317,7 @@ describe("Focused Styling Component Tests", () => {
       expect(wrapper.text()).toContain("Last Modified: 2026-02-20");
     });
 
-    expect(wrapper.text()).toContain("Version: v1.0.0");
-    expect(wrapper.text()).toContain("Version: v1.0.0");
+    expect(wrapper.text()).toContain(`Version: v${__APP_VERSION__}`);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
