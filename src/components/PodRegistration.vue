@@ -32,7 +32,7 @@
       </div>
 
       <!-- The selection state stays on one row with minimal copy and aligned controls. -->
-      <div class="select-pod" v-else>
+      <div class="select-pod" v-else-if="podAccess">
         <span class="selection-label">Choose a pod</span>
         <div class="sel-pod">
           <v-select
@@ -53,37 +53,55 @@
         </div>
       </div>
 
-      <!-- Empty-state card keeps the optional manual pod registration understandable. -->
+      <!-- Empty-state card keeps manual pod registration clear and compact. -->
       <div class="add-webid" v-if="!podAccess">
-        <v-alert
-          density="comfortable"
-          title="No Pod Registered to your WebId"
-          type="warning"
-          variant="tonal"
-        >
-          <div class="add-access">
-            <v-btn @click="toggleForm" class="icon-button" variant="text" rounded="lg">
-              {{ showFormIndex ? "Hide Pod URL Input" : "Input Your Pod URL" }}
-              <v-tooltip
-                class="tool-tip"
-                v-if="showFormIndex"
-                activator="parent"
-                location="end"
+        <div class="empty-pod-state">
+          <div class="empty-pod-main">
+            <div class="empty-pod-icon-wrap">
+              <v-icon size="24" color="var(--primary)">mdi-database-alert-outline</v-icon>
+            </div>
+            <div class="empty-pod-copy">
+              <h4>No pod registered to your WebID</h4>
+              <p>Add your pod URL once so it appears in the pod selector.</p>
+            </div>
+            <div class="empty-pod-actions">
+              <v-btn
+                @click="inferPodFromWebId"
+                class="empty-pod-toggle"
+                variant="outlined"
+                rounded="lg"
+                :loading="isInferringPod"
+                :disabled="isInferringPod"
               >
-                Close pod URL input
-              </v-tooltip>
-            </v-btn>
+                Infer from WebID
+              </v-btn>
+              <v-btn
+                @click="toggleForm"
+                class="empty-pod-toggle"
+                variant="outlined"
+                rounded="lg"
+              >
+                {{ showFormIndex ? "Hide Input" : "Add Pod URL" }}
+              </v-btn>
+            </div>
           </div>
+          <p class="pod-register-feedback pod-register-error" v-if="registrationError">
+            {{ registrationError }}
+          </p>
+          <p class="pod-register-feedback pod-register-success" v-if="registrationSuccess">
+            {{ registrationSuccess }}
+          </p>
 
           <!-- Manual pod registration remains available as a secondary recovery action. -->
-          <form @submit.prevent="addToWebIdData">
+          <form @submit.prevent="addToWebIdData" v-if="showFormIndex">
             <div class="input-podURL">
-              <div id="shareBox" v-if="showFormIndex" class="form-container">
+              <div id="shareBox" class="form-container">
                 <v-text-field
                   v-model="customPodUrl"
                   density="compact"
-                  :rules="rules"
+                  :rules="[validatePodUrl]"
                   label="Pod URL"
+                  placeholder="https://your-pod.example/"
                   variant="outlined"
                   hide-details="auto"
                 ></v-text-field>
@@ -93,18 +111,22 @@
                 type="submit"
                 variant="flat"
                 rounded="lg"
+                :loading="isRegisteringPod"
+                :disabled="isRegisteringPod"
               >
                 Register Pod
               </v-btn>
             </div>
           </form>
-        </v-alert>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
+import { getSolidDataset } from "@inrupt/solid-client";
+import { fetch } from "@inrupt/solid-client-authn-browser";
 import { webIdDataset } from "../services/solid/getData";
 import { checkUrl } from "../services/solid/privacyEdit";
 import { currentWebId, getPodURLs } from "../services/solid/login";
@@ -121,16 +143,15 @@ export default {
     customPodUrl: "",
     currentPod: "",
     showFormIndex: false,
+    isInferringPod: false,
+    isRegisteringPod: false,
+    registrationError: "",
+    registrationSuccess: "",
     user: {
       webId: "",
       fullName: "John Doe", // TODO: Should pull this data from #card (and integrate to pop up)
       email: "john.doe@doe.com", // TODO: Should pull this data from #card
     },
-    rules: [
-      (value) => {
-        return checkUrl(value, this.currentPod) ? "Invalid URL" : "";
-      },
-    ],
   }),
   computed: {
     authStore() {
@@ -147,6 +168,14 @@ export default {
     },
   },
   methods: {
+    /**
+     * Vuetify rule callback for pod URL input. Kept as an instance method so
+     * it has stable access to component state instead of relying on `this` in
+     * `data()`, which caused runtime errors when opening the manual input form.
+     */
+    validatePodUrl(value: string) {
+      return checkUrl(value, this.currentPod) ? "Invalid URL" : true;
+    },
     // delays the loading div so there is no yellow flash from async fetching
     toggleDelay() {
       this.delay = false;
@@ -155,24 +184,40 @@ export default {
      * Method for adding a pod to a user's webId card
      */
     async addToWebIdData() {
-      /* For TRIPLE consortium */
+      this.registrationError = "";
+      this.registrationSuccess = "";
+      this.isRegisteringPod = true;
+      /* For provided URL */
       if (this.customPodUrl === "") {
+        this.registrationError = "Enter a valid pod URL to register.";
+        this.isRegisteringPod = false;
+        return;
+      }
+
+      if (checkUrl(this.customPodUrl, this.currentPod)) {
+        this.registrationError = "Invalid pod URL. Please provide a full HTTP(S) URL.";
+        this.isRegisteringPod = false;
+        return;
+      }
+
+      try {
         await webIdDataset(currentWebId(), this.customPodUrl);
-        await this.findPodList();
-        this.showFormIndex = false;
-        this.customPodUrl = "";
-      } else {
-        /* For provided URL */
-        if (!checkUrl(this.customPodUrl, this.currentPod)) {
-          await webIdDataset(currentWebId(), this.customPodUrl);
-          await this.findPodList();
+        const refreshed = await this.refreshPodListAfterRegistration(
+          this.customPodUrl
+        );
+        if (refreshed) {
+          this.registrationSuccess = "Pod URL registered. Select it to continue.";
           this.showFormIndex = false;
           this.customPodUrl = "";
         } else {
-          /* For invalid URL 
-          TODO: make this a little prettier */
-          console.log("Not a valid URL ... ");
+          this.registrationSuccess =
+            "Pod URL was written to your WebID, but pod discovery is still updating. Please retry in a moment or use Infer from WebID.";
         }
+      } catch {
+        this.registrationError =
+          "Could not register pod URL on your WebID. Check permissions and try again.";
+      } finally {
+        this.isRegisteringPod = false;
       }
     },
 
@@ -182,15 +227,166 @@ export default {
     async findPodList() {
       this.podList = await getPodURLs();
       if (this.podList !== null) {
-        this.currentPod = this.podList[0];
+        this.currentPod = this.podList.length > 0 ? this.podList[0] : "";
         this.podAccess = this.podList.length !== 0;
       } else {
+        this.currentPod = "";
         this.podAccess = false;
       }
     },
+    /**
+     * Compare pod URLs in a stable way regardless of trailing slash.
+     */
+    normalizePodUrlForCompare(urlValue: string): string {
+      try {
+        const parsed = new URL(urlValue);
+        const normalizedPath = parsed.pathname.endsWith("/")
+          ? parsed.pathname
+          : `${parsed.pathname}/`;
+        return `${parsed.origin}${normalizedPath}`;
+      } catch {
+        return urlValue.trim();
+      }
+    },
+    /**
+     * Pod list updates can lag briefly after WebID storage writes. Retry a few
+     * times to avoid false negatives in the UI refresh.
+     */
+    async refreshPodListAfterRegistration(expectedPodUrl: string): Promise<boolean> {
+      const expectedNormalized = this.normalizePodUrlForCompare(expectedPodUrl);
+      const maxAttempts = 4;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        await this.findPodList();
+        const list = Array.isArray(this.podList) ? this.podList : [];
+        const hasExpected = list.some(
+          (podUrl) =>
+            this.normalizePodUrlForCompare(String(podUrl)) === expectedNormalized
+        );
+
+        if (hasExpected || this.podAccess) {
+          if (hasExpected) {
+            this.currentPod = expectedPodUrl;
+          }
+          return true;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+
+      return false;
+    },
     /* Toggles the Custom URL field */
     toggleForm() {
+      this.registrationError = "";
+      this.registrationSuccess = "";
       this.showFormIndex = !this.showFormIndex;
+    },
+    /**
+     * Extract likely pod container URLs from the current WebID using common
+     * Solid profile path conventions, then deduplicate candidates.
+     */
+    inferPodCandidates(webId: string): string[] {
+      const parsed = new URL(webId);
+      const candidates: string[] = [];
+      const seen = new Set<string>();
+
+      const addCandidate = (candidate: string) => {
+        const normalized = this.normalizeContainerUrl(candidate);
+        if (!normalized || seen.has(normalized)) return;
+        seen.add(normalized);
+        candidates.push(normalized);
+      };
+
+      const rawPath = parsed.pathname.replace(/\/+$/, "");
+      const profileCardMatch = rawPath.match(/^(.*)\/profile\/card$/i);
+      if (profileCardMatch) {
+        addCandidate(`${parsed.origin}${profileCardMatch[1] || "/"}`);
+      }
+
+      const trailingCardMatch = rawPath.match(/^(.*)\/card$/i);
+      if (trailingCardMatch) {
+        addCandidate(`${parsed.origin}${trailingCardMatch[1] || "/"}`);
+      }
+
+      const pathSegments = parsed.pathname.split("/").filter(Boolean);
+      if (pathSegments.length > 0) {
+        addCandidate(`${parsed.origin}/${pathSegments[0]}/`);
+      }
+
+      // Fallback for providers where the pod root is at origin level.
+      addCandidate(`${parsed.origin}/`);
+      return candidates;
+    },
+    /**
+     * Normalize inferred container URL shape before validation.
+     */
+    normalizeContainerUrl(urlValue: string): string {
+      try {
+        const parsed = new URL(urlValue);
+        parsed.hash = "";
+        parsed.search = "";
+        parsed.pathname = parsed.pathname.endsWith("/")
+          ? parsed.pathname
+          : `${parsed.pathname}/`;
+        return parsed.toString();
+      } catch {
+        return "";
+      }
+    },
+    /**
+     * Validate inferred pod candidate by checking that the container resolves
+     * as a readable Solid dataset for the current authenticated session.
+     */
+    async isValidPodCandidate(candidateUrl: string): Promise<boolean> {
+      try {
+        await getSolidDataset(candidateUrl, { fetch });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    /**
+     * Optional inference workflow: propose a valid pod candidate from WebID
+     * and prefill the manual registration field for user confirmation.
+     */
+    async inferPodFromWebId() {
+      this.registrationError = "";
+      this.registrationSuccess = "";
+      this.isInferringPod = true;
+      try {
+        const webIdValue = this.webId || currentWebId();
+        if (!webIdValue || checkUrl(webIdValue, "")) {
+          this.registrationError =
+            "Could not infer pod because your WebID is missing or invalid.";
+          return;
+        }
+
+        const candidates = this.inferPodCandidates(webIdValue);
+        if (candidates.length === 0) {
+          this.registrationError =
+            "Could not infer pod from your WebID structure. Please enter your pod URL manually.";
+          return;
+        }
+
+        for (const candidate of candidates) {
+          if (await this.isValidPodCandidate(candidate)) {
+            this.customPodUrl = candidate;
+            this.showFormIndex = true;
+            this.registrationSuccess =
+              `Inferred pod candidate. Click Register Pod to confirm.`;
+            return;
+          }
+        }
+
+        this.registrationError =
+          "Could not infer a valid pod from your WebID. Checked common candidates but none were readable.";
+      } catch {
+        this.registrationError =
+          "Pod inference failed. Please enter your pod URL manually.";
+      } finally {
+        this.isInferringPod = false;
+      }
     },
     selectPod() {
       const selectedPod = this.currentPod;
@@ -235,30 +431,88 @@ export default {
   padding: 0;
 }
 
+/* Manual registration empty-state matches the app card language and stays compact. */
+.empty-pod-state {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 95%, white 5%),
+    var(--panel)
+  );
+  box-shadow: var(--shadow-1);
+}
+.empty-pod-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.empty-pod-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.empty-pod-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.empty-pod-copy {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.empty-pod-copy h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.empty-pod-copy p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.empty-pod-toggle {
+  font-family: "Oxanium", monospace;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  text-transform: none;
+}
+.pod-register-feedback {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+.pod-register-error {
+  color: #d86179;
+}
+.pod-register-success {
+  color: #4fb89f;
+}
+
 /* Manual registration actions stay compact but expand cleanly on narrow screens. */
 .input-podURL {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 0.75rem;
-  margin-top: 0.8rem;
 }
 .pod-registerButton {
-  justify-self: start;
+  justify-self: end;
   background: linear-gradient(135deg, var(--primary), var(--primary-600));
   color: var(--main-white);
-}
-.add-access {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.add-access .icon-button {
-  color: var(--text-secondary);
   text-transform: none;
-  letter-spacing: 0;
-}
-.tool-tip {
-  font-family: "Oxanium", monospace;
 }
 
 /* Pod lodaing spinner */
@@ -443,6 +697,22 @@ export default {
   width: 100%;
   max-width: 34rem;
 }
+.form-container :deep(.v-field__input),
+.form-container :deep(input) {
+  color: var(--text-primary);
+  opacity: 1;
+}
+.form-container :deep(input::placeholder) {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+.form-container :deep(.v-field-label) {
+  color: var(--text-secondary);
+}
+.form-container :deep(.v-field__outline) {
+  --v-field-border-opacity: 1;
+  color: var(--border);
+}
 
 /* Mid-size windows need a softer collapse before the full mobile stack. */
 @media (max-width: 1120px) {
@@ -468,7 +738,7 @@ export default {
 @media (max-width: 760px) {
   .sel-pod,
   .current-pod,
-  .add-access {
+  .empty-pod-main {
     align-items: stretch;
   }
   .select-pod,
@@ -508,8 +778,18 @@ export default {
   .pod-selectButton,
   .change-pod-btn,
   .pod-registerButton,
-  .add-access .icon-button {
+  .empty-pod-toggle {
     width: 100%;
+  }
+  .empty-pod-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .input-podURL {
+    grid-template-columns: 1fr;
+  }
+  .pod-registerButton {
+    justify-self: stretch;
   }
 }
 </style>
