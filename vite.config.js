@@ -7,7 +7,7 @@ const packageJson = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf-8")
 );
 const appVersion = packageJson.version ?? "0.0.0";
-const appReleaseTag = `web-app-v${appVersion}`;
+const appReleaseTag = `v${appVersion}`;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => {

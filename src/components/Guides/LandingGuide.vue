@@ -97,7 +97,8 @@
           <li>
             <span class="guide-control">Home</span> authenticates with a Solid
             identity provider, shows session state, lets you choose a registered
-            pod, and provides copy controls for current identifiers.
+            pod, provides copy controls for current identifiers, and lets you
+            manually register a pod URL when a provider did not add it to your WebID automatically.
           </li>
           <li>
             <span class="guide-control">Data Upload</span> accepts a typed
@@ -118,6 +119,29 @@
             <span class="guide-control">Privacy Editing</span> inspects ACLs,
             grants agent or public access, reads sharing notifications, tracks
             sharing records, and supports scheduled access revocation.
+          </li>
+        </ul>
+      </section>
+
+      <section class="guide-section">
+        <h3>When you need to register a pod manually</h3>
+        <ul>
+          <li>
+            Some Solid providers create a new pod without updating the
+            <span class="guide-control">storage</span> link on an already existing WebID.
+          </li>
+          <li>
+            In that case, the new pod will not appear automatically in the pod selector on
+            <span class="guide-control">Home</span>.
+          </li>
+          <li>
+            Use <span class="guide-control">Register new pod</span> or
+            <span class="guide-control">Add Pod URL</span>, paste the new pod container URL, and
+            click <span class="guide-control">Register Pod</span>.
+          </li>
+          <li>
+            After registration, switch to that pod from the selector if you want to start working
+            in it immediately.
           </li>
         </ul>
       </section>

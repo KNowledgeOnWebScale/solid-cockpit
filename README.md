@@ -1,8 +1,7 @@
 ![Solid Cockpit Header Logo](./src/assets/full-sc-logo.png "SC Logo")
 
 # Solid Cockpit
-
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Vue](https://img.shields.io/badge/vue-3.2.13-42b883)
 ![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -74,7 +73,7 @@ Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
 
 If you use this tool in an academic publication, you can cite:
 
-`Crum, E. (2026). Solid Cockpit (Version 1.0.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
+`Crum, E. (2026). Solid Cockpit (Version 1.3.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
 
 BibTeX:
 
@@ -83,7 +82,7 @@ BibTeX:
   author       = {Crum, Elias},
   title        = {{Solid Cockpit}},
   year         = {2026},
-  version      = {1.0.0},
+  version      = {1.3.0},
   publisher    = {GitHub},
   howpublished = {\url{https://github.com/KNowledgeOnWebScale/solid-cockpit}},
   note         = {Software. Web app: \url{https://knowledgeonwebscale.github.io/solid-cockpit}. Accessed: 2026-03-04}
@@ -264,13 +263,13 @@ CI compliance check:
 
 Current app version:
 
-- `package.json` version: `1.0.0`
-- web-app release tag convention: `web-app-v<version>`
-- current computed web-app tag: `web-app-v1.0.0`
+- `package.json` version: `1.3.0`
+- release tag convention: `v<version>`
+- current computed release tag: `v1.3.0`
 
 In-app visibility:
 
-- Footer displays semantic version (`vX.Y.Z`) and computed release tag (`web-app-vX.Y.Z`)
+- Footer displays semantic version (`vX.Y.Z`).
 - Values are injected at build time from `package.json` via Vite defines
 
 Recommended release workflow:
@@ -278,7 +277,7 @@ Recommended release workflow:
 1. Update version:
 
 ```bash
-npm version X.Y.Z
+npm run version:bump -- X.Y.Z
 ```
 
 2. Build and validate:
@@ -292,8 +291,7 @@ npm run build:highmem
 
 ```bash
 git tag vX.Y.Z
-git tag web-app-vX.Y.Z
-git push origin vX.Y.Z web-app-vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 ### Deployment

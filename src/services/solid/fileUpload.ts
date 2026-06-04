@@ -134,6 +134,36 @@ export async function getPodResourceDownload(resourceUrl: string) {
 }
 
 /**
+ * Creates an empty container inside an existing parent container.
+ *
+ * @param parentContainerUrl The existing container where the new child container should live.
+ * @param containerName The child container name without path separators.
+ * @returns The created container URL when successful, or "error" on failure.
+ */
+export async function createPodContainer(
+  parentContainerUrl: string,
+  containerName: string
+): Promise<string> {
+  const sanitizedName = containerName.trim().replace(/^\/+|\/+$/g, "");
+  if (!sanitizedName || sanitizedName.includes("/")) {
+    return "error";
+  }
+
+  const normalizedParent = parentContainerUrl.endsWith("/")
+    ? parentContainerUrl
+    : `${parentContainerUrl}/`;
+  const targetContainerUrl = `${normalizedParent}${sanitizedName}/`;
+
+  try {
+    await createContainerAt(targetContainerUrl, { fetch });
+    return targetContainerUrl;
+  } catch (error) {
+    console.error(`Error creating container ${targetContainerUrl}:`, error);
+    return "error";
+  }
+}
+
+/**
  * Deletes a file from a Solid Pod using the @inrupt/solid-client method deleteFile().
  *
  * @param fileUrl The URL of the file to be deleted.

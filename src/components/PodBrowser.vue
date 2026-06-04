@@ -18,6 +18,13 @@
       </button>
     </div>
 
+    <div v-if="createContainerSuccess" class="success-popup">
+      <span>{{ createContainerSuccessMessage }}</span>
+      <button @click="createContainerSuccess = false" class="close-popup-button">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+
     <div class="pod-chooseContainer">
       <PodRegistration />
     </div>
@@ -59,12 +66,45 @@
               </p>
             </div>
             <div class="items-header-actions">
+              <button class="create-container-toggle" @click="createContainerPanelOpen = !createContainerPanelOpen">
+                <i class="material-icons">create_new_folder</i>
+                <span>{{ createContainerPanelOpen ? "Hide" : "New container" }}</span>
+              </button>
               <button class="filter-toggle" @click="filtersOpen = !filtersOpen">
                 <i class="material-icons">filter_alt</i>
                 <span>Filters</span>
               </button>
               <span class="items-count">{{ filteredUrls.length }} of {{ urls.length }} items</span>
             </div>
+          </div>
+
+          <div v-if="createContainerPanelOpen" class="create-container-panel">
+            <div class="create-container-copy">
+              <span class="create-container-title">Create empty container</span>
+              <span class="create-container-helper">
+                Add a new child container inside the currently selected container.
+              </span>
+            </div>
+            <div class="create-container-controls">
+              <input
+                v-model="newContainerName"
+                class="create-container-input"
+                type="text"
+                placeholder="new-container"
+              />
+              <v-btn
+                class="create-container-btn"
+                variant="outlined"
+                rounded="lg"
+                :disabled="creatingContainer || !canCreateContainer"
+                @click="createEmptyContainer"
+              >
+                Create Container
+              </v-btn>
+            </div>
+            <p class="create-container-feedback" v-if="createContainerFeedback">
+              {{ createContainerFeedback }}
+            </p>
           </div>
 
           <!-- Filters stay hidden until requested so the browser remains compact by default. -->
@@ -126,7 +166,7 @@
                       containerCheck(url) ? "folder" : "description"
                     }}</i>
                     <div class="item-copy item-copy-equalized">
-                      <span class="item-name" :title="url">{{ url }}</span>
+                      <span class="item-name" :title="url">{{ getItemName(url) }}</span>
                     </div>
                   </div>
                   <div class="info-icon">
@@ -204,17 +244,13 @@
                         </div>
                         <div class="summary-cell">
                           <i class="material-icons tiny not-colored">{{
-                            itemDetails.itemType === "Container" ? "folder_copy" : "save"
+                            itemDetails.itemType === "Container" ? "save" : "save"
                           }}</i>
                           <div>
                             <span class="field-label">{{
-                              itemDetails.itemType === "Container" ? "Direct items" : "File size"
+                              itemDetails.itemType === "Container" ? "Direct size" : "Size"
                             }}</span>
-                            <span class="field-value">{{
-                              itemDetails.itemType === "Container"
-                                ? (itemDetails.directChildren ?? "Not available")
-                                : (itemDetails.sizeLabel || "Not available")
-                            }}</span>
+                            <span class="field-value">{{ itemDetails.sizeLabel || "Not available" }}</span>
                           </div>
                         </div>
                       </div>
@@ -269,6 +305,18 @@
                             </span>
                             <span class="field-value">{{ itemDetails.contentType || "Unknown" }}</span>
                           </div>
+                          <div
+                            class="entry-field direct-items-field"
+                            v-if="itemDetails.itemType === 'Container'"
+                          >
+                            <span class="field-label">
+                              <i class="material-icons tiny not-colored">folder_copy</i>
+                              Direct items
+                            </span>
+                            <span class="field-value">{{
+                              itemDetails.directChildren ?? "Not available"
+                            }}</span>
+                          </div>
                           <div class="entry-field browser-metadata-field" v-if="itemDetails.metadataUrl">
                             <span class="field-label">
                               <i class="material-icons tiny not-colored">link</i>
@@ -302,6 +350,13 @@
                     <p class="download-feedback" v-if="downloadFeedback">
                       {{ downloadFeedback }}
                     </p>
+
+                    <pod-resource-inspector
+                      v-if="itemDetails.itemType === 'Resource'"
+                      :resource-url="itemDetails.sourceIri"
+                      :content-type="itemDetails.contentType"
+                      :web-id="webId"
+                    />
 
                     <div class="action-panel move-panel">
                       <button
@@ -448,6 +503,7 @@
 </template>
 
 <script lang="ts">
+import { defineAsyncComponent } from "vue";
 import { fetchData, WorkingData } from "../services/solid/getData";
 import {
   deleteFromPod,
@@ -455,6 +511,7 @@ import {
   getPodResourceDownload,
   movePodItem,
   renamePodItem,
+  createPodContainer,
 } from "../services/solid/fileUpload";
 import {
   getFile,
@@ -471,6 +528,7 @@ import ContainerNav from "./ContainerNav.vue";
 import PodRegistration from "./PodRegistration.vue";
 import PodBrowserGuide from "./Guides/PodBrowserGuide.vue";
 import { useAuthStore } from "../stores/auth";
+import { useContainerSizeStore } from "../stores/containerSize";
 import { checkUrl } from "../services/solid/privacyEdit";
 
 interface BrowserItemDetail {
@@ -498,12 +556,16 @@ interface ItemParseWarning {
 
 const DCT_MODIFIED = "http://purl.org/dc/terms/modified";
 const POSIX_MTIME = "http://www.w3.org/ns/posix/stat#mtime";
+const POSIX_SIZE = "http://www.w3.org/ns/posix/stat#size";
 
 export default {
   components: {
     ContainerNav,
     PodRegistration,
     PodBrowserGuide,
+    PodResourceInspector: defineAsyncComponent(
+      () => import("./PodResourceInspector.vue")
+    ),
   },
   data() {
     return {
@@ -524,10 +586,16 @@ export default {
       renderKey: 0 as number,
       deletionSuccess: false,
       deletedItemType: "" as "Resource" | "Container" | "",
+      createContainerSuccess: false,
+      createContainerSuccessMessage: "" as string,
       loadingIndex: null as number | null,
       filtersOpen: false,
       itemTypeFilter: "all" as "all" | "container" | "resource",
       itemSearch: "" as string,
+      createContainerPanelOpen: false,
+      newContainerName: "" as string,
+      creatingContainer: false,
+      createContainerFeedback: "" as string,
       movePanelOpen: false,
       renamePanelOpen: false,
       moveInputType: "browsePath" as "customPath" | "browsePath",
@@ -544,6 +612,9 @@ export default {
   computed: {
     authStore() {
       return useAuthStore(); // Access the store
+    },
+    containerSizeStore() {
+      return useContainerSizeStore();
     },
     loggedIn() {
       return this.authStore.loggedIn; // Access loggedIn state
@@ -576,6 +647,10 @@ export default {
         const itemName = this.getItemName(url).toLowerCase();
         return itemName.includes(searchTerm) || url.toLowerCase().includes(searchTerm);
       });
+    },
+    canCreateContainer(): boolean {
+      const trimmedName = this.newContainerName.trim();
+      return trimmedName.length > 0 && !trimmedName.includes("/");
     },
   },
   methods: {
@@ -623,12 +698,14 @@ export default {
     */
     async deleteResource(fileUrl: string) {
       try {
+        const parentContainer = this.getParentContainer(fileUrl);
         const success = fileUrl.endsWith("/")
           ? await deleteContainer(fileUrl)
           : await deleteFromPod(fileUrl);
 
         // 2) Refetch with cache-busting to avoid stale SolidDataset
         if (success) {
+          this.invalidateContainerSizes([parentContainer, fileUrl]);
           this.deletedItemType = fileUrl.endsWith("/")
             ? "Container"
             : "Resource";
@@ -810,10 +887,149 @@ export default {
 
       return null;
     },
+    async getMetadataSizeLabel(
+      metadataValue: string | string[] | null,
+    ): Promise<string | null> {
+      const metadataUrls = this.normalizeMetadataEntries(metadataValue)
+        .map((entry) => this.metadataEntryHref(entry))
+        .filter((entry): entry is string => Boolean(entry));
+
+      for (const metadataUrl of metadataUrls) {
+        try {
+          const metadataDataset = await fetchData(metadataUrl);
+          if ("blob" in metadataDataset) {
+            continue;
+          }
+
+          for (const thing of getThingAll(metadataDataset)) {
+            const posixSize =
+              getInteger(thing, POSIX_SIZE) ?? getDecimal(thing, POSIX_SIZE);
+            if (typeof posixSize === "number" && Number.isFinite(posixSize)) {
+              return this.formatFileSize(posixSize);
+            }
+
+            const sizeString = getStringNoLocale(thing, POSIX_SIZE);
+            if (sizeString) {
+              const parsedSize = Number(sizeString);
+              if (Number.isFinite(parsedSize)) {
+                return this.formatFileSize(parsedSize);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`Could not read metadata size from ${metadataUrl}`, error);
+        }
+      }
+
+      return null;
+    },
+    /**
+     * Direct container size is computed lazily from the files immediately inside
+     * the opened container. This avoids recursively walking large pod trees while
+     * still giving users a useful byte total for the current level.
+     */
+    async getDirectContainerSizeLabel(
+      containerUrl: string,
+      childUrls?: string[],
+    ): Promise<string | null> {
+      const cachedBytes = this.containerSizeStore.getDirectSize(containerUrl);
+      if (typeof cachedBytes === "number") {
+        return this.formatFileSize(cachedBytes);
+      }
+
+      try {
+        // Reuse the child list from the open-details request when available so
+        // the uncached path only needs one container listing request.
+        const resolvedChildUrls =
+          childUrls ??
+          getContainedResourceUrlAll(
+            await getSolidDataset(containerUrl, { fetch: solidFetch })
+          );
+        const directResourceUrls = resolvedChildUrls.filter(
+          (childUrl) => !this.containerCheck(childUrl)
+        );
+
+        if (directResourceUrls.length === 0) {
+          this.containerSizeStore.setDirectSize(containerUrl, 0);
+          return this.formatFileSize(0);
+        }
+
+        const sizeReads = await Promise.allSettled(
+          directResourceUrls.map(async (childUrl) => {
+            const childFile = await getFile(childUrl, { fetch: solidFetch });
+            return Number.isFinite(childFile.size) ? childFile.size : 0;
+          })
+        );
+
+        if (sizeReads.some((result) => result.status === "rejected")) {
+          return null;
+        }
+
+        const totalBytes = sizeReads.reduce((sum, result) => {
+          return result.status === "fulfilled" ? sum + result.value : sum;
+        }, 0);
+
+        this.containerSizeStore.setDirectSize(containerUrl, totalBytes);
+        return this.formatFileSize(totalBytes);
+      } catch (error) {
+        console.warn(`Could not calculate direct container size for ${containerUrl}`, error);
+        return null;
+      }
+    },
+    invalidateContainerSizes(containerUrls: string[]) {
+      containerUrls
+        .map((containerUrl) => containerUrl?.trim())
+        .filter((containerUrl): containerUrl is string => Boolean(containerUrl))
+        .forEach((containerUrl) => {
+          this.containerSizeStore.markStale(containerUrl);
+        });
+    },
     // Resetting filters returns the browser to the full selected-container contents view.
     resetFilters() {
       this.itemTypeFilter = "all";
       this.itemSearch = "";
+    },
+    async createEmptyContainer() {
+      if (!this.canCreateContainer) {
+        this.createContainerFeedback =
+          "Enter a container name without any path separators.";
+        return;
+      }
+
+      this.creatingContainer = true;
+      this.createContainerFeedback = "";
+      try {
+        const result = await createPodContainer(this.currentLocation, this.newContainerName);
+        if (result === "error") {
+          this.createContainerFeedback =
+            "The container could not be created. Check write access and try again.";
+          return;
+        }
+
+        this.createContainerFeedback = "";
+        this.createContainerSuccessMessage = `Container created: ${result}`;
+        this.createContainerSuccess = true;
+        this.invalidateContainerSizes([this.currentLocation, result]);
+        if (!this.urls.includes(result)) {
+          this.urls = [...this.urls, result];
+          this.separateUrls();
+          this.renderKey += 1;
+        }
+        this.newContainerName = "";
+        this.createContainerPanelOpen = false;
+        await this.getItems(this.displayPath);
+        if (!this.urls.includes(result)) {
+          this.urls = [...this.urls, result];
+          this.separateUrls();
+          this.renderKey += 1;
+        }
+      } catch (error) {
+        console.error("Error creating container:", error);
+        this.createContainerFeedback =
+          "The container could not be created. Check write access and try again.";
+      } finally {
+        this.creatingContainer = false;
+      }
     },
     // Renaming only accepts a plain item name so users cannot accidentally alter the container path.
     canRenameItem(itemUrl: string): boolean {
@@ -874,20 +1090,28 @@ export default {
       let parseWarning: ItemParseWarning | null = null;
       let metadataUrl: string | string[] | null = null;
       let metadataModifiedDate: string | null = null;
+      let metadataSizeLabel: string | null = null;
 
       try {
         const dataset = await fetchData(path);
         metadataUrl = dataset.internal_resourceInfo?.linkedResources?.describedby || null;
         metadataModifiedDate = await this.getMetadataModifiedDate(metadataUrl);
+        metadataSizeLabel = await this.getMetadataSizeLabel(metadataUrl);
       } catch (error) {
         parseWarning = this.buildItemParseWarning(error, path);
       }
 
       if (itemType === "Container") {
         let directChildren: number | null = null;
+        let directSizeLabel: string | null = null;
         try {
           const containerDataset = await getSolidDataset(path, { fetch: solidFetch });
-          directChildren = getContainedResourceUrlAll(containerDataset).length;
+          const containedResourceUrls = getContainedResourceUrlAll(containerDataset);
+          directChildren = containedResourceUrls.length;
+          directSizeLabel = await this.getDirectContainerSizeLabel(
+            path,
+            containedResourceUrls
+          );
         } catch (error) {
           parseWarning = parseWarning || this.buildItemParseWarning(error, path);
         }
@@ -899,7 +1123,7 @@ export default {
           parentContainer: this.getParentContainer(path),
           metadataUrl,
           contentType: "Container",
-          sizeLabel: null,
+          sizeLabel: directSizeLabel || metadataSizeLabel,
           lastModified: metadataModifiedDate,
           directChildren,
           parseWarning,
@@ -914,7 +1138,7 @@ export default {
         parentContainer: this.getParentContainer(path),
         metadataUrl,
         contentType: file.type || "Unknown",
-        sizeLabel: this.formatFileSize(file.size),
+        sizeLabel: this.formatFileSize(file.size) || metadataSizeLabel,
         lastModified: metadataModifiedDate || this.formatDate(file.lastModified),
         directChildren: null,
         parseWarning,
@@ -1039,6 +1263,9 @@ export default {
       this.displayPath = selectedContainer;
       this.currentLocation = selectedContainer;
       this.moveTargetPath = selectedContainer;
+      this.createContainerPanelOpen = false;
+      this.createContainerFeedback = "";
+      this.newContainerName = "";
       this.movePanelOpen = false;
       this.renamePanelOpen = false;
       this.renameFeedback = "";
@@ -1081,6 +1308,7 @@ export default {
       this.movingItem = true;
       this.moveFeedback = "";
       try {
+        const sourceParent = this.getParentContainer(itemUrl);
         const normalizedTarget = this.moveTargetPath.endsWith("/")
           ? this.moveTargetPath
           : `${this.moveTargetPath}/`;
@@ -1091,6 +1319,7 @@ export default {
           return;
         }
 
+        this.invalidateContainerSizes([sourceParent, normalizedTarget, itemUrl, result]);
         this.moveFeedback = `Moved to ${result}`;
         this.showInfoIndex = null;
         this.itemDetails = null;
@@ -1117,6 +1346,11 @@ export default {
           return;
         }
 
+        this.invalidateContainerSizes([
+          this.getParentContainer(itemUrl),
+          itemUrl,
+          result,
+        ]);
         this.renameFeedback = `Renamed to ${this.renameName}`;
         this.showInfoIndex = null;
         this.itemDetails = null;
@@ -1326,6 +1560,7 @@ button:focus {
   align-items: center;
   gap: 0.75rem;
 }
+.create-container-toggle,
 .filter-toggle {
   display: inline-flex;
   align-items: center;
@@ -1338,6 +1573,70 @@ button:focus {
   font-family: "Oxanium", monospace;
   font-size: 0.9rem;
   font-weight: 600;
+}
+.create-container-panel {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0 0 0.95rem 0;
+  padding: 1rem 1rem 1.05rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary) 22%);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel-elev) 94%, var(--main-darker) 36%),
+      color-mix(in srgb, var(--panel) 97%, var(--panel-elev) 3%)
+    );
+  box-shadow: var(--shadow-1);
+}
+.create-container-copy {
+  display: grid;
+  gap: 0.24rem;
+}
+.create-container-title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.create-container-helper {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.create-container-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+.create-container-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text-primary);
+  font-family: "Oxanium", monospace;
+}
+.create-container-input::placeholder {
+  color: var(--text-muted);
+}
+.create-container-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--border) 38%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.create-container-btn {
+  min-width: 154px;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.create-container-feedback {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 .items-summary {
   margin: 0.4rem 0 0 0;
@@ -1630,6 +1929,9 @@ button:focus {
 }
 .content-type-field {
   grid-column: span 5;
+}
+.direct-items-field {
+  grid-column: 1 / -1;
 }
 .browser-metadata-field {
   grid-column: 1 / -1;
@@ -2118,7 +2420,8 @@ button:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .parent-container-field,
-  .content-type-field {
+  .content-type-field,
+  .direct-items-field {
     grid-column: 1 / -1;
   }
 }
@@ -2146,6 +2449,7 @@ button:focus {
   .item-toggle {
     padding: 0.6rem;
   }
+  .create-container-toggle,
   .filter-toggle,
   .filter-reset {
     width: 100%;
@@ -2164,6 +2468,9 @@ button:focus {
   .rename-controls {
     flex-direction: column;
     align-items: stretch;
+  }
+  .create-container-controls {
+    grid-template-columns: 1fr;
   }
   .action-toggle {
     align-items: flex-start;

@@ -86,6 +86,12 @@
           <li>
             Containers include direct child-item counts.
           </li>
+          <li>
+            Container <span class="guide-control">Direct size</span> is calculated only
+            when you open that container’s details. It sums the files directly inside
+            the container, caches the result for the session, and recomputes after
+            browser actions like move, rename, delete, or create container.
+          </li>
         </ul>
       </section>
 
