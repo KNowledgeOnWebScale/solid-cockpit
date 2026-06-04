@@ -25,6 +25,14 @@
           </div>
         </div>
         <div class="pod-actions">
+          <v-btn
+            class="register-another-btn"
+            variant="outlined"
+            rounded="lg"
+            @click="toggleForm"
+          >
+            {{ showFormIndex ? "Hide Input" : "Register new pod" }}
+          </v-btn>
           <v-btn class="change-pod-btn" variant="outlined" rounded="lg" @click="clearSelectedPod">
             Change Pod
           </v-btn>
@@ -50,6 +58,14 @@
           >
             Use Pod
           </v-btn>
+          <v-btn
+            class="register-another-btn"
+            variant="outlined"
+            rounded="lg"
+            @click="toggleForm"
+          >
+            {{ showFormIndex ? "Hide Input" : "Register new pod" }}
+          </v-btn>
         </div>
       </div>
 
@@ -64,7 +80,7 @@
               <h4>No pod registered to your WebID</h4>
               <p>Add your pod URL once so it appears in the pod selector.</p>
             </div>
-            <div class="empty-pod-actions">
+          <div class="empty-pod-actions">
               <v-btn
                 @click="inferPodFromWebId"
                 class="empty-pod-toggle"
@@ -85,41 +101,52 @@
               </v-btn>
             </div>
           </div>
-          <p class="pod-register-feedback pod-register-error" v-if="registrationError">
-            {{ registrationError }}
-          </p>
-          <p class="pod-register-feedback pod-register-success" v-if="registrationSuccess">
-            {{ registrationSuccess }}
-          </p>
-
-          <!-- Manual pod registration remains available as a secondary recovery action. -->
-          <form @submit.prevent="addToWebIdData" v-if="showFormIndex">
-            <div class="input-podURL">
-              <div id="shareBox" class="form-container">
-                <v-text-field
-                  v-model="customPodUrl"
-                  density="compact"
-                  :rules="[validatePodUrl]"
-                  label="Pod URL"
-                  placeholder="https://your-pod.example/"
-                  variant="outlined"
-                  hide-details="auto"
-                ></v-text-field>
-              </div>
-              <v-btn
-                class="pod-registerButton"
-                type="submit"
-                variant="flat"
-                rounded="lg"
-                :loading="isRegisteringPod"
-                :disabled="isRegisteringPod"
-              >
-                Register Pod
-              </v-btn>
-            </div>
-          </form>
         </div>
       </div>
+
+      <div v-if="showFormIndex" class="manual-register-panel">
+        <!-- Manual URL registration covers pods created after a WebID already exists. -->
+        <form @submit.prevent="addToWebIdData">
+          <div class="manual-register-copy">
+            <h4>Register a pod URL</h4>
+            <p>
+              Use this when you created a new pod after your WebID already existed and the provider
+              did not add the pod automatically.
+            </p>
+          </div>
+          <div class="input-podURL">
+            <div id="shareBox" class="form-container">
+              <v-text-field
+                v-model="customPodUrl"
+                density="compact"
+                :rules="[validatePodUrl]"
+                label="Pod URL"
+                hint="Example: https://your-pod.example/"
+                persistent-hint
+                variant="outlined"
+                hide-details="auto"
+              ></v-text-field>
+            </div>
+            <v-btn
+              class="pod-registerButton"
+              type="submit"
+              variant="flat"
+              rounded="lg"
+              :loading="isRegisteringPod"
+              :disabled="isRegisteringPod"
+            >
+              Register Pod
+            </v-btn>
+          </div>
+        </form>
+      </div>
+
+      <p class="pod-register-feedback pod-register-error" v-if="registrationError">
+        {{ registrationError }}
+      </p>
+      <p class="pod-register-feedback pod-register-success" v-if="registrationSuccess">
+        {{ registrationSuccess }}
+      </p>
     </div>
   </div>
 </template>
@@ -201,12 +228,22 @@ export default {
       }
 
       try {
-        await webIdDataset(currentWebId(), this.customPodUrl);
+        const normalizedPodUrl = this.normalizeContainerUrl(this.customPodUrl);
+        const isValidPod = await this.isValidPodCandidate(normalizedPodUrl);
+        if (!isValidPod) {
+          this.registrationError =
+            "This URL could not be confirmed as a readable Solid pod container. Check the URL and access permissions, then try again.";
+          return;
+        }
+
+        await webIdDataset(currentWebId(), normalizedPodUrl);
         const refreshed = await this.refreshPodListAfterRegistration(
-          this.customPodUrl
+          normalizedPodUrl
         );
         if (refreshed) {
-          this.registrationSuccess = "Pod URL registered. Select it to continue.";
+          this.registrationSuccess = this.podSuccess
+            ? "Pod URL registered. Click Change Pod if you want to switch to it now."
+            : "Pod URL registered. Select it to continue.";
           this.showFormIndex = false;
           this.customPodUrl = "";
         } else {
@@ -427,6 +464,35 @@ export default {
   gap: 0.85rem;
   min-width: 0;
 }
+.manual-register-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 95%, white 5%),
+    var(--panel)
+  );
+  box-shadow: var(--shadow-1);
+}
+.manual-register-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+.manual-register-copy h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.manual-register-copy p {
+  margin-top: 0.2rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
 .add-webid {
   padding: 0;
 }
@@ -507,6 +573,7 @@ export default {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 0.75rem;
+  padding-top: 1rem;
 }
 .pod-registerButton {
   justify-self: end;
@@ -676,7 +743,8 @@ export default {
   flex: 0 0 auto;
 }
 .copy-pod-btn,
-.change-pod-btn {
+.change-pod-btn,
+.register-another-btn {
   font-family: "Oxanium", monospace;
   color: var(--text-secondary);
   border-color: var(--border);
@@ -689,6 +757,9 @@ export default {
 }
 .change-pod-btn {
   min-width: 118px;
+}
+.register-another-btn {
+  min-width: 146px;
 }
 .select-pod .selection-label {
   min-width: 0;

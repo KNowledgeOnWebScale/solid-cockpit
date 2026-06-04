@@ -19,6 +19,7 @@ const {
   getPodResourceDownloadMock,
   movePodItemMock,
   renamePodItemMock,
+  createPodContainerMock,
 } = vi.hoisted(() => {
   const mockUrls = [
     "https://pod.example/",
@@ -27,6 +28,7 @@ const {
     "https://pod.example/image.png",
   ];
   const dctModified = "http://purl.org/dc/terms/modified";
+  const posixSize = "http://www.w3.org/ns/posix/stat#size";
 
   return {
     mockUrls,
@@ -37,6 +39,7 @@ const {
           __things: [
             {
               [dctModified]: new Date("2026-03-26T09:15:00Z"),
+              [posixSize]: 4096,
             },
           ],
           internal_resourceInfo: {
@@ -67,8 +70,14 @@ const {
       const value = thing[predicate];
       return value instanceof Date ? value : null;
     }),
-    getIntegerMock: vi.fn(() => null),
-    getDecimalMock: vi.fn(() => null),
+    getIntegerMock: vi.fn((thing: Record<string, unknown>, predicate: string) => {
+      const value = thing[predicate];
+      return typeof value === "number" ? value : null;
+    }),
+    getDecimalMock: vi.fn((thing: Record<string, unknown>, predicate: string) => {
+      const value = thing[predicate];
+      return typeof value === "number" ? value : null;
+    }),
     getStringNoLocaleMock: vi.fn(() => null),
     getPodResourceDownloadMock: vi.fn(async (url: string) => ({
       file: new File(["downloaded"], url.split("/").pop() || "file.ttl", {
@@ -78,6 +87,7 @@ const {
     })),
     movePodItemMock: vi.fn(async () => "https://pod.example/archive/report.ttl"),
     renamePodItemMock: vi.fn(async () => "https://pod.example/docs/renamed.ttl"),
+    createPodContainerMock: vi.fn(async () => "https://pod.example/new-container/"),
   };
 });
 
@@ -96,6 +106,7 @@ vi.mock("../../src/services/solid/fileUpload.ts", () => ({
   getPodResourceDownload: getPodResourceDownloadMock,
   movePodItem: movePodItemMock,
   renamePodItem: renamePodItemMock,
+  createPodContainer: createPodContainerMock,
 }));
 
 vi.mock("../../src/services/solid/privacyEdit.ts", () => ({
@@ -120,8 +131,19 @@ vi.mock("@inrupt/solid-client-authn-browser", () => ({
 const flushPromises = async () => {
   await Promise.resolve();
   await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await nextTick();
   await nextTick();
 };
+
+function findItemToggleByName(wrapper: ReturnType<typeof mount>, itemName: string) {
+  return wrapper
+    .findAll(".item-toggle")
+    .find((toggle) => toggle.text().includes(itemName));
+}
 
 function mountBrowser() {
   const pinia = createPinia();
@@ -140,6 +162,9 @@ function mountBrowser() {
       stubs: {
         PodRegistration: true,
         PodBrowserGuide: true,
+        PodResourceInspector: {
+          template: '<div class="resource-inspector-stub">inspector</div>',
+        },
         ContainerNav: {
           template: '<div class="container-nav-stub" @click="$emit(\'path-selected\', \'https://pod.example/archive/\')">nav</div>',
         },
@@ -203,11 +228,33 @@ describe("PodBrowser features", () => {
     expect(wrapper.text()).toContain("Delete item");
   });
 
+  it("computes and caches direct container size information in the detail view", async () => {
+    const wrapper = mountBrowser();
+    await flushPromises();
+
+    await wrapper.findAll(".item-toggle")[0].trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("4.0 KB");
+    expect(wrapper.text()).toContain("Direct size");
+    expect(wrapper.text()).toContain("Direct items");
+    expect(getFileMock).toHaveBeenCalledTimes(2);
+
+    await wrapper.findAll(".item-toggle")[0].trigger("click");
+    await flushPromises();
+    await wrapper.findAll(".item-toggle")[0].trigger("click");
+    await flushPromises();
+
+    expect(getFileMock).toHaveBeenCalledTimes(2);
+  });
+
   it("supports move destination modes and calls move helper", async () => {
     const wrapper = mountBrowser();
     await flushPromises();
 
-    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    const reportToggle = findItemToggleByName(wrapper, "report.ttl");
+    expect(reportToggle).toBeTruthy();
+    await reportToggle!.trigger("click");
     await flushPromises();
 
     await wrapper.findAll(".action-toggle")[0].trigger("click");
@@ -220,7 +267,7 @@ describe("PodBrowser features", () => {
     await wrapper.get(".move-btn").trigger("click");
 
     expect(movePodItemMock).toHaveBeenCalledWith(
-      "https://pod.example/image.png",
+      "https://pod.example/docs/report.ttl",
       "https://pod.example/archive/",
       "https://pod.example/"
     );
@@ -230,7 +277,9 @@ describe("PodBrowser features", () => {
     const wrapper = mountBrowser();
     await flushPromises();
 
-    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    const imageToggle = findItemToggleByName(wrapper, "image.png");
+    expect(imageToggle).toBeTruthy();
+    await imageToggle!.trigger("click");
     await flushPromises();
 
     await wrapper.findAll(".action-toggle")[1].trigger("click");
@@ -246,6 +295,25 @@ describe("PodBrowser features", () => {
     );
   });
 
+  it("creates an empty container inside the selected container", async () => {
+    const wrapper = mountBrowser();
+    await flushPromises();
+
+    await wrapper.get(".create-container-toggle").trigger("click");
+    await wrapper.get(".create-container-input").setValue("new-container");
+    await wrapper.get(".create-container-btn").trigger("click");
+    await flushPromises();
+
+    expect(createPodContainerMock).toHaveBeenCalledWith(
+      "https://pod.example/",
+      "new-container"
+    );
+    expect(wrapper.text()).toContain("Container created: https://pod.example/new-container/");
+    expect((wrapper.vm as unknown as { filteredUrls: string[] }).filteredUrls).toContain(
+      "https://pod.example/new-container/"
+    );
+  });
+
   it("shows resource-only compact download action and triggers the download helper", async () => {
     const wrapper = mountBrowser();
     await flushPromises();
@@ -254,9 +322,12 @@ describe("PodBrowser features", () => {
     await flushPromises();
     expect(wrapper.find(".download-icon-button").exists()).toBe(false);
 
-    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    const imageToggle = findItemToggleByName(wrapper, "image.png");
+    expect(imageToggle).toBeTruthy();
+    await imageToggle!.trigger("click");
     await flushPromises();
     expect(wrapper.find(".download-icon-button").exists()).toBe(true);
+    expect(wrapper.find(".resource-inspector-stub").exists()).toBe(true);
 
     await wrapper.get(".download-icon-button").trigger("click");
     await flushPromises();
@@ -268,9 +339,9 @@ describe("PodBrowser features", () => {
 
   it("renders specific parser diagnostics when a Turtle resource is malformed", async () => {
     fetchDataMock.mockImplementation(async (url: string) => {
-      if (url === "https://pod.example/image.png") {
+      if (url === "https://pod.example/docs/report.ttl") {
         throw new Error(
-          'Encountered an error parsing the Resource at [https://pod.example/image.png] with content type [text/turtle]: Error: Expected punctuation to follow ""Azinphos-methyl ((#))"" on line 82.'
+          'Encountered an error parsing the Resource at [https://pod.example/docs/report.ttl] with content type [text/turtle]: Error: Expected punctuation to follow ""Azinphos-methyl ((#))"" on line 82.'
         );
       }
       return {
@@ -286,7 +357,9 @@ describe("PodBrowser features", () => {
     const wrapper = mountBrowser();
     await flushPromises();
 
-    await wrapper.findAll(".item-toggle")[2].trigger("click");
+    const reportToggle = findItemToggleByName(wrapper, "report.ttl");
+    expect(reportToggle).toBeTruthy();
+    await reportToggle!.trigger("click");
     await flushPromises();
 
     expect(wrapper.find(".info-warning").exists()).toBe(true);
