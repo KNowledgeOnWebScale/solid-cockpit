@@ -52,7 +52,10 @@ export function updateReadmeVersionReferences(content, version) {
     .replace(/version\s+=\s+\{[^}]+\},/, `version      = {${version}},`)
     .replace(/- `package\.json` version: `[^`]+`/, `- \`package.json\` version: \`${version}\``)
     .replace(/- web-app release tag convention: `[^`]+`/, `- release tag convention: \`v<version>\``)
-    .replace(/- current computed web-app tag: `[^`]+`/, `- current computed release tag: \`${releaseTag}\``)
+    .replace(
+      /- current computed (?:web-app )?(?:release )?tag: `[^`]+`/,
+      `- current computed release tag: \`${releaseTag}\``
+    )
     .replace(/- Footer displays semantic version \(`vX\.Y\.Z`\) and computed release tag \(`[^`]+`\)/, "- Footer displays semantic version (`vX.Y.Z`).")
     .replace(/npm version X\.Y\.Z/, "npm run version:bump -- X.Y.Z")
     .replace(/git tag web-app-vX\.Y\.Z\ngit push origin vX\.Y\.Z web-app-vX\.Y\.Z/, "git push origin vX.Y.Z");

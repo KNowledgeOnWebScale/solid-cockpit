@@ -1,9 +1,9 @@
 ![Solid Cockpit Header Logo](./src/assets/full-sc-logo.png "SC Logo")
 
 # Solid Cockpit
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
-![Vue](https://img.shields.io/badge/vue-3.2.13-42b883)
-![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Vue](https://img.shields.io/badge/vue-3.5.41-42b883)
+![Vite](https://img.shields.io/badge/vite-8.2.2-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Solid Cockpit is a Vue web application for interacting with Solid Pods: authentication, data upload, pod browsing, SPARQL query execution, query caching, and privacy/ACL management.
@@ -61,7 +61,7 @@ In-app guides are available from the relevant page:
 
 If you use this tool in an academic publication, you can cite:
 
-`Crum, E. (2026). Solid Cockpit (Version 1.3.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
+`Crum, E. (2026). Solid Cockpit (Version 1.4.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
 
 BibTeX:
 
@@ -70,7 +70,7 @@ BibTeX:
   author       = {Crum, Elias},
   title        = {{Solid Cockpit}},
   year         = {2026},
-  version      = {1.3.0},
+  version      = {1.4.0},
   publisher    = {GitHub},
   howpublished = {\url{https://github.com/KNowledgeOnWebScale/solid-cockpit}},
   note         = {Software. Web app: \url{https://knowledgeonwebscale.github.io/solid-cockpit}. Accessed: 2026-03-04}
@@ -106,6 +106,10 @@ You can also use:
 - `src/services/solid/`: Solid auth, pod access, upload, and ACL helper modules
 - `src/services/query/`: query execution, parsing, and worker code
 - `src/stores/`: Pinia state modules
+- `src/assets/`: Vite-managed application assets such as icons and logos
+- `public/`: files that must retain stable URLs at runtime, including Solid client metadata and the Z3 runtime
+- `scripts/`: repository tooling, coverage checks, versioning, and GitHub Pages route preparation
+- `demonstrator/`: example query files loaded by the query editor
 
 ### Prerequisites
 
@@ -259,9 +263,9 @@ CI compliance check:
 
 Current app version:
 
-- `package.json` version: `1.3.0`
+- `package.json` version: `1.4.0`
 - release tag convention: `v<version>`
-- current computed release tag: `v1.3.0`
+- current computed release tag: `v1.4.0`
 
 In-app visibility:
 

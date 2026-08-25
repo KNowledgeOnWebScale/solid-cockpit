@@ -1,6 +1,6 @@
 {
   "name": "solid-cockpit",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "The Solid Cockpit application for Solid Pod utilization",
   "main": "~/src/App.vue",
   "homepage": "https://knowledgeonwebscale.github.io/solid-cockpit",
@@ -33,7 +33,7 @@
     "test:compliance:quiet": "node ./scripts/precommit-compliance.mjs",
     "hooks:install": "node ./scripts/setup-git-hooks.mjs",
     "prepare": "node ./scripts/setup-git-hooks.mjs",
-    "github-post-build": "node github-post-build-script.mjs",
+    "github-post-build": "node scripts/github-post-build.mjs",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
