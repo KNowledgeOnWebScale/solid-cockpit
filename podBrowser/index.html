@@ -7,7 +7,8 @@
     <title>Solid Cockpit</title>
 
     <!-- section to help make the Z3 solver work in a browser setting -->
-    <script src="/solid-cockpit/z3-built.js"></script>
+    <!-- Keep the solver under the Vite base path for both local and GitHub Pages builds. -->
+    <script src="/solid-cockpit/assets/z3/z3-built.js"></script>
     <script>
       globalThis.global = { initZ3: globalThis.initZ3 };
     </script>
@@ -21,15 +22,17 @@
       property="og:description"
       content="An applicaiton for accessing, editing, and querying data in Solid pods"
     />
-    <meta property="og:image" content="/solid-cockpit/assets/favicon-Cmud3RjT.ico" />
+    <meta property="og:image" content="/solid-cockpit/assets/solid-cockpit-logo.png" />
     <meta name="author" content="KNoWS, IDLab - Ghent University" />
     <meta name="keywords" content="Solid, RDF, SPARQL Querying, Privacy Editing" />
     <link rel="icon" type="image/x-icon" href="/solid-cockpit/assets/favicon-Cmud3RjT.ico" />
 
-    <script type="module" crossorigin src="/solid-cockpit/assets/index-B5UmFzD0.js"></script>
-    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/solid-client-DHJzKNCS.js">
-    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/query-engine-CCF4i7Uv.js">
-    <link rel="stylesheet" crossorigin href="/solid-cockpit/assets/index-Cc5hHA3e.css">
+    <script type="module" crossorigin src="/solid-cockpit/assets/index-BxQPB6P2.js"></script>
+    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/rolldown-runtime-B0Z9INg1.js">
+    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/_plugin-vue_export-helper-CZcEyLTr.js">
+    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/query-engine-CbWxA4qE.js">
+    <link rel="modulepreload" crossorigin href="/solid-cockpit/assets/solid-client-jeW-VtQG.js">
+    <link rel="stylesheet" crossorigin href="/solid-cockpit/assets/index-CULJbHeK.css">
   </head>
   <body>
     <noscript>

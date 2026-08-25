@@ -1,0 +1,12 @@
+var e=`# Datasources: https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card
+# QueryMode: solid-link-traversal
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX snvoc: <https://solidbench.linkeddatafragments.org/www.ldbc.eu/ldbc_socialnet/1.0/vocabulary/>
+SELECT ?messageId ?messageCreationDate ?messageContent WHERE {
+  ?message snvoc:hasCreator <https://solidbench.linkeddatafragments.org/pods/00000000000000000933/profile/card#me>;
+    rdf:type snvoc:Post;
+    snvoc:content ?messageContent;
+    snvoc:creationDate ?messageCreationDate;
+    snvoc:id ?messageId.
+}
+`;export{e as default};

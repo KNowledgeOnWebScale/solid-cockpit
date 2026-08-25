@@ -1,0 +1,10 @@
+var e=`# Datasources: https://triple.ilabt.imec.be/test/bio-usecase/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl
+# QueryMode: solid-no-traversal
+PREFIX thd: <urn:triple-hybrid-demo:>
+SELECT DISTINCT ?CAS WHERE {
+
+  # Solid pod data
+  ?SOLIDPOD thd:predicate ?CAS .
+
+}
+`;export{e as default};

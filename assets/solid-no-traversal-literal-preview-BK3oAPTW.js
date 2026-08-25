@@ -1,9 +1,0 @@
-const e=`# Datasources: https://triple.ilabt.imec.be/test/bio-usecase/nbn-chist-era-annex-1-chemicals-custom-predicate.ttl
-# QueryMode: solid-no-traversal
-SELECT DISTINCT ?value
-WHERE {
-  ?s ?p ?value .
-  FILTER(isLiteral(?value))
-}
-LIMIT 10
-`;export{e as default};

@@ -1,0 +1,1 @@
+import{R as e,V as t,X as n,_ as r,m as i,t as a,v as o}from"./_plugin-vue_export-helper-CZcEyLTr.js";var s={};function c(a,s){let c=t(`router-link`);return e(),i(`h2`,null,[s[1]||=r(` Page not found... Please return `,-1),o(c,{to:`/`},{default:n(()=>[...s[0]||=[r(`Home`,-1)]]),_:1})])}var l=a(s,[[`render`,c]]);export{l as default};
