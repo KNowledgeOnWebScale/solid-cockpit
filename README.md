@@ -91,7 +91,7 @@ You can also use:
 
 ### Tech Stack
 
-- Vue 3 + Vite 6
+- Vue 3 + Vite 8
 - TypeScript
 - Vuetify 3
 - Pinia
@@ -109,12 +109,12 @@ You can also use:
 
 ### Prerequisites
 
-- Node.js 22.x (LTS recommended)
-- npm 10+ (repo now uses `package-lock.json`)
+- Node.js 24.19.0 LTS
+- npm 11.17+ (repo now uses `package-lock.json`)
 - Do not use Yarn for this repo; npm is the supported package manager.
 
 Node 24 note:
-- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`, so this repo pins to Node 22 for strict engine compatibility.
+- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`; CI is pinned to Node 24.19.0, but npm may report a non-blocking engine warning for that package and a few legacy transitive packages.
 
 ### Local Setup
 
@@ -306,49 +306,54 @@ Runtime dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@comunica/context-entries` | `^5.2.0` |
-| `@comunica/logger-pretty` | `^5.2.0` |
-| `@comunica/query-sparql` | `^5.2.0` |
+| `@comunica/context-entries` | `^5.3.0` |
+| `@comunica/logger-pretty` | `^5.3.0` |
+| `@comunica/query-sparql` | `^5.3.0` |
+| `@comunica/query-sparql-link-traversal-solid` | `^0.8.0` |
 | `@comunica/query-sparql-solid` | `^5.0.1` |
 | `@inrupt/solid-client` | `^3.0.0` |
-| `@inrupt/solid-client-authn-browser` | `^4.0.0` |
-| `@inrupt/solid-client-authn-node` | `^4.0.0` |
+| `@inrupt/solid-client-authn-browser` | `^5.0.0` |
+| `@inrupt/solid-client-authn-node` | `^5.0.0` |
 | `@mdi/font` | `^7.4.47` |
 | `@triply/yasqe` | `^4.2.28` |
 | `@triply/yasr` | `^4.2.28` |
-| `@vitejs/plugin-vue` | `^5.2.3` |
-| `@vue/eslint-config-typescript` | `^9.1.0` |
-| `actor-query-process-remote-cache` | `^0.1.0` |
-| `core-js` | `^3.8.3` |
+| `@vitejs/plugin-vue` | `^6.0.8` |
+| `actor-query-process-remote-cache` | `^0.1.2` |
+| `core-js` | `^3.50.0` |
 | `fs` | `^0.0.1-security` |
+| `jsonld` | `^9.0.0` |
 | `material-icons` | `^1.13.14` |
-| `pinia` | `^2.3.1` |
+| `n3` | `^2.4.0` |
+| `papaparse` | `^5.7.0` |
+| `pinia` | `^4.0.3` |
 | `query-sparql-remote-cache` | `^0.0.9` |
-| `sparqljs` | `^3.7.3` |
-| `vite` | `^6.2.3` |
-| `vue` | `^3.2.13` |
-| `vue-router` | `^4.5.1` |
-| `vuetify` | `^3.5.14` |
-| `z3-solver` | `^4.15.3` |
+| `sparqljs` | `^3.7.4` |
+| `vite` | `^8.2.2` |
+| `vue` | `^3.5.41` |
+| `vue-router` | `^5.2.0` |
+| `vuetify` | `^3.13.2` |
+| `z3-solver` | `^4.16.0` |
 
 Development dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@tsconfig/node22` | `^22.0.2` |
-| `@typescript-eslint/eslint-plugin` | `^5.4.0` |
-| `@typescript-eslint/parser` | `^5.4.0` |
-| `@vitest/coverage-istanbul` | `2.1.9` |
-| `@vue/test-utils` | `2.4.6` |
-| `eslint` | `^7.32.0` |
-| `eslint-config-prettier` | `^8.3.0` |
-| `eslint-plugin-prettier` | `^4.0.0` |
-| `eslint-plugin-vue` | `^8.0.3` |
-| `gh-pages` | `^5.0.0` |
-| `jsdom` | `24.1.3` |
-| `prettier` | `^2.4.1` |
-| `typescript` | `^5.0.0` |
-| `vitest` | `2.1.9` |
+| `@tsconfig/node24` | `^24.0.5` |
+| `@typescript-eslint/eslint-plugin` | `^8.68.0` |
+| `@typescript-eslint/parser` | `^8.68.0` |
+| `@vitest/coverage-istanbul` | `^4.1.11` |
+| `@vue/eslint-config-typescript` | `^14.9.0` |
+| `@vue/test-utils` | `^2.4.11` |
+| `esbuild` | `^0.28.2` |
+| `eslint` | `^10.9.1` |
+| `eslint-config-prettier` | `^10.1.8` |
+| `eslint-plugin-prettier` | `^5.5.6` |
+| `eslint-plugin-vue` | `^10.10.0` |
+| `gh-pages` | `^6.3.0` |
+| `jsdom` | `^30.0.1` |
+| `prettier` | `^3.9.6` |
+| `typescript` | `^5.9.3` |
+| `vitest` | `^4.1.11` |
 
 ### Contributing
 
