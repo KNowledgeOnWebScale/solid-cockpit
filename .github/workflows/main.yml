@@ -29,6 +29,8 @@ jobs:
 
       - name: Build 🔧
         run: npm run build:highmem
+        env:
+          VITE_GOATCOUNTER_ENDPOINT: https://solidcockpit.goatcounter.com/count
 
       - name: Post Build Actions 🛠️
         run: npm run github-post-build
@@ -60,6 +62,8 @@ jobs:
 
       - name: Build 🔧
         run: npm run build:highmem
+        env:
+          VITE_GOATCOUNTER_ENDPOINT: https://solidcockpit.goatcounter.com/count
 
       - name: Post Build Actions 🛠️
         run: npm run github-post-build

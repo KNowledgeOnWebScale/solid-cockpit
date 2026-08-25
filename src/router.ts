@@ -12,7 +12,7 @@ import { useAuthStore } from "./stores/auth";
 import { PUBLIC_ROUTE_NAMES } from "./navigation";
 
 /**
- * The router here allows for navigation between different functional pages of the TRIPLE App
+ * The router here allows navigation between the functional pages of Solid Cockpit.
  */
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

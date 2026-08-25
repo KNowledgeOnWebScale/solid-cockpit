@@ -8,12 +8,17 @@
 
 Solid Cockpit is a Vue web application for interacting with Solid Pods: authentication, data upload, pod browsing, SPARQL query execution, query caching, and privacy/ACL management.
 
-This application was developed in the context of the CHIST-ERA TRIPLE project.
-
 ## Table of Contents
 
 - [Users](#users)
+- [Privacy and Activity Measurement](#privacy-and-activity-measurement)
 - [Developers](#developers)
+
+## Privacy and Activity Measurement
+
+The public deployment uses GoatCounter to measure basic application activity, such as page visits and aggregate browser usage. The app sends only the route path for a page view; it does not send query text, URL query strings, WebIDs, Pod URLs, file contents, or authentication data. GoatCounter's standard reporting may also aggregate browser, operating system, country, language, and screen-width information. GoatCounter does not use cookies or local storage for visitor tracking, and its standard reporting stores aggregate data rather than individual pageview records. The tracker remains disabled in builds where `VITE_GOATCOUNTER_ENDPOINT` is not configured.
+
+For details, see GoatCounter's [GDPR guidance](https://www.goatcounter.com/help/gdpr) and [privacy policy](https://www.goatcounter.com/help/privacy).
 
 ## Users
 
@@ -51,23 +56,6 @@ In-app guides are available from the relevant page:
 - `Pod Browser`: container browsing and resource operations
 - `Data Query`: query execution, examples, query URLs, and cache workflow
 - `Privacy Editing`: ACL editing, notifications, sharing records, and revocation scheduling
-
-Solid Pod VoID file generation:
-
-- <https://github.com/JervenBolleman/void-generator/tree/solid-pod-support>
-
-Example:
-
-```bash
-mvn package
-java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
-  --from-solid-pod [URL-to-solid-pod] \
-  --void-file void.ttl \
-  -i [URL-to-solid-pod]/void.ttl \
-  --repository [URL-to-solid-pod]
-```
-
-Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
 
 ### Citation
 
@@ -135,6 +123,14 @@ Install dependencies:
 ```bash
 npm install
 ```
+
+Enable activity measurement locally, if desired, by setting the public GoatCounter endpoint in `.env`:
+
+```bash
+VITE_GOATCOUNTER_ENDPOINT=https://solidcockpit.goatcounter.com/count
+```
+
+The deployed GitHub Pages build uses `https://solidcockpit.goatcounter.com/count`. This endpoint is not a secret; it identifies the GoatCounter site receiving aggregate pageview data.
 
 Run locally:
 

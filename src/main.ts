@@ -17,6 +17,7 @@ import * as directives from 'vuetify/directives';
 import { aliases, mdi } from 'vuetify/iconsets/mdi';
 
 import './assets/theme.css'
+import { initializeGoatCounter, trackGoatCounterPage } from "./services/analytics/goatcounter";
 
 const pinia = createPinia();
 const vuetify = createVuetify({
@@ -56,6 +57,14 @@ app.use(pinia);
 app.use(router);
 app.use(vuetify);
 
+// Track only route activity; the analytics integration is a no-op when no
+// GoatCounter endpoint is configured.
+router.afterEach((to) => {
+  // Use only the route path so query hashes and URL-encoded query state are
+  // never sent to the analytics service.
+  trackGoatCounterPage(to.path);
+});
+
 // Set theme based on data-theme attribute
 const observer = new MutationObserver(() => {
   const newTheme = document.documentElement.getAttribute('data-theme');
@@ -75,6 +84,7 @@ async function bootstrap() {
   const authStore = useAuthStore(pinia);
   await authStore.initializeAuth();
   await router.isReady();
+  void initializeGoatCounter();
   app.mount('#app');
 }
 
