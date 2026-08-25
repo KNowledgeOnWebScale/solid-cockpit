@@ -5,7 +5,7 @@
   "client_name": "Solid Cockpit",
   "redirect_uris": ["https://knowledgeonwebscale.github.io/solid-cockpit/"],
   "client_uri": "https://knowledgeonwebscale.github.io/solid-cockpit/",
-  "logo_uri" : "https://knowledgeonwebscale.github.io/solid-cockpit/src/assets/solid-cockpit-logo.png",
+  "logo_uri" : "https://knowledgeonwebscale.github.io/solid-cockpit/assets/solid-cockpit-logo.png",
   "contacts": [
     "elias.crum@ugent.be"
   ],

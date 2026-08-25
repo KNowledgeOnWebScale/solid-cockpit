@@ -1,19 +1,24 @@
 ![Solid Cockpit Header Logo](./src/assets/full-sc-logo.png "SC Logo")
 
 # Solid Cockpit
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
-![Vue](https://img.shields.io/badge/vue-3.2.13-42b883)
-![Vite](https://img.shields.io/badge/vite-6.2.3-646cff)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Vue](https://img.shields.io/badge/vue-3.5.41-42b883)
+![Vite](https://img.shields.io/badge/vite-8.2.2-646cff)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Solid Cockpit is a Vue web application for interacting with Solid Pods: authentication, data upload, pod browsing, SPARQL query execution, query caching, and privacy/ACL management.
 
-This application was developed in the context of the CHIST-ERA TRIPLE project.
-
 ## Table of Contents
 
 - [Users](#users)
+- [Privacy and Activity Measurement](#privacy-and-activity-measurement)
 - [Developers](#developers)
+
+## Privacy and Activity Measurement
+
+The public deployment uses GoatCounter to measure basic application activity, such as page visits and aggregate browser usage. The app sends only the route path for a page view; it does not send query text, URL query strings, WebIDs, Pod URLs, file contents, or authentication data. GoatCounter's standard reporting may also aggregate browser, operating system, country, language, and screen-width information. GoatCounter does not use cookies or local storage for visitor tracking, and its standard reporting stores aggregate data rather than individual pageview records. The tracker remains disabled in builds where `VITE_GOATCOUNTER_ENDPOINT` is not configured.
+
+For details, see GoatCounter's [GDPR guidance](https://www.goatcounter.com/help/gdpr) and [privacy policy](https://www.goatcounter.com/help/privacy).
 
 ## Users
 
@@ -52,28 +57,11 @@ In-app guides are available from the relevant page:
 - `Data Query`: query execution, examples, query URLs, and cache workflow
 - `Privacy Editing`: ACL editing, notifications, sharing records, and revocation scheduling
 
-Solid Pod VoID file generation:
-
-- <https://github.com/JervenBolleman/void-generator/tree/solid-pod-support>
-
-Example:
-
-```bash
-mvn package
-java -jar target/void-generator-0.7-SNAPSHOT-uber.jar \
-  --from-solid-pod [URL-to-solid-pod] \
-  --void-file void.ttl \
-  -i [URL-to-solid-pod]/void.ttl \
-  --repository [URL-to-solid-pod]
-```
-
-Then upload `void.ttl` to the pod root using the app's `Data Upload` page.
-
 ### Citation
 
 If you use this tool in an academic publication, you can cite:
 
-`Crum, E. (2026). Solid Cockpit (Version 1.3.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
+`Crum, E. (2026). Solid Cockpit (Version 1.4.0) [Software]. GitHub. https://github.com/KNowledgeOnWebScale/solid-cockpit`
 
 BibTeX:
 
@@ -82,7 +70,7 @@ BibTeX:
   author       = {Crum, Elias},
   title        = {{Solid Cockpit}},
   year         = {2026},
-  version      = {1.3.0},
+  version      = {1.4.0},
   publisher    = {GitHub},
   howpublished = {\url{https://github.com/KNowledgeOnWebScale/solid-cockpit}},
   note         = {Software. Web app: \url{https://knowledgeonwebscale.github.io/solid-cockpit}. Accessed: 2026-03-04}
@@ -103,7 +91,7 @@ You can also use:
 
 ### Tech Stack
 
-- Vue 3 + Vite 6
+- Vue 3 + Vite 8
 - TypeScript
 - Vuetify 3
 - Pinia
@@ -118,15 +106,19 @@ You can also use:
 - `src/services/solid/`: Solid auth, pod access, upload, and ACL helper modules
 - `src/services/query/`: query execution, parsing, and worker code
 - `src/stores/`: Pinia state modules
+- `src/assets/`: Vite-managed application assets such as icons and logos
+- `public/`: files that must retain stable URLs at runtime, including Solid client metadata and the Z3 runtime
+- `scripts/`: repository tooling, coverage checks, versioning, and GitHub Pages route preparation
+- `demonstrator/`: example query files loaded by the query editor
 
 ### Prerequisites
 
-- Node.js 22.x (LTS recommended)
-- npm 10+ (repo now uses `package-lock.json`)
+- Node.js 24.19.0 LTS
+- npm 11.17+ (repo now uses `package-lock.json`)
 - Do not use Yarn for this repo; npm is the supported package manager.
 
 Node 24 note:
-- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`, so this repo pins to Node 22 for strict engine compatibility.
+- `@inrupt/solid-client@3.x` currently declares support for Node `^20 || ^22`; CI is pinned to Node 24.19.0, but npm may report a non-blocking engine warning for that package and a few legacy transitive packages.
 
 ### Local Setup
 
@@ -135,6 +127,14 @@ Install dependencies:
 ```bash
 npm install
 ```
+
+Enable activity measurement locally, if desired, by setting the public GoatCounter endpoint in `.env`:
+
+```bash
+VITE_GOATCOUNTER_ENDPOINT=https://solidcockpit.goatcounter.com/count
+```
+
+The deployed GitHub Pages build uses `https://solidcockpit.goatcounter.com/count`. This endpoint is not a secret; it identifies the GoatCounter site receiving aggregate pageview data.
 
 Run locally:
 
@@ -263,9 +263,9 @@ CI compliance check:
 
 Current app version:
 
-- `package.json` version: `1.3.0`
+- `package.json` version: `1.4.0`
 - release tag convention: `v<version>`
-- current computed release tag: `v1.3.0`
+- current computed release tag: `v1.4.0`
 
 In-app visibility:
 
@@ -310,49 +310,54 @@ Runtime dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@comunica/context-entries` | `^5.2.0` |
-| `@comunica/logger-pretty` | `^5.2.0` |
-| `@comunica/query-sparql` | `^5.2.0` |
+| `@comunica/context-entries` | `^5.3.0` |
+| `@comunica/logger-pretty` | `^5.3.0` |
+| `@comunica/query-sparql` | `^5.3.0` |
+| `@comunica/query-sparql-link-traversal-solid` | `^0.8.0` |
 | `@comunica/query-sparql-solid` | `^5.0.1` |
 | `@inrupt/solid-client` | `^3.0.0` |
-| `@inrupt/solid-client-authn-browser` | `^4.0.0` |
-| `@inrupt/solid-client-authn-node` | `^4.0.0` |
+| `@inrupt/solid-client-authn-browser` | `^5.0.0` |
+| `@inrupt/solid-client-authn-node` | `^5.0.0` |
 | `@mdi/font` | `^7.4.47` |
 | `@triply/yasqe` | `^4.2.28` |
 | `@triply/yasr` | `^4.2.28` |
-| `@vitejs/plugin-vue` | `^5.2.3` |
-| `@vue/eslint-config-typescript` | `^9.1.0` |
-| `actor-query-process-remote-cache` | `^0.1.0` |
-| `core-js` | `^3.8.3` |
+| `@vitejs/plugin-vue` | `^6.0.8` |
+| `actor-query-process-remote-cache` | `^0.1.2` |
+| `core-js` | `^3.50.0` |
 | `fs` | `^0.0.1-security` |
+| `jsonld` | `^9.0.0` |
 | `material-icons` | `^1.13.14` |
-| `pinia` | `^2.3.1` |
+| `n3` | `^2.4.0` |
+| `papaparse` | `^5.7.0` |
+| `pinia` | `^4.0.3` |
 | `query-sparql-remote-cache` | `^0.0.9` |
-| `sparqljs` | `^3.7.3` |
-| `vite` | `^6.2.3` |
-| `vue` | `^3.2.13` |
-| `vue-router` | `^4.5.1` |
-| `vuetify` | `^3.5.14` |
-| `z3-solver` | `^4.15.3` |
+| `sparqljs` | `^3.7.4` |
+| `vite` | `^8.2.2` |
+| `vue` | `^3.5.41` |
+| `vue-router` | `^5.2.0` |
+| `vuetify` | `^3.13.2` |
+| `z3-solver` | `^4.16.0` |
 
 Development dependencies:
 
 | Package | Version |
 | --- | --- |
-| `@tsconfig/node22` | `^22.0.2` |
-| `@typescript-eslint/eslint-plugin` | `^5.4.0` |
-| `@typescript-eslint/parser` | `^5.4.0` |
-| `@vitest/coverage-istanbul` | `2.1.9` |
-| `@vue/test-utils` | `2.4.6` |
-| `eslint` | `^7.32.0` |
-| `eslint-config-prettier` | `^8.3.0` |
-| `eslint-plugin-prettier` | `^4.0.0` |
-| `eslint-plugin-vue` | `^8.0.3` |
-| `gh-pages` | `^5.0.0` |
-| `jsdom` | `24.1.3` |
-| `prettier` | `^2.4.1` |
-| `typescript` | `^5.0.0` |
-| `vitest` | `2.1.9` |
+| `@tsconfig/node24` | `^24.0.5` |
+| `@typescript-eslint/eslint-plugin` | `^8.68.0` |
+| `@typescript-eslint/parser` | `^8.68.0` |
+| `@vitest/coverage-istanbul` | `^4.1.11` |
+| `@vue/eslint-config-typescript` | `^14.9.0` |
+| `@vue/test-utils` | `^2.4.11` |
+| `esbuild` | `^0.28.2` |
+| `eslint` | `^10.9.1` |
+| `eslint-config-prettier` | `^10.1.8` |
+| `eslint-plugin-prettier` | `^5.5.6` |
+| `eslint-plugin-vue` | `^10.10.0` |
+| `gh-pages` | `^6.3.0` |
+| `jsdom` | `^30.0.1` |
+| `prettier` | `^3.9.6` |
+| `typescript` | `^5.9.3` |
+| `vitest` | `^4.1.11` |
 
 ### Contributing
 

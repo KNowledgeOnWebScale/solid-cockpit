@@ -7,7 +7,8 @@
     <title>Solid Cockpit</title>
 
     <!-- section to help make the Z3 solver work in a browser setting -->
-    <script src="/z3-built.js"></script>
+    <!-- Keep the solver under the Vite base path for both local and GitHub Pages builds. -->
+    <script src="%BASE_URL%assets/z3/z3-built.js"></script>
     <script>
       globalThis.global = { initZ3: globalThis.initZ3 };
     </script>
@@ -21,10 +22,10 @@
       property="og:description"
       content="An applicaiton for accessing, editing, and querying data in Solid pods"
     />
-    <meta property="og:image" content="favicon.ico" />
+    <meta property="og:image" content="%BASE_URL%assets/solid-cockpit-logo.png" />
     <meta name="author" content="KNoWS, IDLab - Ghent University" />
     <meta name="keywords" content="Solid, RDF, SPARQL Querying, Privacy Editing" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/src/assets/favicon.ico" />
 
   </head>
   <body>

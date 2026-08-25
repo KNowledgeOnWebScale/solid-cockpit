@@ -31,6 +31,13 @@ export default defineConfig(({ command }) => {
       },
     },
     base: isDev ? "./" : "/solid-cockpit/",
+    css: {
+      // Lightning CSS rejects obsolete IE star-property hacks from a
+      // third-party stylesheet; modern browsers can safely ignore them.
+      lightningcss: {
+        errorRecovery: true,
+      },
+    },
     build: {
       outDir: "dist",
       rollupOptions: {

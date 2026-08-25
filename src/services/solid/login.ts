@@ -105,14 +105,14 @@ export async function getPodURLs(): Promise<string[] | null> {
 }
 
 /**
- * Redirects the user back to the TRIPLE App homepage
+ * Redirects the user back to the Solid Cockpit homepage.
 */
 export function redirectToHomepage(): void {
   window.location.href = new URL("/solid-cockpit/", window.location.href).toString()
 }
 
 /**
- * Redirects the user to the TRIPLE App login page
+ * Redirects the user to the Solid Cockpit login page.
 */
 export function redirectToLogin(): void {
   window.location.href = new URL("/solid-cockpit/login", window.location.href).toString()

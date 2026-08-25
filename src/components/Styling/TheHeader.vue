@@ -259,8 +259,9 @@ export default {
   },
   data() {
     return {
-      logoUrl: new URL("../../assets/solid-cockpit-logo.png", import.meta.url)
-        .href as string,
+      // Resolve the public logo through Vite's base path so it works on localhost
+      // and when the app is served from the GitHub Pages project subdirectory.
+      logoUrl: `${import.meta.env.BASE_URL}assets/solid-cockpit-logo.png`,
       accountMenuOpen: false as boolean,
       notificationsMenuOpen: false as boolean,
       loginStatusIntervalId: null as number | null,
