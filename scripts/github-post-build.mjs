@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync } from 'fs';
+import { cpSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const routes = [
@@ -16,3 +16,6 @@ for (const route of routes) {
   mkdirSync(target, { recursive: true });
   cpSync(join(dir, 'index.html'), join(target, 'index.html'));
 }
+
+// Disable Jekyll on GitHub Pages, which drops files starting with "_" (e.g. Vite's _plugin-vue_export-helper chunk).
+writeFileSync(join(dir, '.nojekyll'), '');
